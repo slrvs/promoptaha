@@ -79,11 +79,70 @@ function statusLabel(status: string) {
   return labels[status] ?? status;
 }
 
+function statusClass(status: string) {
+  if (status === "active") {
+    return "rounded-full bg-emerald-400/10 px-3 py-1 text-xs text-emerald-300";
+  }
+
+  if (status === "needs_review") {
+    return "rounded-full bg-yellow-400/10 px-3 py-1 text-xs text-yellow-300";
+  }
+
+  if (status === "expired") {
+    return "rounded-full bg-red-400/10 px-3 py-1 text-xs text-red-300";
+  }
+
+  return "rounded-full bg-slate-700 px-3 py-1 text-xs text-slate-300";
+}
+
+function getVoterKey() {
+  const storageKey = "promoptaha_voter_key";
+
+  let voterKey = localStorage.getItem(storageKey);
+
+  if (!voterKey) {
+    voterKey = crypto.randomUUID();
+    localStorage.setItem(storageKey, voterKey);
+  }
+
+  return voterKey;
+}
+
 export default function Home() {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [votingPromoId, setVotingPromoId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  async function loadData() {
+    setIsLoading(true);
+
+    const [promoResult, storesResult] = await Promise.all([
+      supabase
+        .from("promo_code_stats")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(6),
+
+      supabase
+        .from("stores")
+        .select("id, name, slug")
+        .eq("status", "active")
+        .order("name", { ascending: true })
+        .limit(12),
+    ]);
+
+    if (promoResult.data) {
+      setPromoCodes(promoResult.data as PromoCode[]);
+    }
+
+    if (storesResult.data) {
+      setStores(storesResult.data as Store[]);
+    }
+
+    setIsLoading(false);
+  }
 
   async function copyCode(code: string) {
     await navigator.clipboard.writeText(code);
@@ -94,36 +153,39 @@ export default function Home() {
     }, 1500);
   }
 
-  useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
+  async function votePromo(promoCodeId: string, voteType: "works" | "not_works") {
+    setVotingPromoId(promoCodeId);
 
-      const [promoResult, storesResult] = await Promise.all([
-        supabase
-          .from("promo_code_stats")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(6),
+    const voterKey = getVoterKey();
 
-        supabase
-          .from("stores")
-          .select("id, name, slug")
-          .eq("status", "active")
-          .order("name", { ascending: true })
-          .limit(12),
-      ]);
+    const { data: existingVote } = await supabase
+      .from("promo_votes")
+      .select("id")
+      .eq("promo_code_id", promoCodeId)
+      .eq("voter_key", voterKey)
+      .maybeSingle();
 
-      if (promoResult.data) {
-        setPromoCodes(promoResult.data as PromoCode[]);
-      }
-
-      if (storesResult.data) {
-        setStores(storesResult.data as Store[]);
-      }
-
-      setIsLoading(false);
+    if (existingVote) {
+      await supabase
+        .from("promo_votes")
+        .update({
+          vote_type: voteType,
+        })
+        .eq("id", existingVote.id);
+    } else {
+      await supabase.from("promo_votes").insert({
+        promo_code_id: promoCodeId,
+        vote_type: voteType,
+        voter_key: voterKey,
+        user_id: null,
+      });
     }
 
+    await loadData();
+    setVotingPromoId(null);
+  }
+
+  useEffect(() => {
     loadData();
   }, []);
 
@@ -229,15 +291,7 @@ export default function Home() {
                         </p>
                       </div>
 
-                      <span
-                        className={
-                          promo.status === "active"
-                            ? "rounded-full bg-emerald-400/10 px-3 py-1 text-xs text-emerald-300"
-                            : promo.status === "needs_review"
-                              ? "rounded-full bg-yellow-400/10 px-3 py-1 text-xs text-yellow-300"
-                              : "rounded-full bg-slate-700 px-3 py-1 text-xs text-slate-300"
-                        }
-                      >
+                      <span className={statusClass(promo.status)}>
                         {statusLabel(promo.status)}
                       </span>
                     </div>
@@ -275,6 +329,24 @@ export default function Home() {
                         ? "Скопійовано!"
                         : "Скопіювати промокод"}
                     </button>
+
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => votePromo(promo.id, "works")}
+                        disabled={votingPromoId === promo.id}
+                        className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm font-bold text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950 disabled:opacity-60"
+                      >
+                        👍 Працює
+                      </button>
+
+                      <button
+                        onClick={() => votePromo(promo.id, "not_works")}
+                        disabled={votingPromoId === promo.id}
+                        className="rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm font-bold text-red-300 transition hover:bg-red-400 hover:text-slate-950 disabled:opacity-60"
+                      >
+                        👎 Не працює
+                      </button>
+                    </div>
                   </article>
                 ))}
               </div>
