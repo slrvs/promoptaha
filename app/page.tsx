@@ -29,13 +29,6 @@ type Store = {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Supabase env missing", {
-    hasUrl: Boolean(supabaseUrl),
-    hasKey: Boolean(supabaseAnonKey),
-  });
-}
-
 const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co",
   supabaseAnonKey || "placeholder"
@@ -110,11 +103,11 @@ function getVoterKey() {
 
 export default function Home() {
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
-const [stores, setStores] = useState<Store[]>([]);
-const [copiedCode, setCopiedCode] = useState<string | null>(null);
-const [votingPromoId, setVotingPromoId] = useState<string | null>(null);
-const [searchQuery, setSearchQuery] = useState("");
-const [isLoading, setIsLoading] = useState(true);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [votingPromoId, setVotingPromoId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   async function loadData() {
     setIsLoading(true);
@@ -189,31 +182,29 @@ const [isLoading, setIsLoading] = useState(true);
   useEffect(() => {
     loadData();
   }, []);
-useEffect(() => {
-  loadData();
-}, []);
 
-const normalizedSearch = searchQuery.trim().toLowerCase();
+  const normalizedSearch = searchQuery.trim().toLowerCase();
 
-const filteredPromoCodes = promoCodes.filter((promo) => {
-  if (!normalizedSearch) return true;
+  const filteredPromoCodes = promoCodes.filter((promo) => {
+    if (!normalizedSearch) return true;
 
-  const searchableValues = [
-    promo.code,
-    promo.store_name,
-    promo.store_slug,
-    promo.description ?? "",
-    promo.discount_value ?? "",
-    sourceLabel(promo.source_type),
-    statusLabel(promo.status),
-  ];
+    const searchableValues = [
+      promo.code,
+      promo.store_name,
+      promo.store_slug,
+      promo.description ?? "",
+      promo.discount_value ?? "",
+      sourceLabel(promo.source_type),
+      statusLabel(promo.status),
+    ];
 
-  return searchableValues.some((value) =>
-    value.toLowerCase().includes(normalizedSearch)
-  );
-});
+    return searchableValues.some((value) =>
+      value.toLowerCase().includes(normalizedSearch)
+    );
+  });
 
-const hasSearch = normalizedSearch.length > 0;
+  const hasSearch = normalizedSearch.length > 0;
+
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-8">
@@ -256,15 +247,18 @@ const hasSearch = normalizedSearch.length > 0;
 
             <div className="mt-8 flex max-w-2xl flex-col gap-3 rounded-3xl border border-slate-800 bg-slate-900/70 p-3 shadow-2xl shadow-emerald-950/20 sm:flex-row">
               <input
-  value={searchQuery}
-  onChange={(event) => setSearchQuery(event.target.value)}
-  className="min-h-12 flex-1 rounded-2xl bg-slate-950 px-4 text-white outline-none placeholder:text-slate-500"
-  placeholder="Пошук магазину або промокоду..."
-/>
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="min-h-12 flex-1 rounded-2xl bg-slate-950 px-4 text-white outline-none placeholder:text-slate-500"
+                placeholder="Пошук магазину або промокоду..."
+              />
 
-              <button className="rounded-2xl bg-emerald-400 px-6 py-3 font-bold text-slate-950 transition hover:bg-emerald-300">
-                Шукати
-              </button>
+              <Link
+                href="/codes"
+                className="rounded-2xl bg-emerald-400 px-6 py-3 text-center font-bold text-slate-950 transition hover:bg-emerald-300"
+              >
+                Всі промокоди
+              </Link>
             </div>
 
             <div className="mt-8 grid max-w-2xl grid-cols-3 gap-3">
@@ -288,12 +282,12 @@ const hasSearch = normalizedSearch.length > 0;
           <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-5 shadow-2xl shadow-emerald-950/20">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-xl font-bold">
-  {hasSearch ? "Результати пошуку" : "Нові промокоди"}
-</h2>
+                {hasSearch ? "Результати пошуку" : "Нові промокоди"}
+              </h2>
 
-<span className="rounded-full bg-emerald-400/10 px-3 py-1 text-sm text-emerald-300">
-  {filteredPromoCodes.length}
-</span>
+              <span className="rounded-full bg-emerald-400/10 px-3 py-1 text-sm text-emerald-300">
+                {filteredPromoCodes.length}
+              </span>
             </div>
 
             {isLoading ? (
@@ -302,10 +296,10 @@ const hasSearch = normalizedSearch.length > 0;
               </div>
             ) : filteredPromoCodes.length === 0 ? (
               <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5 text-slate-400">
-  {hasSearch
-    ? `Нічого не знайдено за запитом "${searchQuery}"`
-    : "Поки немає промокодів. Але скоро птаха щось принесе 🐦"}
-</div>
+                {hasSearch
+                  ? `Нічого не знайдено за запитом "${searchQuery}"`
+                  : "Поки немає промокодів. Але скоро птаха щось принесе 🐦"}
+              </div>
             ) : (
               <div className="space-y-4">
                 {filteredPromoCodes.map((promo) => (
@@ -389,19 +383,24 @@ const hasSearch = normalizedSearch.length > 0;
         <section className="pb-10">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-2xl font-black">Популярні магазини</h2>
-            <button className="text-sm text-emerald-300 hover:text-emerald-200">
+
+            <Link
+              href="/stores"
+              className="text-sm text-emerald-300 hover:text-emerald-200"
+            >
               Всі магазини →
-            </button>
+            </Link>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {stores.map((store) => (
-              <div
+              <Link
                 key={store.id}
+                href={`/stores/${store.slug}`}
                 className="rounded-3xl border border-slate-800 bg-slate-900 p-5 text-center font-bold transition hover:border-emerald-400 hover:text-emerald-300"
               >
                 {store.name}
-              </div>
+              </Link>
             ))}
           </div>
         </section>
