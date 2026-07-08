@@ -207,26 +207,41 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
+      <Link
+        href="/login"
+        className="fixed right-5 top-5 z-50 rounded-full border border-slate-700 bg-slate-950/90 px-4 py-2 text-sm text-slate-200 shadow-xl backdrop-blur transition hover:border-emerald-400 hover:text-emerald-300"
+      >
+        Увійти
+      </Link>
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-8">
         <header className="flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400 text-2xl">
-              🐦
-            </div>
+  <Link href="/" className="flex items-center gap-3">
+    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400 text-2xl">
+      🐦
+    </div>
 
-            <div>
-              <p className="text-xl font-bold tracking-tight">ПромоПтаха</p>
-              <p className="text-sm text-slate-400">На крилах знижок</p>
-            </div>
-          </Link>
+    <div>
+      <p className="text-xl font-bold tracking-tight">ПромоПтаха</p>
+      <p className="text-sm text-slate-400">На крилах знижок</p>
+    </div>
+  </Link>
 
-          <Link
-            href="/add"
-            className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-          >
-            Додати промокод
-          </Link>
-        </header>
+  <div className="flex items-center gap-3">
+    <Link
+      href="/login"
+      className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+    >
+      Увійти
+    </Link>
+
+    <Link
+      href="/add"
+      className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+    >
+      Додати промокод
+    </Link>
+  </div>
+</header>
 
         <section className="grid flex-1 items-center gap-10 py-16 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
