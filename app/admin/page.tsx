@@ -47,10 +47,31 @@ function statusLabel(status: string) {
   return status;
 }
 
+function statusClass(status: string) {
+  if (status === "active") {
+    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
+  }
+
+  if (status === "pending") {
+    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
+  }
+
+  if (status === "expired") {
+    return "border-slate-600 bg-slate-800 text-slate-300";
+  }
+
+  if (status === "rejected") {
+    return "border-red-400/30 bg-red-400/10 text-red-300";
+  }
+
+  return "border-slate-700 bg-slate-900 text-slate-300";
+}
+
 export default function AdminPage() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -146,9 +167,44 @@ export default function AdminPage() {
     setMessage(
       status === "active"
         ? "Промокод схвалено"
-        : "Промокод відхилено"
+        : status === "rejected"
+          ? "Промокод відхилено"
+          : "Статус промокоду оновлено"
     );
   }
+
+  const filteredPromoCodes =
+    statusFilter === "all"
+      ? promoCodes
+      : promoCodes.filter((promo) => promo.status === statusFilter);
+
+  const filters = [
+    {
+      value: "pending",
+      label: "На перевірці",
+      count: promoCodes.filter((promo) => promo.status === "pending").length,
+    },
+    {
+      value: "active",
+      label: "Активні",
+      count: promoCodes.filter((promo) => promo.status === "active").length,
+    },
+    {
+      value: "rejected",
+      label: "Відхилені",
+      count: promoCodes.filter((promo) => promo.status === "rejected").length,
+    },
+    {
+      value: "expired",
+      label: "Закінчились",
+      count: promoCodes.filter((promo) => promo.status === "expired").length,
+    },
+    {
+      value: "all",
+      label: "Усі",
+      count: promoCodes.length,
+    },
+  ];
 
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
@@ -224,13 +280,32 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {promoCodes.length === 0 ? (
+              <div className="mt-6 flex flex-wrap gap-3">
+                {filters.map((filter) => (
+                  <button
+                    key={filter.value}
+                    onClick={() => setStatusFilter(filter.value)}
+                    className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+                      statusFilter === filter.value
+                        ? "border-emerald-400 bg-emerald-400 text-slate-950"
+                        : "border-slate-700 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+                    }`}
+                  >
+                    {filter.label}{" "}
+                    <span className="opacity-70">({filter.count})</span>
+                  </button>
+                ))}
+              </div>
+
+              {filteredPromoCodes.length === 0 ? (
                 <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
-                  Промокодів поки немає.
+                  {promoCodes.length === 0
+                    ? "Промокодів поки немає."
+                    : "У цьому фільтрі промокодів немає."}
                 </div>
               ) : (
                 <div className="mt-6 grid gap-4">
-                  {promoCodes.map((promo) => (
+                  {filteredPromoCodes.map((promo) => (
                     <article
                       key={promo.id}
                       className="rounded-3xl border border-slate-800 bg-slate-950 p-5"
@@ -246,7 +321,11 @@ export default function AdminPage() {
                           </p>
                         </div>
 
-                        <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-bold ${statusClass(
+                            promo.status
+                          )}`}
+                        >
                           {statusLabel(promo.status)}
                         </span>
                       </div>
@@ -300,10 +379,19 @@ export default function AdminPage() {
                         </button>
 
                         <button
-                          onClick={() => updatePromoStatus(promo.id, "rejected")}
+                          onClick={() =>
+                            updatePromoStatus(promo.id, "rejected")
+                          }
                           className="rounded-2xl border border-red-400/30 bg-red-400/10 px-5 py-3 font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950"
                         >
                           Відхилити
+                        </button>
+
+                        <button
+                          onClick={() => updatePromoStatus(promo.id, "expired")}
+                          className="rounded-2xl border border-slate-700 bg-slate-900 px-5 py-3 font-black text-slate-300 transition hover:border-slate-500 hover:text-white"
+                        >
+                          Закінчився
                         </button>
                       </div>
                     </article>
