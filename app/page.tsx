@@ -207,12 +207,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
-      <Link
-        href="/login"
-        className="fixed right-5 top-5 z-50 rounded-full border border-slate-700 bg-slate-950/90 px-4 py-2 text-sm text-slate-200 shadow-xl backdrop-blur transition hover:border-emerald-400 hover:text-emerald-300"
-      >
-        Увійти
-      </Link>
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-8">
         <header className="flex items-center justify-between gap-4">
   <Link href="/" className="flex items-center gap-3">
