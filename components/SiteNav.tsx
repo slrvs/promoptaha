@@ -36,14 +36,14 @@ const mainLinks: NavLink[] = [
   },
   {
     href: "/add",
-    label: "Додати код",
+    label: "Додати",
   },
 ];
 
 const adminLinks: NavLink[] = [
   {
     href: "/admin",
-    label: "Модерація",
+    label: "Модерація промокодів",
   },
   {
     href: "/admin/stores",
@@ -51,7 +51,7 @@ const adminLinks: NavLink[] = [
   },
   {
     href: "/admin/store-requests",
-    label: "Заявки",
+    label: "Заявки магазинів",
   },
   {
     href: "/admin/reports",
@@ -65,6 +65,10 @@ function isActivePath(pathname: string, href: string) {
   }
 
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function isAdminPath(pathname: string) {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
 }
 
 function NavItem({
@@ -137,8 +141,10 @@ function SiteNavContent() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
 
   const isAdmin = user?.email === ADMIN_EMAIL;
+  const adminActive = isAdminPath(pathname);
 
   async function loadUser() {
     const { data } = await supabase.auth.getUser();
@@ -151,6 +157,7 @@ function SiteNavContent() {
     await supabase.auth.signOut();
     setUser(null);
     setIsMobileMenuOpen(false);
+    setIsAdminMenuOpen(false);
   }
 
   useEffect(() => {
@@ -170,12 +177,13 @@ function SiteNavContent() {
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
+    setIsAdminMenuOpen(false);
   }, [pathname]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 px-5 py-4 text-white backdrop-blur-xl">
       <nav className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4">
-        <Link href="/" className="group flex items-center gap-3">
+        <Link href="/" className="group flex shrink-0 items-center gap-3">
           <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 shadow-lg shadow-emerald-950/30">
             <Image
               src="/icons/promoptaha-bird.png"
@@ -212,25 +220,55 @@ function SiteNavContent() {
           )}
 
           {isAdmin && (
-            <div className="ml-2 flex items-center gap-1 rounded-full border border-slate-800 bg-slate-900 p-1">
-              {adminLinks.map((link) => (
-                <NavItem
-                  key={link.href}
-                  href={link.href}
-                  label={link.label}
-                  pathname={pathname}
-                />
-              ))}
+            <div className="relative ml-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setIsAdminMenuOpen((currentValue) => !currentValue)
+                }
+                className={`rounded-full px-5 py-2 text-sm font-black transition ${
+                  adminActive
+                    ? "bg-emerald-400 text-slate-950"
+                    : "border border-slate-800 bg-slate-900 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+                }`}
+              >
+                Адмінка {isAdminMenuOpen ? "↑" : "↓"}
+              </button>
+
+              {isAdminMenuOpen && (
+                <div className="absolute right-0 top-12 w-72 rounded-[1.5rem] border border-slate-800 bg-slate-900 p-3 shadow-2xl shadow-black/40">
+                  <div className="grid gap-2">
+                    {adminLinks.map((link) => {
+                      const isActive = isActivePath(pathname, link.href);
+
+                      return (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          onClick={() => setIsAdminMenuOpen(false)}
+                          className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+                            isActive
+                              ? "bg-emerald-400 text-slate-950"
+                              : "border border-slate-800 bg-slate-950 text-slate-200 hover:border-emerald-400 hover:text-emerald-300"
+                          }`}
+                        >
+                          {link.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="hidden shrink-0 items-center gap-3 lg:flex">
           {isLoadingUser ? (
             <div className="h-10 w-28 animate-pulse rounded-full bg-slate-800" />
           ) : user ? (
             <>
-              <span className="max-w-44 truncate text-sm font-bold text-slate-500">
+              <span className="hidden max-w-44 truncate text-sm font-bold text-slate-500 xl:inline">
                 {user.email}
               </span>
 
