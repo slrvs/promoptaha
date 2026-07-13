@@ -14,8 +14,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  ),
   title: "ПромоПтаха",
   description: "На крилах знижок",
+  openGraph: {
+    title: "ПромоПтаха",
+    description: "На крилах знижок",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
