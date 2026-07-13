@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient, User } from "@supabase/supabase-js";
 
+type StoreInfo = {
+  name: string;
+  slug: string;
+};
+
 type PromoCode = {
   id: string;
   code: string;
@@ -14,11 +19,10 @@ type PromoCode = {
   source_url: string | null;
   description: string | null;
   created_at: string;
-  stores: {
-    name: string;
-    slug: string;
-  } | null;
+  stores: StoreInfo | null;
 };
+
+const ADMIN_EMAIL = "jchameleonl96@gmail.com";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -67,42 +71,47 @@ function statusClass(status: string) {
   return "border-slate-700 bg-slate-900 text-slate-300";
 }
 
+function sourceLabel(source: string | null) {
+  if (source === "youtube") return "YouTube";
+  if (source === "telegram") return "Telegram";
+  if (source === "tiktok") return "TikTok";
+  if (source === "instagram") return "Instagram";
+  if (source === "email") return "Email";
+  if (source === "store_site") return "Сайт магазину";
+  if (source === "other") return "Інше";
+
+  return "Не вказано";
+}
+
 export default function AdminPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
+
+  const isAdmin = user?.email === ADMIN_EMAIL;
 
   async function loadAdminPage() {
     setIsLoading(true);
     setMessage("");
 
     const { data: userData } = await supabase.auth.getUser();
-    setUser(userData.user);
+    const currentUser = userData.user;
 
-    if (!userData.user) {
-      setIsAdmin(false);
+    setUser(currentUser);
+
+    if (!currentUser) {
       setPromoCodes([]);
       setIsLoading(false);
       return;
     }
 
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userData.user.id)
-      .single();
-
-    if (profileError || profileData?.role !== "admin") {
-      setIsAdmin(false);
+    if (currentUser.email !== ADMIN_EMAIL) {
       setPromoCodes([]);
       setIsLoading(false);
       return;
     }
-
-    setIsAdmin(true);
 
     const { data, error } = await supabase
       .from("promo_codes")
@@ -126,10 +135,11 @@ export default function AdminPage() {
     if (error) {
       setMessage(`Помилка завантаження: ${error.message}`);
       setPromoCodes([]);
-    } else {
-      setPromoCodes((data as PromoCode[]) || []);
+      setIsLoading(false);
+      return;
     }
 
+    setPromoCodes((data as PromoCode[]) || []);
     setIsLoading(false);
   }
 
@@ -164,21 +174,25 @@ export default function AdminPage() {
       )
     );
 
-    setMessage(
-      status === "active"
-        ? "Промокод схвалено"
-        : status === "rejected"
-          ? "Промокод відхилено"
-          : "Статус промокоду оновлено"
-    );
+    if (status === "active") {
+      setMessage("Промокод схвалено");
+    } else if (status === "rejected") {
+      setMessage("Промокод відхилено");
+    } else if (status === "expired") {
+      setMessage("Промокод позначено як закінчений");
+    } else if (status === "pending") {
+      setMessage("Промокод повернуто на перевірку");
+    } else {
+      setMessage("Статус оновлено");
+    }
   }
 
-  const filteredPromoCodes =
-    statusFilter === "all"
-      ? promoCodes
-      : promoCodes.filter((promo) => promo.status === statusFilter);
-
   const filters = [
+    {
+      value: "all",
+      label: "Усі",
+      count: promoCodes.length,
+    },
     {
       value: "pending",
       label: "На перевірці",
@@ -199,53 +213,48 @@ export default function AdminPage() {
       label: "Закінчились",
       count: promoCodes.filter((promo) => promo.status === "expired").length,
     },
-    {
-      value: "all",
-      label: "Усі",
-      count: promoCodes.length,
-    },
   ];
+
+  const filteredPromoCodes =
+    statusFilter === "all"
+      ? promoCodes
+      : promoCodes.filter((promo) => promo.status === statusFilter);
 
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <section className="mx-auto w-full max-w-6xl">
-        <header className="mb-8 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400 text-2xl">
-              🐦
-            </div>
-
-            <div>
-              <p className="text-xl font-bold tracking-tight">ПромоПтаха</p>
-              <p className="text-sm text-slate-400">На крилах знижок</p>
-            </div>
-          </Link>
-
-          <div className="flex items-center gap-3">
-            <Link
-              href="/profile"
-              className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-            >
-              Профіль
-            </Link>
-
-            <Link
-              href="/"
-              className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-            >
-              Головна
-            </Link>
-          </div>
-        </header>
-
         <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6">
-          <p className="mb-3 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-300">
-            Адмінка
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-5">
+            <div>
+              <p className="mb-3 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-300">
+                Адмінка
+              </p>
 
-          <h1 className="text-4xl font-black tracking-tight">
-            Модерація промокодів
-          </h1>
+              <h1 className="text-4xl font-black tracking-tight">
+                Модерація промокодів
+              </h1>
+
+              <p className="mt-3 text-slate-400">
+                Тут можна схвалювати, відхиляти або закривати промокоди.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/profile"
+                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              >
+                Профіль
+              </Link>
+
+              <Link
+                href="/"
+                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              >
+                Головна
+              </Link>
+            </div>
+          </div>
 
           {isLoading ? (
             <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-4 text-slate-400">
@@ -266,12 +275,22 @@ export default function AdminPage() {
             </div>
           ) : !isAdmin ? (
             <div className="mt-6 rounded-3xl border border-red-400/30 bg-red-400/10 p-5 text-red-300">
-              У тебе немає доступу до адмінки.
+              У тебе немає доступу до адмінки. Поточний акаунт:{" "}
+              <span className="font-bold">{user.email}</span>
             </div>
           ) : (
             <>
-              <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300">
-                Адмін: {user.email}
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300">
+                <p>
+                  Адмін: <span className="font-bold">{user.email}</span>
+                </p>
+
+                <button
+                  onClick={loadAdminPage}
+                  className="rounded-full border border-emerald-400/30 px-4 py-2 font-bold transition hover:bg-emerald-400 hover:text-slate-950"
+                >
+                  Оновити список
+                </button>
               </div>
 
               {message && (
@@ -300,7 +319,7 @@ export default function AdminPage() {
               {filteredPromoCodes.length === 0 ? (
                 <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
                   {promoCodes.length === 0
-                    ? "Промокодів поки немає."
+                    ? "Промокодів не завантажено. Якщо в профілі вони є — перевір RLS-політики Supabase для адміна."
                     : "У цьому фільтрі промокодів немає."}
                 </div>
               ) : (
@@ -313,11 +332,15 @@ export default function AdminPage() {
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
                           <p className="text-sm text-slate-500">
-                            {promo.stores?.name || "Магазин"}
+                            {promo.stores?.name || "Магазин не вказано"}
                           </p>
 
                           <p className="mt-1 text-2xl font-black tracking-tight text-emerald-300">
                             {promo.code}
+                          </p>
+
+                          <p className="mt-2 text-sm text-slate-500">
+                            ID: {promo.id}
                           </p>
                         </div>
 
@@ -330,7 +353,7 @@ export default function AdminPage() {
                         </span>
                       </div>
 
-                      <div className="mt-4 grid gap-3 text-sm text-slate-400 sm:grid-cols-3">
+                      <div className="mt-4 grid gap-3 text-sm text-slate-400 sm:grid-cols-4">
                         <div>
                           <p className="text-slate-600">Знижка</p>
                           <p className="text-slate-300">
@@ -342,6 +365,13 @@ export default function AdminPage() {
                           <p className="text-slate-600">Діє до</p>
                           <p className="text-slate-300">
                             {formatDate(promo.expires_at)}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-slate-600">Джерело</p>
+                          <p className="text-slate-300">
+                            {sourceLabel(promo.source_type)}
                           </p>
                         </div>
 
@@ -392,6 +422,13 @@ export default function AdminPage() {
                           className="rounded-2xl border border-slate-700 bg-slate-900 px-5 py-3 font-black text-slate-300 transition hover:border-slate-500 hover:text-white"
                         >
                           Закінчився
+                        </button>
+
+                        <button
+                          onClick={() => updatePromoStatus(promo.id, "pending")}
+                          className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-5 py-3 font-black text-yellow-300 transition hover:bg-yellow-400 hover:text-slate-950"
+                        >
+                          На перевірку
                         </button>
                       </div>
                     </article>
