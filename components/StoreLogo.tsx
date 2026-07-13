@@ -8,13 +8,11 @@ type StoreLogoProps = {
   size?: "sm" | "md" | "lg" | "xl";
 };
 
-const fallbackLogo = "/icons/promoptaha-bird.png";
-
 const sizeClasses = {
-  sm: "h-12 w-12 rounded-2xl",
-  md: "h-16 w-16 rounded-2xl",
-  lg: "h-24 w-24 rounded-[2rem]",
-  xl: "h-48 w-48 rounded-[3rem] md:h-64 md:w-64",
+  sm: "h-12 w-12 rounded-2xl text-xl",
+  md: "h-16 w-16 rounded-2xl text-2xl",
+  lg: "h-24 w-24 rounded-[2rem] text-4xl",
+  xl: "h-48 w-48 rounded-[3rem] text-7xl md:h-64 md:w-64 md:text-8xl",
 };
 
 function getDomain(url: string | null | undefined) {
@@ -30,14 +28,25 @@ function getDomain(url: string | null | undefined) {
   }
 }
 
-function getStoreLogoUrl(url: string | null | undefined) {
-  const domain = getDomain(url);
+function getLogoSources(domain: string | null) {
+  if (!domain) return [];
 
-  if (!domain) return null;
+  const encodedDomain = encodeURIComponent(domain);
 
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
-    domain
-  )}&sz=128`;
+  return [
+    `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=256`,
+    `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+    `https://logo.clearbit.com/${domain}`,
+    `https://${domain}/favicon.ico`,
+  ];
+}
+
+function getInitial(name: string) {
+  const trimmedName = name.trim();
+
+  if (!trimmedName) return "🐦";
+
+  return trimmedName.slice(0, 1).toUpperCase();
 }
 
 export default function StoreLogo({
@@ -45,22 +54,41 @@ export default function StoreLogo({
   websiteUrl,
   size = "md",
 }: StoreLogoProps) {
-  const [hasError, setHasError] = useState(false);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const [isFallback, setIsFallback] = useState(false);
 
-  const logoUrl = useMemo(() => getStoreLogoUrl(websiteUrl), [websiteUrl]);
+  const domain = useMemo(() => getDomain(websiteUrl), [websiteUrl]);
+  const logoSources = useMemo(() => getLogoSources(domain), [domain]);
 
-  const imageSrc = !logoUrl || hasError ? fallbackLogo : logoUrl;
+  const currentLogo = logoSources[sourceIndex];
+
+  function handleImageError() {
+    const nextIndex = sourceIndex + 1;
+
+    if (nextIndex < logoSources.length) {
+      setSourceIndex(nextIndex);
+      return;
+    }
+
+    setIsFallback(true);
+  }
 
   return (
     <div
-      className={`relative shrink-0 overflow-hidden border border-emerald-400/30 bg-slate-900 shadow-lg shadow-emerald-950/30 ${sizeClasses[size]}`}
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden border border-emerald-400/30 bg-slate-900 font-black text-emerald-300 shadow-lg shadow-emerald-950/30 ${sizeClasses[size]}`}
+      title={domain || name}
     >
-      <img
-        src={imageSrc}
-        alt={`Лого ${name}`}
-        onError={() => setHasError(true)}
-        className="h-full w-full object-contain p-2"
-      />
+      {currentLogo && !isFallback ? (
+        <img
+          src={currentLogo}
+          alt={`Лого ${name}`}
+          onError={handleImageError}
+          className="h-full w-full object-contain bg-white p-2"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <span>{getInitial(name)}</span>
+      )}
     </div>
   );
 }
