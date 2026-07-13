@@ -1,5 +1,6 @@
 "use client";
 
+import PromoVote from "@/components/PromoVote";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
@@ -270,6 +271,11 @@ export default function CodesPage() {
                     ? "Скопійовано!"
                     : "Скопіювати промокод"}
                 </button>
+                <PromoVote
+  promoId={promo.id}
+  initialWorksCount={promo.works_count}
+  initialNotWorksCount={promo.not_works_count}
+/>
               </article>
             ))}
           </section>
