@@ -388,6 +388,12 @@ export default function Home() {
   initialWorksCount={promo.works_count}
   initialNotWorksCount={promo.not_works_count}
 />
+<Link
+  href={`/codes/${promo.id}`}
+  className="mt-4 inline-flex rounded-2xl border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+>
+  Детальніше
+</Link>
                   </article>
                 ))}
               </div>
