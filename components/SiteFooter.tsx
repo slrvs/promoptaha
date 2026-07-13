@@ -59,6 +59,10 @@ export default function SiteFooter() {
               Про сайт
             </Link>
 
+            <Link href="/contact" className="hover:text-red-300">
+              Контакти
+            </Link>
+
             <Link href="/rules" className="hover:text-red-300">
               Правила користування
             </Link>
