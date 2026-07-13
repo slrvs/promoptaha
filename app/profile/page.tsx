@@ -308,6 +308,7 @@ export default function ProfilePage() {
                         )}
 
                         {promo.source_url && (
+                          
                           <a
                             href={promo.source_url}
                             target="_blank"
@@ -317,6 +318,14 @@ export default function ProfilePage() {
                             Відкрити джерело →
                           </a>
                         )}
+                        {promo.status === "pending" && (
+  <Link
+    href={`/profile/promo/${promo.id}/edit`}
+    className="mt-4 inline-flex rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 text-sm font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
+  >
+    Редагувати
+  </Link>
+)}
                       </article>
                     ))}
                   </div>
