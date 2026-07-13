@@ -52,6 +52,10 @@ export default function SiteFooter() {
               Про сайт
             </Link>
 
+            <Link href="/rules" className="hover:text-emerald-300">
+              Правила користування
+            </Link>
+
             <Link href="/login" className="hover:text-emerald-300">
               Увійти
             </Link>
