@@ -34,6 +34,53 @@ function formatDate(date: string | null) {
   }).format(new Date(date));
 }
 
+function makeSlug(text: string) {
+  const map: Record<string, string> = {
+    а: "a",
+    б: "b",
+    в: "v",
+    г: "h",
+    ґ: "g",
+    д: "d",
+    е: "e",
+    є: "ye",
+    ж: "zh",
+    з: "z",
+    и: "y",
+    і: "i",
+    ї: "yi",
+    й: "y",
+    к: "k",
+    л: "l",
+    м: "m",
+    н: "n",
+    о: "o",
+    п: "p",
+    р: "r",
+    с: "s",
+    т: "t",
+    у: "u",
+    ф: "f",
+    х: "kh",
+    ц: "ts",
+    ч: "ch",
+    ш: "sh",
+    щ: "shch",
+    ь: "",
+    ю: "yu",
+    я: "ya",
+  };
+
+  return text
+    .toLowerCase()
+    .split("")
+    .map((char) => map[char] ?? char)
+    .join("")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
 function statusLabel(status: string) {
   if (status === "pending") return "На перевірці";
   if (status === "approved") return "Схвалено";
@@ -63,6 +110,7 @@ export default function StoreRequestsAdminPage() {
   const [requests, setRequests] = useState<StoreRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState("pending");
   const [isLoading, setIsLoading] = useState(true);
+  const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
 
   const isAdmin = user?.email === ADMIN_EMAIL;
@@ -76,13 +124,7 @@ export default function StoreRequestsAdminPage() {
 
     setUser(currentUser);
 
-    if (!currentUser) {
-      setRequests([]);
-      setIsLoading(false);
-      return;
-    }
-
-    if (currentUser.email !== ADMIN_EMAIL) {
+    if (!currentUser || currentUser.email !== ADMIN_EMAIL) {
       setRequests([]);
       setIsLoading(false);
       return;
@@ -126,11 +168,14 @@ export default function StoreRequestsAdminPage() {
 
   async function updateRequestStatus(id: string, status: string) {
     setMessage("");
+    setBusyId(id);
 
     const { error } = await supabase
       .from("store_requests")
       .update({ status })
       .eq("id", id);
+
+    setBusyId("");
 
     if (error) {
       setMessage(`Помилка оновлення: ${error.message}`);
@@ -150,6 +195,74 @@ export default function StoreRequestsAdminPage() {
     } else {
       setMessage("Заявку повернуто на перевірку");
     }
+  }
+
+  async function createStoreFromRequest(request: StoreRequest) {
+    setMessage("");
+    setBusyId(request.id);
+
+    const slug = makeSlug(request.name);
+
+    if (!slug) {
+      setBusyId("");
+      setMessage("Не вдалося створити slug для магазину. Зміни назву заявки.");
+      return;
+    }
+
+    const { data: existingStore, error: existingError } = await supabase
+      .from("stores")
+      .select("id, name, slug")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (existingError) {
+      setBusyId("");
+      setMessage(`Помилка перевірки магазину: ${existingError.message}`);
+      return;
+    }
+
+    if (existingStore) {
+      setBusyId("");
+      setMessage(`Магазин із slug "${slug}" вже існує.`);
+      return;
+    }
+
+    const { error: insertError } = await supabase.from("stores").insert({
+      name: request.name.trim(),
+      slug,
+      website_url: request.website_url || null,
+      description: request.description || null,
+      status: "active",
+    });
+
+    if (insertError) {
+      setBusyId("");
+      setMessage(`Помилка створення магазину: ${insertError.message}`);
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("store_requests")
+      .update({ status: "approved" })
+      .eq("id", request.id);
+
+    setBusyId("");
+
+    if (updateError) {
+      setMessage(
+        `Магазин створено, але заявку не оновлено: ${updateError.message}`
+      );
+      await loadPage();
+      return;
+    }
+
+    setRequests((current) =>
+      current.map((item) =>
+        item.id === request.id ? { ...item, status: "approved" } : item
+      )
+    );
+
+    setMessage(`Магазин "${request.name}" створено. Slug: ${slug}`);
   }
 
   const filters = [
@@ -195,8 +308,7 @@ export default function StoreRequestsAdminPage() {
               </h1>
 
               <p className="mt-3 text-slate-400">
-                Тут можна переглядати магазини, які користувачі пропонують
-                додати на ПромоПтаху.
+                Тут можна створювати нові магазини із заявок користувачів.
               </p>
             </div>
 
@@ -206,6 +318,13 @@ export default function StoreRequestsAdminPage() {
                 className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
               >
                 Промокоди
+              </Link>
+
+              <Link
+                href="/stores"
+                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              >
+                Магазини
               </Link>
 
               <Link
@@ -301,7 +420,10 @@ export default function StoreRequestsAdminPage() {
                           </h2>
 
                           <p className="mt-2 text-sm text-slate-500">
-                            ID: {request.id}
+                            Майбутній slug:{" "}
+                            <span className="text-slate-300">
+                              {makeSlug(request.name)}
+                            </span>
                           </p>
                         </div>
 
@@ -354,19 +476,31 @@ export default function StoreRequestsAdminPage() {
 
                       <div className="mt-5 flex flex-wrap gap-3">
                         <button
+                          onClick={() => createStoreFromRequest(request)}
+                          disabled={busyId === request.id}
+                          className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {busyId === request.id
+                            ? "Створюю..."
+                            : "Створити магазин"}
+                        </button>
+
+                        <button
                           onClick={() =>
                             updateRequestStatus(request.id, "approved")
                           }
-                          className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-300"
+                          disabled={busyId === request.id}
+                          className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          Схвалити
+                          Тільки схвалити
                         </button>
 
                         <button
                           onClick={() =>
                             updateRequestStatus(request.id, "rejected")
                           }
-                          className="rounded-2xl border border-red-400/30 bg-red-400/10 px-5 py-3 font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950"
+                          disabled={busyId === request.id}
+                          className="rounded-2xl border border-red-400/30 bg-red-400/10 px-5 py-3 font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           Відхилити
                         </button>
@@ -375,7 +509,8 @@ export default function StoreRequestsAdminPage() {
                           onClick={() =>
                             updateRequestStatus(request.id, "pending")
                           }
-                          className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-5 py-3 font-black text-yellow-300 transition hover:bg-yellow-400 hover:text-slate-950"
+                          disabled={busyId === request.id}
+                          className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-5 py-3 font-black text-yellow-300 transition hover:bg-yellow-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           На перевірку
                         </button>
