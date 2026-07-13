@@ -170,7 +170,29 @@ export default function ProfilePage() {
       listener.subscription.unsubscribe();
     };
   }, []);
+  async function deletePendingPromo(id: string) {
+    const confirmed = window.confirm(
+      "Точно видалити цей промокод? Це не можна буде скасувати."
+    );
 
+    if (!confirmed) return;
+
+    setMessage("");
+
+    const { error } = await supabase
+      .from("promo_codes")
+      .delete()
+      .eq("id", id)
+      .eq("status", "pending");
+
+    if (error) {
+      setMessage(`Помилка видалення: ${error.message}`);
+      return;
+    }
+
+    setPromoCodes((current) => current.filter((promo) => promo.id !== id));
+    setMessage("Промокод видалено.");
+  }
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <section className="mx-auto w-full max-w-6xl">
@@ -319,12 +341,21 @@ export default function ProfilePage() {
                           </a>
                         )}
                         {promo.status === "pending" && (
-  <Link
-    href={`/profile/promo/${promo.id}/edit`}
-    className="mt-4 inline-flex rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 text-sm font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
-  >
-    Редагувати
-  </Link>
+  <div className="mt-4 flex flex-wrap gap-3">
+    <Link
+      href={`/profile/promo/${promo.id}/edit`}
+      className="inline-flex rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 text-sm font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
+    >
+      Редагувати
+    </Link>
+
+    <button
+      onClick={() => deletePendingPromo(promo.id)}
+      className="inline-flex rounded-2xl border border-red-400/30 bg-red-400/10 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950"
+    >
+      Видалити
+    </button>
+  </div>
 )}
                       </article>
                     ))}
