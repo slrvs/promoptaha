@@ -1,123 +1,91 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient, User } from "@supabase/supabase-js";
+import { usePathname } from "next/navigation";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+function navLinkClass(pathname: string, href: string) {
+  const isActive =
+    href === "/"
+      ? pathname === "/"
+      : pathname === href || pathname.startsWith(`${href}/`);
 
-const supabase = createClient(
-  supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "placeholder"
-);
+  return `rounded-full px-4 py-2 text-sm font-bold transition ${
+    isActive
+      ? "bg-emerald-400 text-slate-950"
+      : "text-slate-300 hover:bg-slate-800 hover:text-emerald-300"
+  }`;
+}
 
 export default function SiteNav() {
-  const [user, setUser] = useState<User | null>(null);
-
-  async function loadUser() {
-    const { data } = await supabase.auth.getUser();
-    setUser(data.user);
-  }
-
-  useEffect(() => {
-    loadUser();
-
-    const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      loadUser();
-    });
-
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, []);
-
-  async function signOut() {
-    await supabase.auth.signOut();
-    setUser(null);
-  }
+  const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 px-5 py-4 text-white backdrop-blur">
-      <section className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400 text-2xl">
-            🐦
+    <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950 px-5 py-4 text-white">
+      <nav className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
+        <Link href="/" className="group flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400 text-xl font-black text-slate-950">
+            П
           </div>
 
           <div>
-            <p className="text-xl font-black tracking-tight">ПромоПтаха</p>
-            <p className="text-xs text-slate-400">На крилах знижок</p>
+            <p className="text-lg font-black leading-none text-white">
+              ПромоПтаха
+            </p>
+            <p className="mt-1 text-xs text-slate-500">На крилах знижок</p>
           </div>
         </Link>
 
-        <nav className="flex flex-wrap items-center gap-2 text-sm">
-          <Link
-            href="/"
-            className="rounded-full border border-slate-800 px-4 py-2 text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-          >
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/" className={navLinkClass(pathname, "/")}>
             Головна
           </Link>
 
-          <Link
-            href="/codes"
-            className="rounded-full border border-slate-800 px-4 py-2 text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-          >
+          <Link href="/codes" className={navLinkClass(pathname, "/codes")}>
             Коди
           </Link>
 
-          <Link
-            href="/stores"
-            className="rounded-full border border-slate-800 px-4 py-2 text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-          >
+          <Link href="/stores" className={navLinkClass(pathname, "/stores")}>
             Магазини
           </Link>
-<Link
-  href="/request-store"
-  className="rounded-full border border-slate-800 px-4 py-2 text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
->
-  Запропонувати магазин
-</Link>
-          <Link
-            href="/add"
-            className="rounded-full border border-slate-800 px-4 py-2 text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-          >
+
+          <Link href="/add" className={navLinkClass(pathname, "/add")}>
             Додати
           </Link>
 
-          {user ? (
-            <>
-              <Link
-                href="/profile"
-                className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
-              >
-                Профіль
-              </Link>
+          <Link
+            href="/request-store"
+            className={navLinkClass(pathname, "/request-store")}
+          >
+            Запропонувати магазин
+          </Link>
 
-              <Link
-                href="/admin"
-                className="rounded-full border border-slate-800 px-4 py-2 text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Адмінка
-              </Link>
+          <Link href="/profile" className={navLinkClass(pathname, "/profile")}>
+            Профіль
+          </Link>
 
-              <button
-                onClick={signOut}
-                className="rounded-full border border-red-400/30 bg-red-400/10 px-4 py-2 text-red-300 transition hover:bg-red-400 hover:text-slate-950"
-              >
-                Вийти
-              </button>
-            </>
-          ) : (
-            <Link
-              href="/login"
-              className="rounded-full bg-emerald-400 px-4 py-2 font-bold text-slate-950 transition hover:bg-emerald-300"
-            >
-              Увійти
-            </Link>
-          )}
-        </nav>
-      </section>
+          <Link href="/admin" className={navLinkClass(pathname, "/admin")}>
+            Адмінка
+          </Link>
+
+          <Link
+            href="/admin/reports"
+            className={navLinkClass(pathname, "/admin/reports")}
+          >
+            Репорти
+          </Link>
+
+          <Link
+            href="/admin/store-requests"
+            className={navLinkClass(pathname, "/admin/store-requests")}
+          >
+            Заявки магазинів
+          </Link>
+
+          <Link href="/login" className={navLinkClass(pathname, "/login")}>
+            Увійти
+          </Link>
+        </div>
+      </nav>
     </header>
   );
 }
