@@ -1,20 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient, User } from "@supabase/supabase-js";
+
+const ADMIN_EMAIL = "jchameleonl96@gmail.com";
+
+type RequestStatus = "pending" | "approved" | "rejected";
 
 type StoreRequest = {
   id: string;
   name: string;
-  website_url: string | null;
-  description: string | null;
-  status: string;
-  requested_by: string | null;
-  created_at: string;
+  website_url?: string | null;
+  description?: string | null;
+  status?: RequestStatus | string | null;
+  requested_by?: string | null;
+  created_at?: string | null;
 };
-
-const ADMIN_EMAIL = "jchameleonl96@gmail.com";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -24,17 +26,7 @@ const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
-function formatDate(date: string | null) {
-  if (!date) return "Без дати";
-
-  return new Intl.DateTimeFormat("uk-UA", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(date));
-}
-
-function makeSlug(text: string) {
+function makeSlug(value: string) {
   const map: Record<string, string> = {
     а: "a",
     б: "b",
@@ -69,33 +61,48 @@ function makeSlug(text: string) {
     ь: "",
     ю: "yu",
     я: "ya",
+    ы: "y",
+    э: "e",
+    ё: "yo",
+    ъ: "",
   };
 
-  return text
+  return value
+    .trim()
     .toLowerCase()
     .split("")
     .map((char) => map[char] ?? char)
     .join("")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
+    .replace(/-{2,}/g, "-");
 }
 
-function statusLabel(status: string) {
+function formatDate(date: string | null | undefined) {
+  if (!date) return "Без дати";
+
+  return new Intl.DateTimeFormat("uk-UA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(date));
+}
+
+function statusLabel(status: string | null | undefined) {
   if (status === "pending") return "На перевірці";
   if (status === "approved") return "Схвалено";
   if (status === "rejected") return "Відхилено";
 
-  return status;
+  return "Невідомо";
 }
 
-function statusClass(status: string) {
-  if (status === "pending") {
-    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
-  }
-
+function statusClass(status: string | null | undefined) {
   if (status === "approved") {
     return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
+  }
+
+  if (status === "pending") {
+    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
   }
 
   if (status === "rejected") {
@@ -105,17 +112,17 @@ function statusClass(status: string) {
   return "border-slate-700 bg-slate-900 text-slate-300";
 }
 
-export default function StoreRequestsAdminPage() {
+export default function AdminStoreRequestsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [requests, setRequests] = useState<StoreRequest[]>([]);
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [filter, setFilter] = useState<"all" | RequestStatus>("pending");
+  const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState("");
 
-  const isAdmin = user?.email === ADMIN_EMAIL;
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
-  async function loadPage() {
+  async function loadRequests() {
     setIsLoading(true);
     setMessage("");
 
@@ -124,28 +131,28 @@ export default function StoreRequestsAdminPage() {
 
     setUser(currentUser);
 
-    if (!currentUser || currentUser.email !== ADMIN_EMAIL) {
+    if (!currentUser) {
       setRequests([]);
+      setMessage("Спочатку потрібно увійти.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (currentUser.email?.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+      setRequests([]);
+      setMessage("У тебе немає доступу до цієї сторінки.");
       setIsLoading(false);
       return;
     }
 
     const { data, error } = await supabase
       .from("store_requests")
-      .select(`
-        id,
-        name,
-        website_url,
-        description,
-        status,
-        requested_by,
-        created_at
-      `)
+      .select("id, name, website_url, description, status, requested_by, created_at")
       .order("created_at", { ascending: false });
 
     if (error) {
-      setMessage(`Помилка завантаження: ${error.message}`);
       setRequests([]);
+      setMessage(`Помилка завантаження заявок: ${error.message}`);
       setIsLoading(false);
       return;
     }
@@ -155,10 +162,10 @@ export default function StoreRequestsAdminPage() {
   }
 
   useEffect(() => {
-    loadPage();
+    loadRequests();
 
     const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      loadPage();
+      loadRequests();
     });
 
     return () => {
@@ -166,68 +173,76 @@ export default function StoreRequestsAdminPage() {
     };
   }, []);
 
-  async function updateRequestStatus(id: string, status: string) {
+  const pendingCount = requests.filter(
+    (request) => request.status === "pending"
+  ).length;
+
+  const approvedCount = requests.filter(
+    (request) => request.status === "approved"
+  ).length;
+
+  const rejectedCount = requests.filter(
+    (request) => request.status === "rejected"
+  ).length;
+
+  const filteredRequests = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return requests.filter((request) => {
+      const matchesFilter =
+        filter === "all" ? true : request.status === filter;
+
+      if (!matchesFilter) return false;
+
+      if (!query) return true;
+
+      const name = request.name?.toLowerCase() || "";
+      const website = request.website_url?.toLowerCase() || "";
+      const description = request.description?.toLowerCase() || "";
+
+      return (
+        name.includes(query) ||
+        website.includes(query) ||
+        description.includes(query)
+      );
+    });
+  }, [requests, filter, search]);
+
+  async function updateRequestStatus(id: string, status: RequestStatus) {
     setMessage("");
-    setBusyId(id);
 
     const { error } = await supabase
       .from("store_requests")
       .update({ status })
       .eq("id", id);
 
-    setBusyId("");
-
     if (error) {
-      setMessage(`Помилка оновлення: ${error.message}`);
+      setMessage(`Помилка оновлення заявки: ${error.message}`);
       return;
     }
 
-    setRequests((current) =>
-      current.map((request) =>
+    setRequests((currentRequests) =>
+      currentRequests.map((request) =>
         request.id === id ? { ...request, status } : request
       )
     );
 
-    if (status === "approved") {
-      setMessage("Заявку магазину схвалено");
-    } else if (status === "rejected") {
-      setMessage("Заявку магазину відхилено");
-    } else {
-      setMessage("Заявку повернуто на перевірку");
-    }
+    setMessage(`Статус заявки змінено на “${statusLabel(status)}”.`);
   }
 
   async function createStoreFromRequest(request: StoreRequest) {
     setMessage("");
-    setBusyId(request.id);
 
-    const slug = makeSlug(request.name);
+    const rawSlug = makeSlug(request.name);
+    const slug = rawSlug || `store-${Date.now()}`;
 
-    if (!slug) {
-      setBusyId("");
-      setMessage("Не вдалося створити slug для магазину. Зміни назву заявки.");
-      return;
-    }
+    const confirmed = window.confirm(
+      `Створити магазин "${request.name}" зі slug "${slug}"?`
+    );
 
-    const { data: existingStore, error: existingError } = await supabase
-      .from("stores")
-      .select("id, name, slug")
-      .eq("slug", slug)
-      .maybeSingle();
+    if (!confirmed) return;
 
-    if (existingError) {
-      setBusyId("");
-      setMessage(`Помилка перевірки магазину: ${existingError.message}`);
-      return;
-    }
-
-    if (existingStore) {
-      setBusyId("");
-      setMessage(`Магазин із slug "${slug}" вже існує.`);
-      return;
-    }
-
-    const { error: insertError } = await supabase.from("stores").insert({
+    const { error: storeError } = await supabase.from("stores").insert({
       name: request.name.trim(),
       slug,
       website_url: request.website_url || null,
@@ -235,290 +250,283 @@ export default function StoreRequestsAdminPage() {
       status: "active",
     });
 
-    if (insertError) {
-      setBusyId("");
-      setMessage(`Помилка створення магазину: ${insertError.message}`);
+    if (storeError) {
+      setMessage(`Не вдалося створити магазин: ${storeError.message}`);
       return;
     }
 
-    const { error: updateError } = await supabase
+    const { error: requestError } = await supabase
       .from("store_requests")
       .update({ status: "approved" })
       .eq("id", request.id);
 
-    setBusyId("");
-
-    if (updateError) {
+    if (requestError) {
       setMessage(
-        `Магазин створено, але заявку не оновлено: ${updateError.message}`
+        `Магазин створено, але заявку не схвалено: ${requestError.message}`
       );
-      await loadPage();
       return;
     }
 
-    setRequests((current) =>
-      current.map((item) =>
-        item.id === request.id ? { ...item, status: "approved" } : item
+    setRequests((currentRequests) =>
+      currentRequests.map((currentRequest) =>
+        currentRequest.id === request.id
+          ? { ...currentRequest, status: "approved" }
+          : currentRequest
       )
     );
 
-    setMessage(`Магазин "${request.name}" створено. Slug: ${slug}`);
+    setMessage(`Магазин "${request.name}" створено і заявку схвалено.`);
   }
-
-  const filters = [
-    {
-      value: "pending",
-      label: "На перевірці",
-      count: requests.filter((request) => request.status === "pending").length,
-    },
-    {
-      value: "approved",
-      label: "Схвалені",
-      count: requests.filter((request) => request.status === "approved").length,
-    },
-    {
-      value: "rejected",
-      label: "Відхилені",
-      count: requests.filter((request) => request.status === "rejected").length,
-    },
-    {
-      value: "all",
-      label: "Усі",
-      count: requests.length,
-    },
-  ];
-
-  const filteredRequests =
-    statusFilter === "all"
-      ? requests
-      : requests.filter((request) => request.status === statusFilter);
 
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
-      <section className="mx-auto w-full max-w-6xl">
-        <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6">
-          <div className="flex flex-wrap items-start justify-between gap-5">
+      <section className="mx-auto w-full max-w-7xl">
+        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
+          <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
-              <p className="mb-3 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-300">
+              <p className="mb-4 inline-flex rounded-full border border-yellow-400/30 bg-yellow-400/10 px-4 py-2 text-sm font-bold text-yellow-300">
                 Адмінка
               </p>
 
-              <h1 className="text-4xl font-black tracking-tight">
-                Запити магазинів
+              <h1 className="text-5xl font-black tracking-tight">
+                Заявки магазинів
               </h1>
 
-              <p className="mt-3 text-slate-400">
-                Тут можна створювати нові магазини із заявок користувачів.
+              <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-400">
+                Тут можна переглядати магазини, які запропонували користувачі,
+                створювати їх у каталозі або відхиляти заявки.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/admin"
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
               >
                 Промокоди
               </Link>
 
               <Link
-                href="/stores"
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                href="/admin/reports"
+                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
               >
-                Магазини
+                Репорти
               </Link>
 
               <Link
-                href="/"
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                href="/stores"
+                className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
               >
-                Головна
+                Каталог магазинів
               </Link>
             </div>
           </div>
 
+          {message && (
+            <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-300">
+              {message}
+            </div>
+          )}
+
           {isLoading ? (
-            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-4 text-slate-400">
-              Завантаження...
+            <div className="mt-8 rounded-3xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
+              Завантаження заявок...
             </div>
           ) : !user ? (
-            <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-950 p-5">
-              <p className="text-slate-300">
-                Щоб відкрити цю сторінку, потрібно увійти.
+            <div className="mt-8 rounded-3xl border border-red-400/30 bg-red-400/10 p-6 text-red-300">
+              <h2 className="text-2xl font-black">
+                Потрібно увійти в акаунт
+              </h2>
+
+              <p className="mt-3 text-red-200">
+                Адмінка доступна тільки після входу.
               </p>
 
-              <Link
-                href="/login"
-                className="mt-5 inline-flex rounded-2xl bg-emerald-400 px-6 py-3 font-black text-slate-950 transition hover:bg-emerald-300"
-              >
-                Увійти
-              </Link>
+              <div className="mt-6">
+                <Link
+                  href="/login"
+                  className="inline-flex rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-300"
+                >
+                  Увійти
+                </Link>
+              </div>
             </div>
           ) : !isAdmin ? (
-            <div className="mt-6 rounded-3xl border border-red-400/30 bg-red-400/10 p-5 text-red-300">
-              У тебе немає доступу. Поточний акаунт:{" "}
-              <span className="font-bold">{user.email}</span>
+            <div className="mt-8 rounded-3xl border border-red-400/30 bg-red-400/10 p-6 text-red-300">
+              <h2 className="text-2xl font-black">Немає доступу</h2>
+
+              <p className="mt-3 text-red-200">
+                Твій акаунт не має прав адміністратора.
+              </p>
             </div>
           ) : (
             <>
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300">
-                <p>
-                  Адмін: <span className="font-bold">{user.email}</span>
-                </p>
-
-                <button
-                  onClick={loadPage}
-                  className="rounded-full border border-emerald-400/30 px-4 py-2 font-bold transition hover:bg-emerald-400 hover:text-slate-950"
-                >
-                  Оновити список
-                </button>
-              </div>
-
-              {message && (
-                <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-300">
-                  {message}
+              <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
+                  <p className="text-3xl font-black text-slate-300">
+                    {requests.length}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-400">усі заявки</p>
                 </div>
-              )}
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                {filters.map((filter) => (
-                  <button
-                    key={filter.value}
-                    onClick={() => setStatusFilter(filter.value)}
-                    className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
-                      statusFilter === filter.value
-                        ? "border-emerald-400 bg-emerald-400 text-slate-950"
-                        : "border-slate-700 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
-                    }`}
+                <div className="rounded-3xl border border-yellow-400/20 bg-yellow-400/10 p-5">
+                  <p className="text-3xl font-black text-yellow-300">
+                    {pendingCount}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-400">на перевірці</p>
+                </div>
+
+                <div className="rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
+                  <p className="text-3xl font-black text-emerald-300">
+                    {approvedCount}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-400">схвалено</p>
+                </div>
+
+                <div className="rounded-3xl border border-red-400/20 bg-red-400/10 p-5">
+                  <p className="text-3xl font-black text-red-300">
+                    {rejectedCount}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-400">відхилено</p>
+                </div>
+              </section>
+
+              <section className="mt-8 rounded-[2rem] border border-slate-800 bg-slate-950 p-5">
+                <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Пошук за назвою, сайтом або описом..."
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  />
+
+                  <select
+                    value={filter}
+                    onChange={(event) =>
+                      setFilter(event.target.value as "all" | RequestStatus)
+                    }
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
                   >
-                    {filter.label}{" "}
-                    <span className="opacity-70">({filter.count})</span>
-                  </button>
-                ))}
-              </div>
-
-              {filteredRequests.length === 0 ? (
-                <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
-                  {requests.length === 0
-                    ? "Запитів магазинів поки немає."
-                    : "У цьому фільтрі заявок немає."}
+                    <option value="pending">На перевірці</option>
+                    <option value="approved">Схвалені</option>
+                    <option value="rejected">Відхилені</option>
+                    <option value="all">Усі</option>
+                  </select>
                 </div>
-              ) : (
-                <div className="mt-6 grid gap-4">
-                  {filteredRequests.map((request) => (
-                    <article
-                      key={request.id}
-                      className="rounded-3xl border border-slate-800 bg-slate-950 p-5"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                          <p className="text-sm text-slate-500">
-                            Назва магазину
-                          </p>
 
-                          <h2 className="mt-1 text-2xl font-black tracking-tight text-emerald-300">
-                            {request.name}
-                          </h2>
+                {filteredRequests.length === 0 ? (
+                  <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900 p-6 text-slate-400">
+                    За цим фільтром заявок немає.
+                  </div>
+                ) : (
+                  <div className="mt-6 grid gap-4">
+                    {filteredRequests.map((request) => {
+                      const requestSlug = makeSlug(request.name);
 
-                          <p className="mt-2 text-sm text-slate-500">
-                            Майбутній slug:{" "}
-                            <span className="text-slate-300">
-                              {makeSlug(request.name)}
-                            </span>
-                          </p>
-                        </div>
-
-                        <span
-                          className={`rounded-full border px-3 py-1 text-xs font-bold ${statusClass(
-                            request.status
-                          )}`}
+                      return (
+                        <article
+                          key={request.id}
+                          className="rounded-3xl border border-slate-800 bg-slate-900 p-5"
                         >
-                          {statusLabel(request.status)}
-                        </span>
-                      </div>
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div>
+                              <div className="flex flex-wrap gap-2">
+                                <span
+                                  className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${statusClass(
+                                    request.status
+                                  )}`}
+                                >
+                                  {statusLabel(request.status)}
+                                </span>
 
-                      <div className="mt-4 grid gap-3 text-sm text-slate-400 sm:grid-cols-3">
-                        <div>
-                          <p className="text-slate-600">Сайт</p>
-                          {request.website_url ? (
-                            <a
-                              href={request.website_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="font-bold text-emerald-300 hover:text-emerald-200"
-                            >
-                              Відкрити →
-                            </a>
+                                <span className="inline-flex rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-bold text-slate-400">
+                                  slug: {requestSlug || "не створено"}
+                                </span>
+                              </div>
+
+                              <h2 className="mt-4 text-3xl font-black text-white">
+                                {request.name}
+                              </h2>
+
+                              <p className="mt-2 text-sm text-slate-500">
+                                {formatDate(request.created_at)} •{" "}
+                                <span className="break-all">
+                                  {request.requested_by || "користувач не вказаний"}
+                                </span>
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                              {request.website_url && (
+                                <a
+                                  href={request.website_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="rounded-2xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                                >
+                                  Сайт
+                                </a>
+                              )}
+                            </div>
+                          </div>
+
+                          {request.description ? (
+                            <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                              <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
+                                Коментар користувача
+                              </p>
+
+                              <p className="mt-2 text-sm leading-6 text-slate-300">
+                                {request.description}
+                              </p>
+                            </div>
                           ) : (
-                            <p className="text-slate-300">Не вказано</p>
+                            <p className="mt-4 text-sm text-slate-600">
+                              Користувач не залишив опис.
+                            </p>
                           )}
-                        </div>
 
-                        <div>
-                          <p className="text-slate-600">Додано</p>
-                          <p className="text-slate-300">
-                            {formatDate(request.created_at)}
-                          </p>
-                        </div>
+                          <div className="mt-5 flex flex-wrap gap-3">
+                            <button
+                              onClick={() => createStoreFromRequest(request)}
+                              className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
+                            >
+                              Створити магазин
+                            </button>
 
-                        <div>
-                          <p className="text-slate-600">Автор заявки</p>
-                          <p className="text-slate-300">
-                            {request.requested_by || "Невідомо"}
-                          </p>
-                        </div>
-                      </div>
+                            <button
+                              onClick={() =>
+                                updateRequestStatus(request.id, "approved")
+                              }
+                              className="rounded-2xl border border-emerald-400/30 px-4 py-2 text-sm font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
+                            >
+                              Тільки схвалити
+                            </button>
 
-                      {request.description && (
-                        <p className="mt-4 text-sm text-slate-400">
-                          {request.description}
-                        </p>
-                      )}
+                            <button
+                              onClick={() =>
+                                updateRequestStatus(request.id, "rejected")
+                              }
+                              className="rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950"
+                            >
+                              Відхилити
+                            </button>
 
-                      <div className="mt-5 flex flex-wrap gap-3">
-                        <button
-                          onClick={() => createStoreFromRequest(request)}
-                          disabled={busyId === request.id}
-                          className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {busyId === request.id
-                            ? "Створюю..."
-                            : "Створити магазин"}
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            updateRequestStatus(request.id, "approved")
-                          }
-                          disabled={busyId === request.id}
-                          className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Тільки схвалити
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            updateRequestStatus(request.id, "rejected")
-                          }
-                          disabled={busyId === request.id}
-                          className="rounded-2xl border border-red-400/30 bg-red-400/10 px-5 py-3 font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Відхилити
-                        </button>
-
-                        <button
-                          onClick={() =>
-                            updateRequestStatus(request.id, "pending")
-                          }
-                          disabled={busyId === request.id}
-                          className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-5 py-3 font-black text-yellow-300 transition hover:bg-yellow-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          На перевірку
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
+                            <button
+                              onClick={() =>
+                                updateRequestStatus(request.id, "pending")
+                              }
+                              className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-2 text-sm font-black text-yellow-300 transition hover:bg-yellow-400 hover:text-slate-950"
+                            >
+                              На перевірку
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
             </>
           )}
         </section>
