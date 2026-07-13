@@ -1,10 +1,10 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import StoreLogo from "@/components/StoreLogo";
 
 type Store = {
   id: string;
@@ -30,6 +30,8 @@ type PromoCode = {
   works_count?: number | null;
   not_works_count?: number | null;
 };
+
+type PromoFilter = "all" | "active" | "expired" | "verified";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -59,6 +61,16 @@ function isExpired(date: string | null | undefined) {
   expires.setHours(0, 0, 0, 0);
 
   return expires < today;
+}
+
+function getHostName(url: string | null | undefined) {
+  if (!url) return null;
+
+  try {
+    return new URL(url).hostname.replace("www.", "");
+  } catch {
+    return url;
+  }
 }
 
 function getSourceLabel(source: string | null | undefined) {
@@ -103,7 +115,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
   const health = getPromoHealth(works, notWorks);
 
   return (
-    <article className="group rounded-[2rem] border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-red-400/40 hover:shadow-red-950/20">
+    <article className="group rounded-[2rem] border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:shadow-emerald-950/20">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="inline-flex rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-400">
@@ -131,7 +143,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
       <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-4">
         <p className="text-sm font-bold text-slate-500">Умова / знижка</p>
 
-        <p className="mt-2 text-lg font-black text-red-300">
+        <p className="mt-2 text-lg font-black text-emerald-300">
           {promo.discount_value || "Умову не вказано"}
         </p>
       </div>
@@ -177,7 +189,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           href={`/codes/${promo.id}`}
-          className="flex-1 rounded-2xl bg-red-500 px-5 py-3 text-center font-black text-white transition hover:bg-red-400"
+          className="flex-1 rounded-2xl bg-emerald-400 px-5 py-3 text-center font-black text-slate-950 transition hover:bg-emerald-300"
         >
           Детальніше
         </Link>
@@ -185,7 +197,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
         <button
           type="button"
           onClick={() => navigator.clipboard.writeText(promo.code)}
-          className="rounded-2xl border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+          className="rounded-2xl border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
         >
           Копіювати
         </button>
@@ -219,6 +231,7 @@ function StoreDetailsContent() {
   const [store, setStore] = useState<Store | null>(null);
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<PromoFilter>("all");
 
   const [isLoadingStore, setIsLoadingStore] = useState(true);
   const [isLoadingPromos, setIsLoadingPromos] = useState(true);
@@ -273,21 +286,7 @@ function StoreDetailsContent() {
     }
   }, [slug]);
 
-  const filteredPromos = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-
-    if (!normalizedSearch) {
-      return promos;
-    }
-
-    return promos.filter((promo) => {
-      return (
-        promo.code.toLowerCase().includes(normalizedSearch) ||
-        (promo.discount_value || "").toLowerCase().includes(normalizedSearch) ||
-        (promo.description || "").toLowerCase().includes(normalizedSearch)
-      );
-    });
-  }, [promos, search]);
+  const totalPromosCount = promos.length;
 
   const activePromosCount = promos.filter(
     (promo) => !isExpired(promo.expires_at)
@@ -300,6 +299,31 @@ function StoreDetailsContent() {
   const verifiedPromosCount = promos.filter(
     (promo) => (promo.works_count || 0) + (promo.not_works_count || 0) > 0
   ).length;
+
+  const filteredPromos = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+
+    return promos.filter((promo) => {
+      const expired = isExpired(promo.expires_at);
+      const verified =
+        (promo.works_count || 0) + (promo.not_works_count || 0) > 0;
+
+      const matchesSearch =
+        !normalizedSearch ||
+        promo.code.toLowerCase().includes(normalizedSearch) ||
+        (promo.discount_value || "").toLowerCase().includes(normalizedSearch) ||
+        (promo.description || "").toLowerCase().includes(normalizedSearch) ||
+        (promo.source_url || "").toLowerCase().includes(normalizedSearch);
+
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "active" && !expired) ||
+        (filter === "expired" && expired) ||
+        (filter === "verified" && verified);
+
+      return matchesSearch && matchesFilter;
+    });
+  }, [promos, search, filter]);
 
   if (isLoadingStore) {
     return (
@@ -316,19 +340,13 @@ function StoreDetailsContent() {
       <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
         <section className="mx-auto w-full max-w-5xl">
           <div className="rounded-[2.5rem] border border-red-400/30 bg-red-400/10 p-8 text-center">
-            <div className="mx-auto mb-6 h-24 w-24 overflow-hidden rounded-[2rem] border border-red-400/30 bg-slate-950">
-              <Image
-                src="/icons/promoptaha-red-bird.png"
-                alt="ПромоПтаха"
-                width={96}
-                height={96}
-                className="h-full w-full object-cover"
-              />
+            <div className="mx-auto mb-6">
+              <StoreLogo name="ПромоПтаха" websiteUrl={null} size="lg" />
             </div>
 
             <h1 className="text-4xl font-black">Магазин не знайдено</h1>
 
-            <p className="mx-auto mt-4 max-w-xl leading-7 text-red-200">
+            <p className="mx-auto mt-4 max-w-xl leading-7 text-red-100">
               {errorMessage ||
                 "Можливо, магазин ще на модерації або посилання неправильне."}
             </p>
@@ -336,14 +354,14 @@ function StoreDetailsContent() {
             <div className="mt-8 flex flex-wrap justify-center gap-4">
               <Link
                 href="/stores"
-                className="rounded-full bg-red-500 px-6 py-4 font-black text-white transition hover:bg-red-400"
+                className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
               >
                 До магазинів
               </Link>
 
               <Link
                 href="/request-store"
-                className="rounded-full border border-red-400/30 px-6 py-4 font-black text-red-200 transition hover:bg-red-400/10"
+                className="rounded-full border border-red-400/30 px-6 py-4 font-black text-red-100 transition hover:bg-red-400/10"
               >
                 Запропонувати магазин
               </Link>
@@ -358,27 +376,43 @@ function StoreDetailsContent() {
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <section className="mx-auto w-full max-w-7xl">
         <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
-          <Link href="/" className="hover:text-red-300">
+          <Link href="/" className="hover:text-emerald-300">
             Головна
           </Link>
           <span>/</span>
-          <Link href="/stores" className="hover:text-red-300">
+          <Link href="/stores" className="hover:text-emerald-300">
             Магазини
           </Link>
           <span>/</span>
           <span className="text-slate-300">{store.name}</span>
         </div>
 
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-red-950/20">
+        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
           <div className="grid gap-8 p-6 lg:grid-cols-[1fr_0.7fr] lg:p-10">
             <div className="flex flex-col justify-center">
-              <p className="mb-5 inline-flex w-fit rounded-full border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-bold text-red-300">
+              <p className="mb-5 inline-flex w-fit rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Магазин
               </p>
 
-              <h1 className="break-words text-5xl font-black tracking-tight md:text-7xl">
-                {store.name}
-              </h1>
+              <div className="flex flex-wrap items-center gap-5">
+                <StoreLogo
+                  name={store.name}
+                  websiteUrl={store.website_url}
+                  size="lg"
+                />
+
+                <div>
+                  <h1 className="break-words text-5xl font-black tracking-tight md:text-7xl">
+                    {store.name}
+                  </h1>
+
+                  {store.website_url && (
+                    <p className="mt-2 break-all text-sm font-bold text-slate-500">
+                      {getHostName(store.website_url)}
+                    </p>
+                  )}
+                </div>
+              </div>
 
               <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400 md:text-xl">
                 {store.description ||
@@ -391,7 +425,7 @@ function StoreDetailsContent() {
                     href={store.website_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-full bg-red-500 px-6 py-4 font-black text-white transition hover:bg-red-400"
+                    className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
                   >
                     Сайт магазину
                   </a>
@@ -399,23 +433,23 @@ function StoreDetailsContent() {
 
                 <Link
                   href="/add"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
                   Додати промокод
                 </Link>
 
                 <Link
                   href="/stores"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
                   Всі магазини
                 </Link>
               </div>
 
-              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              <div className="mt-10 grid gap-4 sm:grid-cols-4">
                 <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="text-3xl font-black text-red-300">
-                    {promos.length}
+                  <p className="text-3xl font-black text-emerald-300">
+                    {totalPromosCount}
                   </p>
                   <p className="mt-2 text-sm font-bold text-slate-500">
                     промокодів
@@ -423,16 +457,25 @@ function StoreDetailsContent() {
                 </div>
 
                 <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="text-3xl font-black text-emerald-300">
+                  <p className="text-3xl font-black text-yellow-300">
                     {activePromosCount}
                   </p>
                   <p className="mt-2 text-sm font-bold text-slate-500">
-                    активних
+                    дійсних
                   </p>
                 </div>
 
                 <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="text-3xl font-black text-yellow-300">
+                  <p className="text-3xl font-black text-red-300">
+                    {expiredPromosCount}
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    прострочені
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
+                  <p className="text-3xl font-black text-slate-200">
                     {verifiedPromosCount}
                   </p>
                   <p className="mt-2 text-sm font-bold text-slate-500">
@@ -442,18 +485,15 @@ function StoreDetailsContent() {
               </div>
             </div>
 
-            <div className="relative flex min-h-[360px] items-center justify-center rounded-[2rem] border border-red-400/20 bg-slate-950 p-8">
-              <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_center,rgba(239,68,68,0.25),transparent_60%)]" />
+            <div className="relative flex min-h-[360px] items-center justify-center rounded-[2rem] border border-emerald-400/20 bg-slate-950 p-8">
+              <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_center,rgba(52,211,153,0.22),transparent_60%)]" />
 
               <div className="relative text-center">
-                <div className="relative mx-auto h-48 w-48 overflow-hidden rounded-[3rem] border border-red-400/30 bg-slate-900 shadow-2xl shadow-red-950/40 md:h-64 md:w-64">
-                  <Image
-                    src="/icons/promoptaha-red-bird.png"
-                    alt="ПромоПтаха"
-                    fill
-                    sizes="256px"
-                    className="object-cover"
-                    priority
+                <div className="mx-auto flex justify-center">
+                  <StoreLogo
+                    name={store.name}
+                    websiteUrl={store.website_url}
+                    size="xl"
                   />
                 </div>
 
@@ -470,10 +510,10 @@ function StoreDetailsContent() {
           </div>
         </section>
 
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-red-950/10 lg:p-10">
+        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/10 lg:p-10">
           <div className="flex flex-wrap items-end justify-between gap-5">
             <div>
-              <p className="mb-4 inline-flex rounded-full border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-bold text-red-300">
+              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Коди магазину
               </p>
 
@@ -489,7 +529,7 @@ function StoreDetailsContent() {
 
             <Link
               href="/add"
-              className="rounded-full bg-red-500 px-5 py-3 font-black text-white transition hover:bg-red-400"
+              className="rounded-full bg-emerald-400 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-300"
             >
               Додати код
             </Link>
@@ -499,8 +539,58 @@ function StoreDetailsContent() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={`Пошук по ${store.name}: код, знижка, доставка...`}
-            className="mt-6 w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-red-400"
+            className="mt-6 w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
           />
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+                filter === "all"
+                  ? "bg-emerald-400 text-slate-950"
+                  : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+              }`}
+            >
+              Усі {totalPromosCount}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter("active")}
+              className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+                filter === "active"
+                  ? "bg-emerald-400 text-slate-950"
+                  : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+              }`}
+            >
+              Дійсні {activePromosCount}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter("expired")}
+              className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+                filter === "expired"
+                  ? "bg-emerald-400 text-slate-950"
+                  : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+              }`}
+            >
+              Прострочені {expiredPromosCount}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter("verified")}
+              className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+                filter === "verified"
+                  ? "bg-emerald-400 text-slate-950"
+                  : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+              }`}
+            >
+              Перевіряли {verifiedPromosCount}
+            </button>
+          </div>
 
           {isLoadingPromos ? (
             <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -513,7 +603,13 @@ function StoreDetailsContent() {
             </div>
           ) : filteredPromos.length === 0 ? (
             <div className="mt-8 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center">
-              <div className="text-5xl">🐦</div>
+              <div className="mx-auto flex justify-center">
+                <StoreLogo
+                  name={store.name}
+                  websiteUrl={store.website_url}
+                  size="lg"
+                />
+              </div>
 
               <h2 className="mt-4 text-3xl font-black">
                 Промокодів не знайдено
@@ -527,14 +623,14 @@ function StoreDetailsContent() {
               <div className="mt-6 flex flex-wrap justify-center gap-4">
                 <Link
                   href="/add"
-                  className="rounded-full bg-red-500 px-6 py-4 font-black text-white transition hover:bg-red-400"
+                  className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
                 >
                   Додати промокод
                 </Link>
 
                 <Link
                   href="/request-store"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
                   Запропонувати магазин
                 </Link>
@@ -548,20 +644,6 @@ function StoreDetailsContent() {
             </div>
           )}
         </section>
-
-        {expiredPromosCount > 0 && (
-          <section className="mt-8 rounded-[2rem] border border-yellow-400/20 bg-yellow-400/10 p-6">
-            <h2 className="text-2xl font-black text-yellow-300">
-              Є прострочені коди
-            </h2>
-
-            <p className="mt-3 leading-7 text-slate-300">
-              У цього магазину є {expiredPromosCount} промокодів, у яких
-              завершився термін дії. Якщо маєш новий робочий код — додай його,
-              щоб оновити базу.
-            </p>
-          </section>
-        )}
       </section>
     </main>
   );
