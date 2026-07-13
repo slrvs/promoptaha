@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient, User } from "@supabase/supabase-js";
 
@@ -73,13 +73,14 @@ function clearDraft() {
 }
 
 export default function AddPromoPage() {
-  const hasLoadedDraft = useRef(false);
+  const isDraftReady = useRef(false);
 
   const [user, setUser] = useState<User | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
 
   const [code, setCode] = useState("");
   const [storeId, setStoreId] = useState("");
+  const [storeSearch, setStoreSearch] = useState("");
   const [discountValue, setDiscountValue] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [sourceType, setSourceType] = useState("youtube");
@@ -93,13 +94,32 @@ export default function AddPromoPage() {
     "info"
   );
 
+  const selectedStore = useMemo(() => {
+    return stores.find((store) => store.id === storeId) || null;
+  }, [stores, storeId]);
+
+  const filteredStores = useMemo(() => {
+    const normalizedSearch = storeSearch.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return stores;
+    }
+
+    return stores.filter((store) => {
+      return (
+        store.name.toLowerCase().includes(normalizedSearch) ||
+        store.slug.toLowerCase().includes(normalizedSearch)
+      );
+    });
+  }, [stores, storeSearch]);
+
   async function loadPageData() {
     setIsLoading(true);
     setMessage("");
 
     const draft = loadDraft();
 
-    if (draft && !hasLoadedDraft.current) {
+    if (draft) {
       setCode(draft.code || "");
       setStoreId(draft.storeId || "");
       setDiscountValue(draft.discountValue || "");
@@ -107,7 +127,6 @@ export default function AddPromoPage() {
       setSourceType(draft.sourceType || "youtube");
       setSourceUrl(draft.sourceUrl || "");
       setDescription(draft.description || "");
-      hasLoadedDraft.current = true;
     }
 
     const { data: userData } = await supabase.auth.getUser();
@@ -124,6 +143,7 @@ export default function AddPromoPage() {
       setMessage(`Помилка завантаження магазинів: ${storesError.message}`);
       setMessageType("error");
       setIsLoading(false);
+      isDraftReady.current = true;
       return;
     }
 
@@ -133,19 +153,21 @@ export default function AddPromoPage() {
 
     const savedStoreId = draft?.storeId || "";
 
-    if (!savedStoreId && !storeId && loadedStores.length > 0) {
-      setStoreId(loadedStores[0].id);
-    }
-
-    if (
-      savedStoreId &&
-      loadedStores.length > 0 &&
-      !loadedStores.some((store) => store.id === savedStoreId)
-    ) {
-      setStoreId(loadedStores[0].id);
+    if (loadedStores.length > 0) {
+      if (
+        savedStoreId &&
+        loadedStores.some((store) => store.id === savedStoreId)
+      ) {
+        setStoreId(savedStoreId);
+      } else if (!savedStoreId) {
+        setStoreId(loadedStores[0].id);
+      } else {
+        setStoreId(loadedStores[0].id);
+      }
     }
 
     setIsLoading(false);
+    isDraftReady.current = true;
   }
 
   useEffect(() => {
@@ -153,9 +175,7 @@ export default function AddPromoPage() {
   }, []);
 
   useEffect(() => {
-    if (!hasLoadedDraft.current && !code && !storeId && !discountValue) {
-      return;
-    }
+    if (!isDraftReady.current) return;
 
     saveDraft({
       code,
@@ -194,7 +214,7 @@ export default function AddPromoPage() {
       return;
     }
 
-    if (!storeId) {
+    if (!storeId || !selectedStore) {
       setMessage("Обери магазин.");
       setMessageType("error");
       return;
@@ -228,6 +248,7 @@ export default function AddPromoPage() {
     clearDraft();
 
     setCode("");
+    setStoreSearch("");
     setDiscountValue("");
     setExpiresAt("");
     setSourceType("youtube");
@@ -246,6 +267,7 @@ export default function AddPromoPage() {
     clearDraft();
 
     setCode("");
+    setStoreSearch("");
     setDiscountValue("");
     setExpiresAt("");
     setSourceType("youtube");
@@ -296,7 +318,7 @@ export default function AddPromoPage() {
 
               <Link
                 href="/codes"
-                className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-400"
+                className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
               >
                 До промокодів
               </Link>
@@ -308,18 +330,18 @@ export default function AddPromoPage() {
               Завантаження форми...
             </div>
           ) : !user ? (
-            <div className="mt-8 rounded-[2rem] border border-emerald-400/30 bg-emerald-400/10 p-6">
-              <h2 className="text-2xl font-black text-emerald-300">
+            <div className="mt-8 rounded-[2rem] border border-red-400/30 bg-red-400/10 p-6">
+              <h2 className="text-2xl font-black text-red-300">
                 Потрібен вхід
               </h2>
 
-              <p className="mt-3 leading-7 text-emerald-100">
+              <p className="mt-3 leading-7 text-red-100">
                 Щоб додавати промокоди, потрібно увійти в акаунт.
               </p>
 
               <Link
                 href="/login"
-                className="mt-6 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-white transition hover:bg-emerald-400"
+                className="mt-6 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
               >
                 Увійти
               </Link>
@@ -336,13 +358,93 @@ export default function AddPromoPage() {
 
               <Link
                 href="/request-store"
-                className="mt-6 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-white transition hover:bg-emerald-400"
+                className="mt-6 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
               >
                 Запропонувати магазин
               </Link>
             </div>
           ) : (
             <form onSubmit={addPromo} className="mt-8 space-y-6">
+              <section className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-black">Магазин</h2>
+                    <p className="mt-2 leading-7 text-slate-400">
+                      Знайди магазин через пошук і натисни на нього. Обраний
+                      магазин збережеться в чернетці.
+                    </p>
+                  </div>
+
+                  <Link
+                    href="/request-store"
+                    className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  >
+                    Запропонувати новий
+                  </Link>
+                </div>
+
+                <input
+                  value={storeSearch}
+                  onChange={(event) => setStoreSearch(event.target.value)}
+                  placeholder="Пошук магазину: ROZETKA, Comfy, КРКР..."
+                  className="mt-5 w-full rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                />
+
+                {selectedStore && (
+                  <div className="mt-5 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4">
+                    <p className="text-sm font-bold text-emerald-300">
+                      Обраний магазин
+                    </p>
+
+                    <p className="mt-1 text-2xl font-black text-white">
+                      {selectedStore.name}
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-400">
+                      /stores/{selectedStore.slug}
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-5 grid max-h-72 gap-3 overflow-y-auto pr-1 md:grid-cols-2">
+                  {filteredStores.length === 0 ? (
+                    <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-4 text-yellow-200 md:col-span-2">
+                      Магазинів за таким пошуком не знайдено. Можеш
+                      запропонувати новий магазин.
+                    </div>
+                  ) : (
+                    filteredStores.map((store) => {
+                      const isSelected = store.id === storeId;
+
+                      return (
+                        <button
+                          key={store.id}
+                          type="button"
+                          onClick={() => setStoreId(store.id)}
+                          className={`rounded-2xl border p-4 text-left transition ${
+                            isSelected
+                              ? "border-emerald-400 bg-emerald-400/10"
+                              : "border-slate-800 bg-slate-900 hover:border-emerald-400/50"
+                          }`}
+                        >
+                          <p
+                            className={`text-lg font-black ${
+                              isSelected ? "text-emerald-300" : "text-white"
+                            }`}
+                          >
+                            {store.name}
+                          </p>
+
+                          <p className="mt-1 text-sm text-slate-500">
+                            /stores/{store.slug}
+                          </p>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
+
               <div className="grid gap-5 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-bold text-slate-300">
@@ -359,26 +461,6 @@ export default function AddPromoPage() {
 
                 <div>
                   <label className="mb-2 block text-sm font-bold text-slate-300">
-                    Магазин
-                  </label>
-
-                  <select
-                    value={storeId}
-                    onChange={(event) => setStoreId(event.target.value)}
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-                  >
-                    {stores.map((store) => (
-                      <option key={store.id} value={store.id}>
-                        {store.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-300">
                     Знижка / умова
                   </label>
 
@@ -389,7 +471,9 @@ export default function AddPromoPage() {
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
+              </div>
 
+              <div className="grid gap-5 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-bold text-slate-300">
                     Діє до
@@ -402,26 +486,26 @@ export default function AddPromoPage() {
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-bold text-slate-300">
-                  Джерело
-                </label>
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-slate-300">
+                    Джерело
+                  </label>
 
-                <select
-                  value={sourceType}
-                  onChange={(event) => setSourceType(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-                >
-                  <option value="youtube">YouTube</option>
-                  <option value="telegram">Telegram</option>
-                  <option value="tiktok">TikTok</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="email">Email</option>
-                  <option value="store_site">Сайт магазину</option>
-                  <option value="other">Інше</option>
-                </select>
+                  <select
+                    value={sourceType}
+                    onChange={(event) => setSourceType(event.target.value)}
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
+                  >
+                    <option value="youtube">YouTube</option>
+                    <option value="telegram">Telegram</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="email">Email</option>
+                    <option value="store_site">Сайт магазину</option>
+                    <option value="other">Інше</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -457,7 +541,7 @@ export default function AddPromoPage() {
                     messageType === "success"
                       ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                       : messageType === "error"
-                      ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                      ? "border-red-400/30 bg-red-400/10 text-red-300"
                       : "border-slate-700 bg-slate-950 text-slate-300"
                   }`}
                 >
@@ -469,7 +553,7 @@ export default function AddPromoPage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex-1 rounded-2xl bg-emerald-400 px-5 py-4 font-black text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex-1 rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? "Додаю..." : "Додати на модерацію"}
                 </button>
