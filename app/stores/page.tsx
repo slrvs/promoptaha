@@ -268,7 +268,7 @@ export default function StoresPage() {
           />
 
           {errorMessage && (
-            <div className="mt-6 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-red-300">
+            <div className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-emerald-300">
               Помилка завантаження: {errorMessage}
             </div>
           )}
