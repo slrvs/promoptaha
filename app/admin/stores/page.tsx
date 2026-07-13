@@ -5,7 +5,7 @@ import Link from "next/link";
 import { createClient, User } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
 
-type StoreStatus = "active" | "hidden" | "pending";
+type StoreStatus = "active" | "pending" | "rejected";
 
 type Store = {
   id: string;
@@ -74,8 +74,8 @@ function getHostName(url: string | null | undefined) {
 
 function getStatusLabel(status: string | null | undefined) {
   if (status === "active") return "Активний";
-  if (status === "hidden") return "Прихований";
   if (status === "pending") return "На модерації";
+  if (status === "rejected") return "Прихований";
 
   return status || "Невідомо";
 }
@@ -89,11 +89,38 @@ function getStatusClass(status: string | null | undefined) {
     return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
   }
 
-  if (status === "hidden") {
+  if (status === "rejected") {
     return "border-red-400/30 bg-red-400/10 text-red-300";
   }
 
   return "border-slate-700 bg-slate-800 text-slate-300";
+}
+
+async function getUniqueSlug(baseSlug: string, currentStoreId?: string) {
+  const cleanBaseSlug = baseSlug || "store";
+
+  let slug = cleanBaseSlug;
+  let counter = 2;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("stores")
+      .select("id")
+      .eq("slug", slug)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data || data.id === currentStoreId) {
+      return slug;
+    }
+
+    slug = `${cleanBaseSlug}-${counter}`;
+    counter += 1;
+  }
 }
 
 export default function AdminStoresPage() {
@@ -102,6 +129,15 @@ export default function AdminStoresPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | StoreStatus>("all");
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const [createName, setCreateName] = useState("");
+  const [createSlug, setCreateSlug] = useState("");
+  const [createWebsiteUrl, setCreateWebsiteUrl] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createStatus, setCreateStatus] = useState<StoreStatus>("active");
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -185,8 +221,86 @@ export default function AdminStoresPage() {
   }, [stores, search, statusFilter]);
 
   const activeCount = stores.filter((store) => store.status === "active").length;
-  const pendingCount = stores.filter((store) => store.status === "pending").length;
-  const hiddenCount = stores.filter((store) => store.status === "hidden").length;
+  const pendingCount = stores.filter(
+    (store) => store.status === "pending"
+  ).length;
+  const rejectedCount = stores.filter(
+    (store) => store.status === "rejected"
+  ).length;
+
+  function resetCreateForm() {
+    setCreateName("");
+    setCreateSlug("");
+    setCreateWebsiteUrl("");
+    setCreateDescription("");
+    setCreateStatus("active");
+  }
+
+  async function createStore(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setMessage("");
+    setMessageType("info");
+
+    if (!createName.trim()) {
+      setMessage("Вкажи назву магазину.");
+      setMessageType("error");
+      return;
+    }
+
+    setIsCreating(true);
+
+    try {
+      const baseSlug =
+        makeSlug(createSlug) || makeSlug(createName) || "store";
+
+      const finalSlug = await getUniqueSlug(baseSlug);
+
+      const finalWebsiteUrl = createWebsiteUrl.trim()
+        ? normalizeUrl(createWebsiteUrl)
+        : null;
+
+      const { data, error } = await supabase
+        .from("stores")
+        .insert({
+          name: createName.trim(),
+          slug: finalSlug,
+          website_url: finalWebsiteUrl,
+          description: createDescription.trim() || null,
+          status: createStatus,
+        })
+        .select("id, name, slug, description, website_url, status, created_at")
+        .single();
+
+      if (error) {
+        setMessage(`Помилка створення магазину: ${error.message}`);
+        setMessageType("error");
+        setIsCreating(false);
+        return;
+      }
+
+      setStores((currentStores) =>
+        [data as Store, ...currentStores].sort((firstStore, secondStore) =>
+          firstStore.name.localeCompare(secondStore.name, "uk")
+        )
+      );
+
+      resetCreateForm();
+      setIsCreateOpen(false);
+
+      setMessage(`Магазин “${data.name}” створено зі slug: ${data.slug}`);
+      setMessageType("success");
+      setIsCreating(false);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Помилка створення магазину: ${error.message}`
+          : "Помилка створення магазину."
+      );
+      setMessageType("error");
+      setIsCreating(false);
+    }
+  }
 
   function startEdit(store: Store) {
     setEditingId(store.id);
@@ -219,55 +333,62 @@ export default function AdminStoresPage() {
       return;
     }
 
-    if (!editSlug.trim()) {
-      setMessage("Slug магазину не може бути порожнім.");
-      setMessageType("error");
-      return;
-    }
-
     setSavingId(storeId);
 
-    const finalWebsiteUrl = editWebsiteUrl.trim()
-      ? normalizeUrl(editWebsiteUrl)
-      : null;
+    try {
+      const baseSlug = makeSlug(editSlug) || makeSlug(editName) || "store";
+      const finalSlug = await getUniqueSlug(baseSlug, storeId);
 
-    const { error } = await supabase
-      .from("stores")
-      .update({
-        name: editName.trim(),
-        slug: makeSlug(editSlug) || makeSlug(editName) || "store",
-        website_url: finalWebsiteUrl,
-        description: editDescription.trim() || null,
-        status: editStatus,
-      })
-      .eq("id", storeId);
+      const finalWebsiteUrl = editWebsiteUrl.trim()
+        ? normalizeUrl(editWebsiteUrl)
+        : null;
 
-    setSavingId(null);
+      const { error } = await supabase
+        .from("stores")
+        .update({
+          name: editName.trim(),
+          slug: finalSlug,
+          website_url: finalWebsiteUrl,
+          description: editDescription.trim() || null,
+          status: editStatus,
+        })
+        .eq("id", storeId);
 
-    if (error) {
-      setMessage(`Помилка збереження магазину: ${error.message}`);
+      setSavingId(null);
+
+      if (error) {
+        setMessage(`Помилка збереження магазину: ${error.message}`);
+        setMessageType("error");
+        return;
+      }
+
+      setStores((currentStores) =>
+        currentStores.map((store) =>
+          store.id === storeId
+            ? {
+                ...store,
+                name: editName.trim(),
+                slug: finalSlug,
+                website_url: finalWebsiteUrl,
+                description: editDescription.trim() || null,
+                status: editStatus,
+              }
+            : store
+        )
+      );
+
+      setEditingId(null);
+      setMessage("Магазин оновлено. Лого має підтягнутись по website_url.");
+      setMessageType("success");
+    } catch (error) {
+      setSavingId(null);
+      setMessage(
+        error instanceof Error
+          ? `Помилка збереження магазину: ${error.message}`
+          : "Помилка збереження магазину."
+      );
       setMessageType("error");
-      return;
     }
-
-    setStores((currentStores) =>
-      currentStores.map((store) =>
-        store.id === storeId
-          ? {
-              ...store,
-              name: editName.trim(),
-              slug: makeSlug(editSlug) || makeSlug(editName) || "store",
-              website_url: finalWebsiteUrl,
-              description: editDescription.trim() || null,
-              status: editStatus,
-            }
-          : store
-      )
-    );
-
-    setEditingId(null);
-    setMessage("Магазин оновлено. Лого має підтягнутись по website_url.");
-    setMessageType("success");
   }
 
   if (isLoadingUser) {
@@ -310,9 +431,7 @@ export default function AdminStoresPage() {
       <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
         <section className="mx-auto w-full max-w-5xl">
           <div className="rounded-[2.5rem] border border-red-400/30 bg-red-400/10 p-8 text-center">
-            <h1 className="text-4xl font-black text-red-300">
-              Немає доступу
-            </h1>
+            <h1 className="text-4xl font-black text-red-300">Немає доступу</h1>
 
             <p className="mx-auto mt-4 max-w-xl leading-7 text-red-100">
               Ця сторінка доступна тільки адміністратору.
@@ -340,13 +459,12 @@ export default function AdminStoresPage() {
                 Адмінка
               </p>
 
-              <h1 className="text-5xl font-black tracking-tight">
-                Магазини
-              </h1>
+              <h1 className="text-5xl font-black tracking-tight">Магазини</h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-400">
-                Тут можна редагувати назву, сайт, опис і статус магазину. Лого
-                підтягуватиметься автоматично з домену в полі website_url.
+                Тут можна створювати магазини вручну, редагувати назву, сайт,
+                опис і статус. Лого підтягуватиметься автоматично з
+                website_url.
               </p>
             </div>
 
@@ -374,13 +492,145 @@ export default function AdminStoresPage() {
 
               <button
                 type="button"
-                onClick={loadStores}
+                onClick={() => {
+                  setIsCreateOpen((currentValue) => !currentValue);
+                  setMessage("");
+                }}
                 className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
               >
-                Оновити
+                {isCreateOpen ? "Закрити створення" : "Створити магазин"}
               </button>
             </div>
           </div>
+
+          {isCreateOpen && (
+            <form
+              onSubmit={createStore}
+              className="mt-8 rounded-[2rem] border border-emerald-400/30 bg-emerald-400/10 p-5"
+            >
+              <div className="flex flex-wrap items-start gap-5">
+                <StoreLogo
+                  name={createName || "Новий магазин"}
+                  websiteUrl={createWebsiteUrl}
+                  size="lg"
+                />
+
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-3xl font-black text-white">
+                    Новий магазин
+                  </h2>
+
+                  <p className="mt-2 leading-7 text-slate-300">
+                    Вкажи назву та сайт магазину. Якщо slug уже зайнятий, сайт
+                    автоматично додасть `-2`, `-3` і так далі.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-slate-300">
+                    Назва
+                  </label>
+
+                  <input
+                    value={createName}
+                    onChange={(event) => {
+                      setCreateName(event.target.value);
+                      setCreateSlug(makeSlug(event.target.value));
+                    }}
+                    placeholder="Наприклад: Rozetka"
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-slate-300">
+                    Slug
+                  </label>
+
+                  <input
+                    value={createSlug}
+                    onChange={(event) => setCreateSlug(makeSlug(event.target.value))}
+                    placeholder="rozetka"
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-slate-300">
+                    Website URL
+                  </label>
+
+                  <input
+                    value={createWebsiteUrl}
+                    onChange={(event) => setCreateWebsiteUrl(event.target.value)}
+                    placeholder="https://rozetka.com.ua"
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  />
+
+                  <p className="mt-2 text-sm text-slate-400">
+                    Можна вводити без https://
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-slate-300">
+                    Статус
+                  </label>
+
+                  <select
+                    value={createStatus}
+                    onChange={(event) =>
+                      setCreateStatus(event.target.value as StoreStatus)
+                    }
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
+                  >
+                    <option value="active">Активний</option>
+                    <option value="pending">На модерації</option>
+                    <option value="rejected">Прихований</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-5">
+                <label className="mb-2 block text-sm font-bold text-slate-300">
+                  Опис
+                </label>
+
+                <textarea
+                  value={createDescription}
+                  onChange={(event) => setCreateDescription(event.target.value)}
+                  rows={5}
+                  placeholder="Короткий опис магазину..."
+                  className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                />
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                  type="submit"
+                  disabled={isCreating}
+                  className="flex-1 rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isCreating ? "Створюю..." : "Створити магазин"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetCreateForm();
+                    setIsCreateOpen(false);
+                  }}
+                  className="rounded-2xl border border-slate-700 px-5 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                >
+                  Скасувати
+                </button>
+              </div>
+            </form>
+          )}
 
           <div className="mt-8 grid gap-4 sm:grid-cols-4">
             <button
@@ -410,9 +660,7 @@ export default function AdminStoresPage() {
               <p className="text-3xl font-black text-emerald-300">
                 {activeCount}
               </p>
-              <p className="mt-2 text-sm font-bold text-slate-500">
-                активні
-              </p>
+              <p className="mt-2 text-sm font-bold text-slate-500">активні</p>
             </button>
 
             <button
@@ -434,15 +682,15 @@ export default function AdminStoresPage() {
 
             <button
               type="button"
-              onClick={() => setStatusFilter("hidden")}
+              onClick={() => setStatusFilter("rejected")}
               className={`rounded-3xl border p-5 text-left transition ${
-                statusFilter === "hidden"
+                statusFilter === "rejected"
                   ? "border-red-400 bg-red-400/10"
                   : "border-slate-800 bg-slate-950 hover:border-red-400/50"
               }`}
             >
               <p className="text-3xl font-black text-red-300">
-                {hiddenCount}
+                {rejectedCount}
               </p>
               <p className="mt-2 text-sm font-bold text-slate-500">
                 приховані
@@ -450,12 +698,22 @@ export default function AdminStoresPage() {
             </button>
           </div>
 
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Пошук: назва, slug, сайт, опис..."
-            className="mt-6 w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
-          />
+          <div className="mt-6 flex flex-wrap gap-3">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Пошук: назва, slug, сайт, опис..."
+              className="min-w-0 flex-1 rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+            />
+
+            <button
+              type="button"
+              onClick={loadStores}
+              className="rounded-2xl border border-slate-700 px-5 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+            >
+              Оновити
+            </button>
+          </div>
 
           {message && (
             <div
@@ -670,8 +928,7 @@ export default function AdminStoresPage() {
                             />
 
                             <p className="mt-2 text-sm text-slate-500">
-                              Можна вводити без https:// — сайт додасть
-                              автоматично.
+                              Можна вводити без https://
                             </p>
                           </div>
 
@@ -689,7 +946,7 @@ export default function AdminStoresPage() {
                             >
                               <option value="active">Активний</option>
                               <option value="pending">На модерації</option>
-                              <option value="hidden">Прихований</option>
+                              <option value="rejected">Прихований</option>
                             </select>
                           </div>
                         </div>
