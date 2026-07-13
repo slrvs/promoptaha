@@ -10,6 +10,14 @@ type Store = {
   slug: string;
 };
 
+type ExistingPromo = {
+  id: string;
+  code: string;
+  normalized_code: string;
+  status: string;
+  created_at?: string | null;
+};
+
 type AddPromoDraft = {
   code: string;
   storeId: string;
@@ -44,6 +52,23 @@ function friendlyError(errorMessage: string) {
   }
 
   return errorMessage;
+}
+
+function formatDate(date: string | null | undefined) {
+  if (!date) return "Дата невідома";
+
+  return new Intl.DateTimeFormat("uk-UA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(date));
+}
+
+function getStatusLabel(status: string) {
+  if (status === "active") return "Активний";
+  if (status === "pending") return "На модерації";
+  if (status === "rejected") return "Відхилений";
+  return status;
 }
 
 function loadDraft(): AddPromoDraft | null {
@@ -86,6 +111,11 @@ export default function AddPromoPage() {
   const [sourceType, setSourceType] = useState("youtube");
   const [sourceUrl, setSourceUrl] = useState("");
   const [description, setDescription] = useState("");
+
+  const [existingPromo, setExistingPromo] = useState<ExistingPromo | null>(
+    null
+  );
+  const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -159,8 +189,6 @@ export default function AddPromoPage() {
         loadedStores.some((store) => store.id === savedStoreId)
       ) {
         setStoreId(savedStoreId);
-      } else if (!savedStoreId) {
-        setStoreId(loadedStores[0].id);
       } else {
         setStoreId(loadedStores[0].id);
       }
@@ -196,6 +224,42 @@ export default function AddPromoPage() {
     description,
   ]);
 
+  useEffect(() => {
+    const normalizedCode = normalizeCode(code);
+
+    setExistingPromo(null);
+
+    if (!normalizedCode || !storeId || normalizedCode.length < 2) {
+      setIsCheckingDuplicate(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      setIsCheckingDuplicate(true);
+
+      const { data, error } = await supabase
+        .from("promo_codes")
+        .select("id, code, normalized_code, status, created_at")
+        .eq("store_id", storeId)
+        .eq("normalized_code", normalizedCode)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        setExistingPromo(data as ExistingPromo);
+      } else {
+        setExistingPromo(null);
+      }
+
+      setIsCheckingDuplicate(false);
+    }, 450);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [code, storeId]);
+
   async function addPromo(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -216,6 +280,14 @@ export default function AddPromoPage() {
 
     if (!storeId || !selectedStore) {
       setMessage("Обери магазин.");
+      setMessageType("error");
+      return;
+    }
+
+    if (existingPromo && existingPromo.status !== "rejected") {
+      setMessage(
+        "Увага: такий промокод для цього магазину вже є. Якщо це справді новий код — зміни код або уточни опис."
+      );
       setMessageType("error");
       return;
     }
@@ -254,6 +326,7 @@ export default function AddPromoPage() {
     setSourceType("youtube");
     setSourceUrl("");
     setDescription("");
+    setExistingPromo(null);
 
     if (stores.length > 0) {
       setStoreId(stores[0].id);
@@ -273,6 +346,7 @@ export default function AddPromoPage() {
     setSourceType("youtube");
     setSourceUrl("");
     setDescription("");
+    setExistingPromo(null);
 
     if (stores.length > 0) {
       setStoreId(stores[0].id);
@@ -457,6 +531,45 @@ export default function AddPromoPage() {
                     placeholder="Наприклад: PTAXA20"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
+
+                  {isCheckingDuplicate && (
+                    <p className="mt-2 text-sm text-slate-500">
+                      Перевіряю, чи немає такого коду...
+                    </p>
+                  )}
+
+                  {existingPromo && (
+                    <div className="mt-3 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-4 text-sm text-yellow-100">
+                      <p className="font-black text-yellow-300">
+                        Схожий промокод уже є
+                      </p>
+
+                      <p className="mt-2">
+                        Код:{" "}
+                        <span className="font-black">{existingPromo.code}</span>
+                      </p>
+
+                      <p className="mt-1">
+                        Статус:{" "}
+                        <span className="font-black">
+                          {getStatusLabel(existingPromo.status)}
+                        </span>
+                      </p>
+
+                      <p className="mt-1">
+                        Додано: {formatDate(existingPromo.created_at)}
+                      </p>
+
+                      {existingPromo.status === "active" && (
+                        <Link
+                          href={`/codes/${existingPromo.id}`}
+                          className="mt-3 inline-flex font-black text-yellow-200 underline"
+                        >
+                          Відкрити існуючий код
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -552,7 +665,7 @@ export default function AddPromoPage() {
               <div className="flex flex-wrap gap-3">
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || isCheckingDuplicate}
                   className="flex-1 rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? "Додаю..." : "Додати на модерацію"}
