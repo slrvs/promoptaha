@@ -18,12 +18,44 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
   ),
-  title: "ПромоПтаха",
-  description: "На крилах знижок",
+  title: {
+    default: "ПромоПтаха — на крилах знижок",
+    template: "%s | ПромоПтаха",
+  },
+  description:
+    "Спільна база промокодів, де користувачі додають, перевіряють і знаходять актуальні знижки.",
+  applicationName: "ПромоПтаха",
+  keywords: [
+    "промокоди",
+    "знижки",
+    "купони",
+    "промокод",
+    "магазини",
+    "економія",
+    "ПромоПтаха",
+  ],
+  authors: [{ name: "ПромоПтаха" }],
+  creator: "ПромоПтаха",
+  publisher: "ПромоПтаха",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  manifest: "/manifest.webmanifest",
   openGraph: {
-    title: "ПромоПтаха",
-    description: "На крилах знижок",
+    title: "ПромоПтаха — на крилах знижок",
+    description:
+      "Спільна база промокодів, де користувачі додають і перевіряють знижки.",
     type: "website",
+    locale: "uk_UA",
+    siteName: "ПромоПтаха",
+  },
+  twitter: {
+    card: "summary",
+    title: "ПромоПтаха — на крилах знижок",
+    description:
+      "Спільна база промокодів, де користувачі додають і перевіряють знижки.",
   },
 };
 
