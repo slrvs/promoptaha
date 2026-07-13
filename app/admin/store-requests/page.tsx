@@ -4,22 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient, User } from "@supabase/supabase-js";
 
-type StoreInfo = {
-  name: string;
-  slug: string;
-};
-
-type PromoCode = {
+type StoreRequest = {
   id: string;
-  code: string;
-  discount_value: string | null;
-  expires_at: string | null;
-  status: string;
-  source_type: string | null;
-  source_url: string | null;
+  name: string;
+  website_url: string | null;
   description: string | null;
+  status: string;
+  requested_by: string | null;
   created_at: string;
-  stores: StoreInfo | null;
 };
 
 const ADMIN_EMAIL = "jchameleonl96@gmail.com";
@@ -33,7 +25,7 @@ const supabase = createClient(
 );
 
 function formatDate(date: string | null) {
-  if (!date) return "Без строку";
+  if (!date) return "Без дати";
 
   return new Intl.DateTimeFormat("uk-UA", {
     day: "2-digit",
@@ -43,25 +35,20 @@ function formatDate(date: string | null) {
 }
 
 function statusLabel(status: string) {
-  if (status === "active") return "Активний";
   if (status === "pending") return "На перевірці";
-  if (status === "expired") return "Закінчився";
+  if (status === "approved") return "Схвалено";
   if (status === "rejected") return "Відхилено";
 
   return status;
 }
 
 function statusClass(status: string) {
-  if (status === "active") {
-    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
-  }
-
   if (status === "pending") {
     return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
   }
 
-  if (status === "expired") {
-    return "border-slate-600 bg-slate-800 text-slate-300";
+  if (status === "approved") {
+    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
   }
 
   if (status === "rejected") {
@@ -71,28 +58,16 @@ function statusClass(status: string) {
   return "border-slate-700 bg-slate-900 text-slate-300";
 }
 
-function sourceLabel(source: string | null) {
-  if (source === "youtube") return "YouTube";
-  if (source === "telegram") return "Telegram";
-  if (source === "tiktok") return "TikTok";
-  if (source === "instagram") return "Instagram";
-  if (source === "email") return "Email";
-  if (source === "store_site") return "Сайт магазину";
-  if (source === "other") return "Інше";
-
-  return "Не вказано";
-}
-
-export default function AdminPage() {
+export default function StoreRequestsAdminPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [requests, setRequests] = useState<StoreRequest[]>([]);
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
 
   const isAdmin = user?.email === ADMIN_EMAIL;
 
-  async function loadAdminPage() {
+  async function loadPage() {
     setIsLoading(true);
     setMessage("");
 
@@ -102,52 +77,46 @@ export default function AdminPage() {
     setUser(currentUser);
 
     if (!currentUser) {
-      setPromoCodes([]);
+      setRequests([]);
       setIsLoading(false);
       return;
     }
 
     if (currentUser.email !== ADMIN_EMAIL) {
-      setPromoCodes([]);
+      setRequests([]);
       setIsLoading(false);
       return;
     }
 
     const { data, error } = await supabase
-      .from("promo_codes")
+      .from("store_requests")
       .select(`
         id,
-        code,
-        discount_value,
-        expires_at,
-        status,
-        source_type,
-        source_url,
+        name,
+        website_url,
         description,
-        created_at,
-        stores (
-          name,
-          slug
-        )
+        status,
+        requested_by,
+        created_at
       `)
       .order("created_at", { ascending: false });
 
     if (error) {
       setMessage(`Помилка завантаження: ${error.message}`);
-      setPromoCodes([]);
+      setRequests([]);
       setIsLoading(false);
       return;
     }
 
-    setPromoCodes((data as PromoCode[]) || []);
+    setRequests((data as StoreRequest[]) || []);
     setIsLoading(false);
   }
 
   useEffect(() => {
-    loadAdminPage();
+    loadPage();
 
     const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      loadAdminPage();
+      loadPage();
     });
 
     return () => {
@@ -155,11 +124,11 @@ export default function AdminPage() {
     };
   }, []);
 
-  async function updatePromoStatus(id: string, status: string) {
+  async function updateRequestStatus(id: string, status: string) {
     setMessage("");
 
     const { error } = await supabase
-      .from("promo_codes")
+      .from("store_requests")
       .update({ status })
       .eq("id", id);
 
@@ -168,57 +137,48 @@ export default function AdminPage() {
       return;
     }
 
-    setPromoCodes((current) =>
-      current.map((promo) =>
-        promo.id === id ? { ...promo, status } : promo
+    setRequests((current) =>
+      current.map((request) =>
+        request.id === id ? { ...request, status } : request
       )
     );
 
-    if (status === "active") {
-      setMessage("Промокод схвалено");
+    if (status === "approved") {
+      setMessage("Заявку магазину схвалено");
     } else if (status === "rejected") {
-      setMessage("Промокод відхилено");
-    } else if (status === "expired") {
-      setMessage("Промокод позначено як закінчений");
-    } else if (status === "pending") {
-      setMessage("Промокод повернуто на перевірку");
+      setMessage("Заявку магазину відхилено");
     } else {
-      setMessage("Статус оновлено");
+      setMessage("Заявку повернуто на перевірку");
     }
   }
 
   const filters = [
     {
-      value: "all",
-      label: "Усі",
-      count: promoCodes.length,
-    },
-    {
       value: "pending",
       label: "На перевірці",
-      count: promoCodes.filter((promo) => promo.status === "pending").length,
+      count: requests.filter((request) => request.status === "pending").length,
     },
     {
-      value: "active",
-      label: "Активні",
-      count: promoCodes.filter((promo) => promo.status === "active").length,
+      value: "approved",
+      label: "Схвалені",
+      count: requests.filter((request) => request.status === "approved").length,
     },
     {
       value: "rejected",
       label: "Відхилені",
-      count: promoCodes.filter((promo) => promo.status === "rejected").length,
+      count: requests.filter((request) => request.status === "rejected").length,
     },
     {
-      value: "expired",
-      label: "Закінчились",
-      count: promoCodes.filter((promo) => promo.status === "expired").length,
+      value: "all",
+      label: "Усі",
+      count: requests.length,
     },
   ];
 
-  const filteredPromoCodes =
+  const filteredRequests =
     statusFilter === "all"
-      ? promoCodes
-      : promoCodes.filter((promo) => promo.status === statusFilter);
+      ? requests
+      : requests.filter((request) => request.status === statusFilter);
 
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
@@ -231,20 +191,21 @@ export default function AdminPage() {
               </p>
 
               <h1 className="text-4xl font-black tracking-tight">
-                Модерація промокодів
+                Запити магазинів
               </h1>
 
               <p className="mt-3 text-slate-400">
-                Тут можна схвалювати, відхиляти або закривати промокоди.
+                Тут можна переглядати магазини, які користувачі пропонують
+                додати на ПромоПтаху.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/profile"
+                href="/admin"
                 className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
               >
-                Профіль
+                Промокоди
               </Link>
 
               <Link
@@ -255,12 +216,7 @@ export default function AdminPage() {
               </Link>
             </div>
           </div>
-<Link
-  href="/admin/store-requests"
-  className="rounded-full border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
->
-  Запити магазинів
-</Link>
+
           {isLoading ? (
             <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-4 text-slate-400">
               Завантаження...
@@ -268,7 +224,7 @@ export default function AdminPage() {
           ) : !user ? (
             <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-950 p-5">
               <p className="text-slate-300">
-                Щоб відкрити адмінку, потрібно увійти.
+                Щоб відкрити цю сторінку, потрібно увійти.
               </p>
 
               <Link
@@ -280,7 +236,7 @@ export default function AdminPage() {
             </div>
           ) : !isAdmin ? (
             <div className="mt-6 rounded-3xl border border-red-400/30 bg-red-400/10 p-5 text-red-300">
-              У тебе немає доступу до адмінки. Поточний акаунт:{" "}
+              У тебе немає доступу. Поточний акаунт:{" "}
               <span className="font-bold">{user.email}</span>
             </div>
           ) : (
@@ -291,7 +247,7 @@ export default function AdminPage() {
                 </p>
 
                 <button
-                  onClick={loadAdminPage}
+                  onClick={loadPage}
                   className="rounded-full border border-emerald-400/30 px-4 py-2 font-bold transition hover:bg-emerald-400 hover:text-slate-950"
                 >
                   Оновити список
@@ -321,93 +277,86 @@ export default function AdminPage() {
                 ))}
               </div>
 
-              {filteredPromoCodes.length === 0 ? (
+              {filteredRequests.length === 0 ? (
                 <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-950 p-6 text-slate-400">
-                  {promoCodes.length === 0
-                    ? "Промокодів не завантажено. Якщо в профілі вони є — перевір RLS-політики Supabase для адміна."
-                    : "У цьому фільтрі промокодів немає."}
+                  {requests.length === 0
+                    ? "Запитів магазинів поки немає."
+                    : "У цьому фільтрі заявок немає."}
                 </div>
               ) : (
                 <div className="mt-6 grid gap-4">
-                  {filteredPromoCodes.map((promo) => (
+                  {filteredRequests.map((request) => (
                     <article
-                      key={promo.id}
+                      key={request.id}
                       className="rounded-3xl border border-slate-800 bg-slate-950 p-5"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
                           <p className="text-sm text-slate-500">
-                            {promo.stores?.name || "Магазин не вказано"}
+                            Назва магазину
                           </p>
 
-                          <p className="mt-1 text-2xl font-black tracking-tight text-emerald-300">
-                            {promo.code}
-                          </p>
+                          <h2 className="mt-1 text-2xl font-black tracking-tight text-emerald-300">
+                            {request.name}
+                          </h2>
 
                           <p className="mt-2 text-sm text-slate-500">
-                            ID: {promo.id}
+                            ID: {request.id}
                           </p>
                         </div>
 
                         <span
                           className={`rounded-full border px-3 py-1 text-xs font-bold ${statusClass(
-                            promo.status
+                            request.status
                           )}`}
                         >
-                          {statusLabel(promo.status)}
+                          {statusLabel(request.status)}
                         </span>
                       </div>
 
-                      <div className="mt-4 grid gap-3 text-sm text-slate-400 sm:grid-cols-4">
+                      <div className="mt-4 grid gap-3 text-sm text-slate-400 sm:grid-cols-3">
                         <div>
-                          <p className="text-slate-600">Знижка</p>
-                          <p className="text-slate-300">
-                            {promo.discount_value || "Не вказано"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-slate-600">Діє до</p>
-                          <p className="text-slate-300">
-                            {formatDate(promo.expires_at)}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-slate-600">Джерело</p>
-                          <p className="text-slate-300">
-                            {sourceLabel(promo.source_type)}
-                          </p>
+                          <p className="text-slate-600">Сайт</p>
+                          {request.website_url ? (
+                            <a
+                              href={request.website_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-bold text-emerald-300 hover:text-emerald-200"
+                            >
+                              Відкрити →
+                            </a>
+                          ) : (
+                            <p className="text-slate-300">Не вказано</p>
+                          )}
                         </div>
 
                         <div>
                           <p className="text-slate-600">Додано</p>
                           <p className="text-slate-300">
-                            {formatDate(promo.created_at)}
+                            {formatDate(request.created_at)}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-slate-600">Автор заявки</p>
+                          <p className="text-slate-300">
+                            {request.requested_by || "Невідомо"}
                           </p>
                         </div>
                       </div>
 
-                      {promo.description && (
+                      {request.description && (
                         <p className="mt-4 text-sm text-slate-400">
-                          {promo.description}
+                          {request.description}
                         </p>
-                      )}
-
-                      {promo.source_url && (
-                        <a
-                          href={promo.source_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-4 inline-flex text-sm font-bold text-emerald-300 hover:text-emerald-200"
-                        >
-                          Відкрити джерело →
-                        </a>
                       )}
 
                       <div className="mt-5 flex flex-wrap gap-3">
                         <button
-                          onClick={() => updatePromoStatus(promo.id, "active")}
+                          onClick={() =>
+                            updateRequestStatus(request.id, "approved")
+                          }
                           className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-300"
                         >
                           Схвалити
@@ -415,7 +364,7 @@ export default function AdminPage() {
 
                         <button
                           onClick={() =>
-                            updatePromoStatus(promo.id, "rejected")
+                            updateRequestStatus(request.id, "rejected")
                           }
                           className="rounded-2xl border border-red-400/30 bg-red-400/10 px-5 py-3 font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950"
                         >
@@ -423,14 +372,9 @@ export default function AdminPage() {
                         </button>
 
                         <button
-                          onClick={() => updatePromoStatus(promo.id, "expired")}
-                          className="rounded-2xl border border-slate-700 bg-slate-900 px-5 py-3 font-black text-slate-300 transition hover:border-slate-500 hover:text-white"
-                        >
-                          Закінчився
-                        </button>
-
-                        <button
-                          onClick={() => updatePromoStatus(promo.id, "pending")}
+                          onClick={() =>
+                            updateRequestStatus(request.id, "pending")
+                          }
                           className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-5 py-3 font-black text-yellow-300 transition hover:bg-yellow-400 hover:text-slate-950"
                         >
                           На перевірку
