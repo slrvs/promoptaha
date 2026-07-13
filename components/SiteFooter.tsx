@@ -63,6 +63,10 @@ export default function SiteFooter() {
               Правила користування
             </Link>
 
+            <Link href="/privacy" className="hover:text-red-300">
+              Політика конфіденційності
+            </Link>
+
             <Link href="/login" className="hover:text-red-300">
               Увійти
             </Link>
