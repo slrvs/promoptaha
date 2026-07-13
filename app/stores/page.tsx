@@ -15,6 +15,24 @@ type Store = {
   created_at?: string | null;
 };
 
+type PromoStat = {
+  id: string;
+  store_id?: string | null;
+  store_slug?: string | null;
+  expires_at?: string | null;
+  works_count?: number | null;
+  not_works_count?: number | null;
+};
+
+type StoreStats = {
+  totalCodes: number;
+  activeCodes: number;
+  expiredCodes: number;
+  verifiedCodes: number;
+};
+
+type StoreFilter = "all" | "with-codes" | "without-codes";
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -33,7 +51,36 @@ function getHostName(url: string | null | undefined) {
   }
 }
 
-function StoreCard({ store }: { store: Store }) {
+function isExpired(date: string | null | undefined) {
+  if (!date) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const expires = new Date(date);
+  expires.setHours(0, 0, 0, 0);
+
+  return expires < today;
+}
+
+function emptyStats(): StoreStats {
+  return {
+    totalCodes: 0,
+    activeCodes: 0,
+    expiredCodes: 0,
+    verifiedCodes: 0,
+  };
+}
+
+function StoreCard({
+  store,
+  stats,
+}: {
+  store: Store;
+  stats: StoreStats;
+}) {
+  const hasCodes = stats.totalCodes > 0;
+
   return (
     <article className="group rounded-[2rem] border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:shadow-emerald-950/20">
       <div className="flex items-start gap-4">
@@ -48,9 +95,21 @@ function StoreCard({ store }: { store: Store }) {
         </div>
 
         <div className="min-w-0">
-          <h2 className="break-words text-2xl font-black text-white">
-            {store.name}
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="break-words text-2xl font-black text-white">
+              {store.name}
+            </h2>
+
+            {hasCodes ? (
+              <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
+                Є коди
+              </span>
+            ) : (
+              <span className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-black text-slate-400">
+                Поки без кодів
+              </span>
+            )}
+          </div>
 
           <p className="mt-1 text-sm font-bold text-slate-500">
             /stores/{store.slug}
@@ -62,6 +121,29 @@ function StoreCard({ store }: { store: Store }) {
         {store.description ||
           "Магазин у базі ПромоПтахи. Тут можуть з’являтися промокоди, знижки та перевірені користувачами коди."}
       </p>
+
+      <div className="mt-5 grid grid-cols-3 gap-3">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
+          <p className="text-2xl font-black text-emerald-300">
+            {stats.totalCodes}
+          </p>
+          <p className="mt-1 text-xs font-bold text-slate-500">кодів</p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
+          <p className="text-2xl font-black text-yellow-300">
+            {stats.activeCodes}
+          </p>
+          <p className="mt-1 text-xs font-bold text-slate-500">дійсних</p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-center">
+          <p className="text-2xl font-black text-slate-200">
+            {stats.verifiedCodes}
+          </p>
+          <p className="mt-1 text-xs font-bold text-slate-500">перевіряли</p>
+        </div>
+      </div>
 
       {store.website_url && (
         <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-4">
@@ -99,12 +181,17 @@ function StoreCard({ store }: { store: Store }) {
 
 export default function StoresPage() {
   const [stores, setStores] = useState<Store[]>([]);
+  const [promoStats, setPromoStats] = useState<PromoStat[]>([]);
+
   const [search, setSearch] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [filter, setFilter] = useState<StoreFilter>("all");
+
+  const [isLoadingStores, setIsLoadingStores] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
   async function loadStores() {
-    setIsLoading(true);
+    setIsLoadingStores(true);
     setErrorMessage("");
 
     const { data, error } = await supabase
@@ -116,34 +203,99 @@ export default function StoresPage() {
     if (error) {
       setStores([]);
       setErrorMessage(error.message);
-      setIsLoading(false);
+      setIsLoadingStores(false);
       return;
     }
 
     setStores((data || []) as Store[]);
-    setIsLoading(false);
+    setIsLoadingStores(false);
+  }
+
+  async function loadPromoStats() {
+    setIsLoadingStats(true);
+
+    const { data, error } = await supabase
+      .from("promo_code_stats")
+      .select("id, store_id, store_slug, expires_at, works_count, not_works_count");
+
+    if (error) {
+      setPromoStats([]);
+      setIsLoadingStats(false);
+      return;
+    }
+
+    setPromoStats((data || []) as PromoStat[]);
+    setIsLoadingStats(false);
   }
 
   useEffect(() => {
     loadStores();
+    loadPromoStats();
   }, []);
+
+  const statsByStoreId = useMemo(() => {
+    const result: Record<string, StoreStats> = {};
+
+    for (const promo of promoStats) {
+      if (!promo.store_id) continue;
+
+      if (!result[promo.store_id]) {
+        result[promo.store_id] = emptyStats();
+      }
+
+      result[promo.store_id].totalCodes += 1;
+
+      if (isExpired(promo.expires_at)) {
+        result[promo.store_id].expiredCodes += 1;
+      } else {
+        result[promo.store_id].activeCodes += 1;
+      }
+
+      if ((promo.works_count || 0) + (promo.not_works_count || 0) > 0) {
+        result[promo.store_id].verifiedCodes += 1;
+      }
+    }
+
+    return result;
+  }, [promoStats]);
 
   const filteredStores = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
 
-    if (!normalizedSearch) {
-      return stores;
-    }
-
     return stores.filter((store) => {
-      return (
+      const stats = statsByStoreId[store.id] || emptyStats();
+
+      const matchesSearch =
+        !normalizedSearch ||
         store.name.toLowerCase().includes(normalizedSearch) ||
         store.slug.toLowerCase().includes(normalizedSearch) ||
         (store.description || "").toLowerCase().includes(normalizedSearch) ||
-        (store.website_url || "").toLowerCase().includes(normalizedSearch)
-      );
+        (store.website_url || "").toLowerCase().includes(normalizedSearch);
+
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "with-codes" && stats.totalCodes > 0) ||
+        (filter === "without-codes" && stats.totalCodes === 0);
+
+      return matchesSearch && matchesFilter;
     });
-  }, [stores, search]);
+  }, [stores, statsByStoreId, search, filter]);
+
+  const storesWithCodesCount = stores.filter(
+    (store) => (statsByStoreId[store.id]?.totalCodes || 0) > 0
+  ).length;
+
+  const storesWithoutCodesCount = stores.filter(
+    (store) => (statsByStoreId[store.id]?.totalCodes || 0) === 0
+  ).length;
+
+  const totalCodesCount = promoStats.length;
+
+  const activeCodesCount = promoStats.filter(
+    (promo) => !isExpired(promo.expires_at)
+  ).length;
+
+  const isLoading = isLoadingStores || isLoadingStats;
 
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
@@ -160,8 +312,8 @@ export default function StoresPage() {
               </h1>
 
               <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400 md:text-xl">
-                Обирай магазин і дивись доступні промокоди. Якщо потрібного
-                магазину ще немає — запропонуй його на модерацію.
+                Обирай магазин і дивись доступні промокоди. Тепер біля кожного
+                магазину видно, скільки там кодів і скільки з них ще дійсні.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
@@ -180,29 +332,40 @@ export default function StoresPage() {
                 </Link>
               </div>
 
-              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              <div className="mt-10 grid gap-4 sm:grid-cols-4">
                 <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
                   <p className="text-3xl font-black text-emerald-300">
                     {stores.length}
                   </p>
                   <p className="mt-2 text-sm font-bold text-slate-500">
-                    активних магазинів
+                    магазинів
                   </p>
                 </div>
 
                 <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
                   <p className="text-3xl font-black text-yellow-300">
-                    {filteredStores.length}
+                    {storesWithCodesCount}
                   </p>
                   <p className="mt-2 text-sm font-bold text-slate-500">
-                    знайдено
+                    з кодами
                   </p>
                 </div>
 
                 <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="text-3xl font-black text-slate-200">🐦</p>
+                  <p className="text-3xl font-black text-slate-200">
+                    {totalCodesCount}
+                  </p>
                   <p className="mt-2 text-sm font-bold text-slate-500">
-                    ПромоПтаха
+                    кодів
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
+                  <p className="text-3xl font-black text-emerald-300">
+                    {activeCodesCount}
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    дійсних
                   </p>
                 </div>
               </div>
@@ -267,8 +430,46 @@ export default function StoresPage() {
             className="mt-6 w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
           />
 
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setFilter("all")}
+              className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+                filter === "all"
+                  ? "bg-emerald-400 text-slate-950"
+                  : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+              }`}
+            >
+              Усі {stores.length}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter("with-codes")}
+              className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+                filter === "with-codes"
+                  ? "bg-emerald-400 text-slate-950"
+                  : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+              }`}
+            >
+              З кодами {storesWithCodesCount}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setFilter("without-codes")}
+              className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+                filter === "without-codes"
+                  ? "bg-emerald-400 text-slate-950"
+                  : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+              }`}
+            >
+              Без кодів {storesWithoutCodesCount}
+            </button>
+          </div>
+
           {errorMessage && (
-            <div className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-emerald-300">
+            <div className="mt-6 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-red-300">
               Помилка завантаження: {errorMessage}
             </div>
           )}
@@ -278,7 +479,7 @@ export default function StoresPage() {
               {Array.from({ length: 6 }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-80 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-950"
+                  className="h-96 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-950"
                 />
               ))}
             </div>
@@ -305,7 +506,11 @@ export default function StoresPage() {
           ) : (
             <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {filteredStores.map((store) => (
-                <StoreCard key={store.id} store={store} />
+                <StoreCard
+                  key={store.id}
+                  store={store}
+                  stats={statsByStoreId[store.id] || emptyStats()}
+                />
               ))}
             </div>
           )}
