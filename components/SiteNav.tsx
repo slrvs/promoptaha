@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient, User } from "@supabase/supabase-js";
@@ -23,27 +24,40 @@ function navLinkClass(pathname: string, href: string) {
 
   return `rounded-full px-4 py-2 text-sm font-bold transition ${
     isActive
-      ? "bg-emerald-400 text-slate-950"
-      : "text-slate-300 hover:bg-slate-800 hover:text-emerald-300"
+      ? "bg-red-500 text-white"
+      : "text-slate-300 hover:bg-slate-800 hover:text-red-300"
   }`;
+}
+
+function Logo() {
+  return (
+    <Link href="/" className="group flex items-center gap-3">
+      <div className="relative h-11 w-11 overflow-hidden rounded-2xl border border-red-400/30 bg-slate-900 shadow-lg shadow-red-950/30">
+        <Image
+          src="/icons/promoptaha-red-bird.png"
+          alt="ПромоПтаха"
+          fill
+          sizes="44px"
+          className="object-cover transition group-hover:scale-110"
+          priority
+        />
+      </div>
+
+      <div>
+        <p className="text-lg font-black leading-none text-white">
+          ПромоПтаха
+        </p>
+        <p className="mt-1 text-xs text-slate-500">На крилах знижок</p>
+      </div>
+    </Link>
+  );
 }
 
 function SiteNavFallback() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950 px-5 py-4 text-white">
       <nav className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
-        <Link href="/" className="group flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400 text-xl font-black text-slate-950">
-            П
-          </div>
-
-          <div>
-            <p className="text-lg font-black leading-none text-white">
-              ПромоПтаха
-            </p>
-            <p className="mt-1 text-xs text-slate-500">На крилах знижок</p>
-          </div>
-        </Link>
+        <Logo />
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-full px-4 py-2 text-sm font-bold text-slate-500">
@@ -99,18 +113,7 @@ function SiteNavContent() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950 px-5 py-4 text-white">
       <nav className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
-        <Link href="/" className="group flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-400 text-xl font-black text-slate-950 transition group-hover:bg-emerald-300">
-            П
-          </div>
-
-          <div>
-            <p className="text-lg font-black leading-none text-white">
-              ПромоПтаха
-            </p>
-            <p className="mt-1 text-xs text-slate-500">На крилах знижок</p>
-          </div>
-        </Link>
+        <Logo />
 
         <div className="flex flex-wrap items-center gap-2">
           <Link href="/" className={navLinkClass(pathname, "/")}>

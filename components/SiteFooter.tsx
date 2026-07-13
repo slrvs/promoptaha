@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export default function SiteFooter() {
@@ -6,8 +7,14 @@ export default function SiteFooter() {
       <section className="mx-auto grid w-full max-w-7xl gap-8 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400 text-xl font-black text-slate-950">
-              П
+            <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-red-400/30 bg-slate-900 shadow-lg shadow-red-950/30">
+              <Image
+                src="/icons/promoptaha-red-bird.png"
+                alt="ПромоПтаха"
+                fill
+                sizes="48px"
+                className="object-cover"
+              />
             </div>
 
             <div>
@@ -26,19 +33,19 @@ export default function SiteFooter() {
           <h3 className="font-black text-slate-200">Навігація</h3>
 
           <div className="mt-4 flex flex-col gap-3 text-sm text-slate-400">
-            <Link href="/codes" className="hover:text-emerald-300">
+            <Link href="/codes" className="hover:text-red-300">
               Промокоди
             </Link>
 
-            <Link href="/stores" className="hover:text-emerald-300">
+            <Link href="/stores" className="hover:text-red-300">
               Магазини
             </Link>
 
-            <Link href="/add" className="hover:text-emerald-300">
+            <Link href="/add" className="hover:text-red-300">
               Додати промокод
             </Link>
 
-            <Link href="/request-store" className="hover:text-emerald-300">
+            <Link href="/request-store" className="hover:text-red-300">
               Запропонувати магазин
             </Link>
           </div>
@@ -48,19 +55,19 @@ export default function SiteFooter() {
           <h3 className="font-black text-slate-200">Про проєкт</h3>
 
           <div className="mt-4 flex flex-col gap-3 text-sm text-slate-400">
-            <Link href="/about" className="hover:text-emerald-300">
+            <Link href="/about" className="hover:text-red-300">
               Про сайт
             </Link>
 
-            <Link href="/rules" className="hover:text-emerald-300">
+            <Link href="/rules" className="hover:text-red-300">
               Правила користування
             </Link>
 
-            <Link href="/login" className="hover:text-emerald-300">
+            <Link href="/login" className="hover:text-red-300">
               Увійти
             </Link>
 
-            <Link href="/profile" className="hover:text-emerald-300">
+            <Link href="/profile" className="hover:text-red-300">
               Профіль
             </Link>
           </div>
