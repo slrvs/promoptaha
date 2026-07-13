@@ -16,67 +16,118 @@ const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
-function navLinkClass(pathname: string, href: string) {
-  const isActive =
-    href === "/"
-      ? pathname === "/"
-      : pathname === href || pathname.startsWith(`${href}/`);
+type NavLink = {
+  href: string;
+  label: string;
+};
 
-  return `rounded-full px-4 py-2 text-sm font-bold transition ${
-    isActive
-      ? "bg-emerald-400 text-white"
-      : "text-slate-300 hover:bg-slate-800 hover:text-emerald-300"
-  }`;
+const mainLinks: NavLink[] = [
+  {
+    href: "/",
+    label: "Головна",
+  },
+  {
+    href: "/codes",
+    label: "Промокоди",
+  },
+  {
+    href: "/stores",
+    label: "Магазини",
+  },
+  {
+    href: "/add",
+    label: "Додати код",
+  },
+];
+
+const adminLinks: NavLink[] = [
+  {
+    href: "/admin",
+    label: "Модерація",
+  },
+  {
+    href: "/admin/stores",
+    label: "Магазини",
+  },
+  {
+    href: "/admin/store-requests",
+    label: "Заявки",
+  },
+  {
+    href: "/admin/reports",
+    label: "Репорти",
+  },
+];
+
+function isActivePath(pathname: string, href: string) {
+  if (href === "/") {
+    return pathname === "/";
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function mobileNavLinkClass(pathname: string, href: string) {
-  const isActive =
-    href === "/"
-      ? pathname === "/"
-      : pathname === href || pathname.startsWith(`${href}/`);
+function NavItem({
+  href,
+  label,
+  pathname,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  pathname: string;
+  onClick?: () => void;
+}) {
+  const isActive = isActivePath(pathname, href);
 
-  return `block rounded-2xl px-4 py-3 text-base font-bold transition ${
-    isActive
-      ? "bg-emerald-400 text-white"
-      : "text-slate-300 hover:bg-slate-800 hover:text-emerald-300"
-  }`;
-}
-
-function Logo() {
   return (
-    <Link href="/" className="group flex items-center gap-3">
-      <div className="relative h-11 w-11 overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 shadow-lg shadow-emerald-950/30">
-        <Image
-          src="/icons/promoptaha-bird.png"
-          alt="ПромоПтаха"
-          fill
-          sizes="44px"
-          className="object-cover transition group-hover:scale-110"
-          priority
-        />
-      </div>
-
-      <div>
-        <p className="text-lg font-black leading-none text-white">
-          ПромоПтаха
-        </p>
-        <p className="mt-1 text-xs text-slate-500">На крилах знижок</p>
-      </div>
+    <Link
+      href={href}
+      onClick={onClick}
+      className={`rounded-full px-4 py-2 text-sm font-black transition ${
+        isActive
+          ? "bg-emerald-400 text-slate-950"
+          : "text-slate-300 hover:bg-slate-800 hover:text-emerald-300"
+      }`}
+    >
+      {label}
     </Link>
   );
 }
 
-function SiteNavFallback() {
-  return (
-    <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950 px-5 py-4 text-white">
-      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4">
-        <Logo />
+function MobileNavItem({
+  href,
+  label,
+  pathname,
+  onClick,
+}: {
+  href: string;
+  label: string;
+  pathname: string;
+  onClick: () => void;
+}) {
+  const isActive = isActivePath(pathname, href);
 
-        <span className="rounded-full px-4 py-2 text-sm font-bold text-slate-500">
-          Завантаження...
-        </span>
-      </nav>
-    </header>
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={`rounded-2xl px-4 py-4 text-base font-black transition ${
+        isActive
+          ? "bg-emerald-400 text-slate-950"
+          : "border border-slate-800 bg-slate-950 text-slate-200 hover:border-emerald-400 hover:text-emerald-300"
+      }`}
+    >
+      {label}
+    </Link>
+  );
+}
+
+export default function SiteNav() {
+  return (
+    <Suspense fallback={null}>
+      <SiteNavContent />
+    </Suspense>
   );
 }
 
@@ -89,18 +140,20 @@ function SiteNavContent() {
 
   const isAdmin = user?.email === ADMIN_EMAIL;
 
+  async function loadUser() {
+    const { data } = await supabase.auth.getUser();
+
+    setUser(data.user);
+    setIsLoadingUser(false);
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setIsMobileMenuOpen(false);
+  }
+
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadUser() {
-      const { data } = await supabase.auth.getUser();
-
-      if (isMounted) {
-        setUser(data.user);
-        setIsLoadingUser(false);
-      }
-    }
-
     loadUser();
 
     const {
@@ -111,7 +164,6 @@ function SiteNavContent() {
     });
 
     return () => {
-      isMounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -120,215 +172,170 @@ function SiteNavContent() {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    setUser(null);
-    setIsMobileMenuOpen(false);
-    window.location.href = "/";
-  }
-
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/95 px-5 py-4 text-white backdrop-blur">
-      <nav className="mx-auto w-full max-w-7xl">
-        <div className="flex items-center justify-between gap-4">
-          <Logo />
+    <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 px-5 py-4 text-white backdrop-blur-xl">
+      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4">
+        <Link href="/" className="group flex items-center gap-3">
+          <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 shadow-lg shadow-emerald-950/30">
+            <Image
+              src="/icons/promoptaha-bird.png"
+              alt="ПромоПтаха"
+              fill
+              sizes="48px"
+              className="object-cover transition group-hover:scale-110"
+              priority
+            />
+          </div>
 
-          <div className="hidden flex-wrap items-center gap-2 lg:flex">
-            <Link href="/" className={navLinkClass(pathname, "/")}>
-              Головна
-            </Link>
+          <div>
+            <p className="text-xl font-black leading-5 text-white">
+              ПромоПтаха
+            </p>
+            <p className="text-xs font-bold text-emerald-300">
+              На крилах знижок
+            </p>
+          </div>
+        </Link>
 
-            <Link href="/codes" className={navLinkClass(pathname, "/codes")}>
-              Коди
-            </Link>
+        <div className="hidden items-center gap-1 lg:flex">
+          {mainLinks.map((link) => (
+            <NavItem
+              key={link.href}
+              href={link.href}
+              label={link.label}
+              pathname={pathname}
+            />
+          ))}
 
-            <Link href="/stores" className={navLinkClass(pathname, "/stores")}>
-              Магазини
-            </Link>
+          {user && (
+            <NavItem href="/profile" label="Профіль" pathname={pathname} />
+          )}
 
-            <Link href="/add" className={navLinkClass(pathname, "/add")}>
-              Додати
-            </Link>
+          {isAdmin && (
+            <div className="ml-2 flex items-center gap-1 rounded-full border border-slate-800 bg-slate-900 p-1">
+              {adminLinks.map((link) => (
+                <NavItem
+                  key={link.href}
+                  href={link.href}
+                  label={link.label}
+                  pathname={pathname}
+                />
+              ))}
+            </div>
+          )}
+        </div>
 
-            <Link
-              href="/request-store"
-              className={navLinkClass(pathname, "/request-store")}
-            >
-              Запропонувати магазин
-            </Link>
+        <div className="hidden items-center gap-3 lg:flex">
+          {isLoadingUser ? (
+            <div className="h-10 w-28 animate-pulse rounded-full bg-slate-800" />
+          ) : user ? (
+            <>
+              <span className="max-w-44 truncate text-sm font-bold text-slate-500">
+                {user.email}
+              </span>
 
-            {!isLoadingUser && user && (
-              <Link
-                href="/profile"
-                className={navLinkClass(pathname, "/profile")}
-              >
-                Профіль
-              </Link>
-            )}
-
-            {!isLoadingUser && isAdmin && (
-              <>
-                <Link
-                  href="/admin"
-                  className={navLinkClass(pathname, "/admin")}
-                >
-                  Адмінка
-                </Link>
-
-                <Link
-                  href="/admin/reports"
-                  className={navLinkClass(pathname, "/admin/reports")}
-                >
-                  Репорти
-                </Link>
-
-                <Link
-                  href="/admin/store-requests"
-                  className={navLinkClass(pathname, "/admin/store-requests")}
-                >
-                  Заявки магазинів
-                </Link>
-              </>
-            )}
-
-            {!isLoadingUser && !user && (
-              <Link href="/login" className={navLinkClass(pathname, "/login")}>
-                Увійти
-              </Link>
-            )}
-
-            {!isLoadingUser && user && (
               <button
                 type="button"
-                onClick={handleSignOut}
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 transition hover:border-emerald-400 hover:bg-emerald-400/10 hover:text-emerald-300"
+                onClick={signOut}
+                className="rounded-full border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 transition hover:border-red-400 hover:text-red-300"
               >
                 Вийти
               </button>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen((value) => !value)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-xl font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 lg:hidden"
-            aria-label="Відкрити меню"
-            aria-expanded={isMobileMenuOpen}
-          >
-            {isMobileMenuOpen ? "×" : "☰"}
-          </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+            >
+              Увійти
+            </Link>
+          )}
         </div>
 
-        {isMobileMenuOpen && (
-          <div className="mt-4 rounded-[1.75rem] border border-slate-800 bg-slate-900 p-3 shadow-2xl shadow-emerald-950/20 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setIsMobileMenuOpen((current) => !current)}
+          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-2xl font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 lg:hidden"
+          aria-label="Відкрити меню"
+        >
+          {isMobileMenuOpen ? "×" : "☰"}
+        </button>
+      </nav>
+
+      {isMobileMenuOpen && (
+        <div className="mx-auto mt-4 w-full max-w-7xl lg:hidden">
+          <div className="rounded-[2rem] border border-slate-800 bg-slate-900 p-4 shadow-2xl shadow-black/30">
             <div className="grid gap-2">
-              <Link href="/" className={mobileNavLinkClass(pathname, "/")}>
-                Головна
-              </Link>
+              {mainLinks.map((link) => (
+                <MobileNavItem
+                  key={link.href}
+                  href={link.href}
+                  label={link.label}
+                  pathname={pathname}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                />
+              ))}
 
-              <Link
-                href="/codes"
-                className={mobileNavLinkClass(pathname, "/codes")}
-              >
-                Коди
-              </Link>
-
-              <Link
-                href="/stores"
-                className={mobileNavLinkClass(pathname, "/stores")}
-              >
-                Магазини
-              </Link>
-
-              <Link
-                href="/add"
-                className={mobileNavLinkClass(pathname, "/add")}
-              >
-                Додати промокод
-              </Link>
-
-              <Link
-                href="/request-store"
-                className={mobileNavLinkClass(pathname, "/request-store")}
-              >
-                Запропонувати магазин
-              </Link>
-
-              {!isLoadingUser && user && (
-                <Link
+              {user && (
+                <MobileNavItem
                   href="/profile"
-                  className={mobileNavLinkClass(pathname, "/profile")}
-                >
-                  Профіль
-                </Link>
+                  label="Профіль"
+                  pathname={pathname}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                />
               )}
+            </div>
 
-              {!isLoadingUser && isAdmin && (
-                <>
-                  <div className="my-2 border-t border-slate-800" />
+            {isAdmin && (
+              <div className="mt-4 rounded-[1.5rem] border border-emerald-400/20 bg-emerald-400/5 p-3">
+                <p className="mb-3 px-2 text-sm font-black text-emerald-300">
+                  Адмін-меню
+                </p>
 
-                  <p className="px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-300">
-                    Адмін
+                <div className="grid gap-2">
+                  {adminLinks.map((link) => (
+                    <MobileNavItem
+                      key={link.href}
+                      href={link.href}
+                      label={link.label}
+                      pathname={pathname}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4 border-t border-slate-800 pt-4">
+              {isLoadingUser ? (
+                <div className="h-12 animate-pulse rounded-2xl bg-slate-800" />
+              ) : user ? (
+                <div className="grid gap-3">
+                  <p className="break-all rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm font-bold text-slate-500">
+                    {user.email}
                   </p>
 
-                  <Link
-                    href="/admin"
-                    className={mobileNavLinkClass(pathname, "/admin")}
+                  <button
+                    type="button"
+                    onClick={signOut}
+                    className="rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-4 font-black text-red-300 transition hover:bg-red-400/20"
                   >
-                    Адмінка
-                  </Link>
-
-                  <Link
-                    href="/admin/reports"
-                    className={mobileNavLinkClass(pathname, "/admin/reports")}
-                  >
-                    Репорти
-                  </Link>
-
-                  <Link
-                    href="/admin/store-requests"
-                    className={mobileNavLinkClass(
-                      pathname,
-                      "/admin/store-requests"
-                    )}
-                  >
-                    Заявки магазинів
-                  </Link>
-                </>
-              )}
-
-              <div className="my-2 border-t border-slate-800" />
-
-              {!isLoadingUser && !user && (
+                    Вийти
+                  </button>
+                </div>
+              ) : (
                 <Link
                   href="/login"
-                  className={mobileNavLinkClass(pathname, "/login")}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex rounded-2xl bg-emerald-400 px-4 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
                 >
                   Увійти
                 </Link>
               )}
-
-              {!isLoadingUser && user && (
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="rounded-2xl border border-slate-700 px-4 py-3 text-left text-base font-bold text-slate-300 transition hover:border-emerald-400 hover:bg-emerald-400/10 hover:text-emerald-300"
-                >
-                  Вийти
-                </button>
-              )}
             </div>
           </div>
-        )}
-      </nav>
+        </div>
+      )}
     </header>
-  );
-}
-
-export default function SiteNav() {
-  return (
-    <Suspense fallback={<SiteNavFallback />}>
-      <SiteNavContent />
-    </Suspense>
   );
 }
