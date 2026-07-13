@@ -199,21 +199,45 @@ export default function AddPromoCodePage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-300">
-                    Магазин
-                  </label>
-                  <select
-                    value={storeId}
-                    onChange={(event) => setStoreId(event.target.value)}
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
-                  >
-                    {stores.map((store) => (
-                      <option key={store.id} value={store.id}>
-                        {store.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+    <label className="block text-sm font-medium text-slate-300">
+      Магазин
+    </label>
+
+    <Link
+      href="/request-store"
+      className="text-sm font-bold text-emerald-300 hover:text-emerald-200"
+    >
+      Немає магазину? Запропонувати →
+    </Link>
+  </div>
+
+  <select
+    value={storeId}
+    onChange={(event) => setStoreId(event.target.value)}
+    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
+  ><select
+  value={storeId}
+  onChange={(event) => setStoreId(event.target.value)}
+  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
+>
+  {stores.length === 0 && (
+    <option value="">Магазинів поки немає</option>
+  )}
+
+  {stores.map((store) => (
+    <option key={store.id} value={store.id}>
+      {store.name}
+    </option>
+  ))}
+</select>
+    {stores.map((store) => (
+      <option key={store.id} value={store.id}>
+        {store.name}
+      </option>
+    ))}
+  </select>
+</div>
 
                 <div className="grid gap-5 md:grid-cols-2">
                   <div>
