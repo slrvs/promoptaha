@@ -93,10 +93,10 @@ export default function CodesPage() {
     setIsLoading(true);
 
     const { data, error } = await supabase
-      .from("promo_code_stats")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(200);
+  .from("promo_code_stats")
+  .select("*")
+  .eq("status", "active")
+  .order("created_at", { ascending: false });
 
     if (!error && data) {
       setPromoCodes(data as PromoCode[]);
