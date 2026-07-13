@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
+import StoreLogo from "@/components/StoreLogo";
 
 type Store = {
   id: string;
@@ -84,15 +85,11 @@ function StoreCard({
   return (
     <article className="group rounded-[2rem] border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:shadow-emerald-950/20">
       <div className="flex items-start gap-4">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 shadow-lg shadow-emerald-950/30">
-          <Image
-            src="/icons/promoptaha-bird.png"
-            alt="ПромоПтаха"
-            fill
-            sizes="64px"
-            className="object-cover transition group-hover:scale-110"
-          />
-        </div>
+        <StoreLogo
+          name={store.name}
+          websiteUrl={store.website_url}
+          size="md"
+        />
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -157,6 +154,18 @@ function StoreCard({
           >
             {getHostName(store.website_url)} →
           </a>
+        </div>
+      )}
+
+      {!store.website_url && (
+        <div className="mt-5 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-4">
+          <p className="text-xs font-bold text-yellow-300">
+            Website URL не вказано
+          </p>
+
+          <p className="mt-1 text-sm leading-6 text-yellow-100">
+            Лого не підтягнеться, поки адміністратор не додасть сайт магазину.
+          </p>
         </div>
       )}
 
@@ -312,8 +321,8 @@ export default function StoresPage() {
               </h1>
 
               <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400 md:text-xl">
-                Обирай магазин і дивись доступні промокоди. Тепер біля кожного
-                магазину видно, скільки там кодів і скільки з них ще дійсні.
+                Обирай магазин і дивись доступні промокоди. Біля кожного
+                магазину видно лого, кількість кодів і скільки з них ще дійсні.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-4">
