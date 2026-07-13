@@ -1,8 +1,19 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { createClient, User } from "@supabase/supabase-js";
+
+const ADMIN_EMAIL = "jchameleonl96@gmail.com";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+const supabase = createClient(
+  supabaseUrl || "https://placeholder.supabase.co",
+  supabaseAnonKey || "placeholder"
+);
 
 function navLinkClass(pathname: string, href: string) {
   const isActive =
@@ -47,6 +58,44 @@ function SiteNavFallback() {
 function SiteNavContent() {
   const pathname = usePathname();
 
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  const isAdmin = user?.email === ADMIN_EMAIL;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadUser() {
+      const { data } = await supabase.auth.getUser();
+
+      if (isMounted) {
+        setUser(data.user);
+        setIsLoadingUser(false);
+      }
+    }
+
+    loadUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+      setIsLoadingUser(false);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setUser(null);
+    window.location.href = "/";
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950 px-5 py-4 text-white">
       <nav className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
@@ -87,31 +136,52 @@ function SiteNavContent() {
             Запропонувати магазин
           </Link>
 
-          <Link href="/profile" className={navLinkClass(pathname, "/profile")}>
-            Профіль
-          </Link>
+          {!isLoadingUser && user && (
+            <Link
+              href="/profile"
+              className={navLinkClass(pathname, "/profile")}
+            >
+              Профіль
+            </Link>
+          )}
 
-          <Link href="/admin" className={navLinkClass(pathname, "/admin")}>
-            Адмінка
-          </Link>
+          {!isLoadingUser && isAdmin && (
+            <>
+              <Link href="/admin" className={navLinkClass(pathname, "/admin")}>
+                Адмінка
+              </Link>
 
-          <Link
-            href="/admin/reports"
-            className={navLinkClass(pathname, "/admin/reports")}
-          >
-            Репорти
-          </Link>
+              <Link
+                href="/admin/reports"
+                className={navLinkClass(pathname, "/admin/reports")}
+              >
+                Репорти
+              </Link>
 
-          <Link
-            href="/admin/store-requests"
-            className={navLinkClass(pathname, "/admin/store-requests")}
-          >
-            Заявки магазинів
-          </Link>
+              <Link
+                href="/admin/store-requests"
+                className={navLinkClass(pathname, "/admin/store-requests")}
+              >
+                Заявки магазинів
+              </Link>
+            </>
+          )}
 
-          <Link href="/login" className={navLinkClass(pathname, "/login")}>
-            Увійти
-          </Link>
+          {!isLoadingUser && !user && (
+            <Link href="/login" className={navLinkClass(pathname, "/login")}>
+              Увійти
+            </Link>
+          )}
+
+          {!isLoadingUser && user && (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="rounded-full border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 transition hover:border-red-400 hover:bg-red-400/10 hover:text-red-300"
+            >
+              Вийти
+            </button>
+          )}
         </div>
       </nav>
     </header>
