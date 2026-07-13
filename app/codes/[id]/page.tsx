@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import PromoVote from "@/components/PromoVote";
+import PromoReportButton from "@/components/PromoReportButton";
 
 type PromoCode = {
   id: string;
@@ -227,6 +228,8 @@ function PromoCodePageContent() {
                 initialNotWorksCount={promo.not_works_count}
               />
             </div>
+
+            <PromoReportButton promoId={promo.id} />
 
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
