@@ -10,8 +10,8 @@ export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-10 text-white">
       <section className="mx-auto w-full max-w-5xl">
-        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-red-950/20 lg:p-10">
-          <p className="mb-4 inline-flex rounded-full border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-bold text-red-300">
+        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
+          <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
             Конфіденційність
           </p>
 
@@ -84,8 +84,8 @@ export default function PrivacyPage() {
               </p>
             </div>
 
-            <div className="rounded-3xl border border-red-400/20 bg-red-400/10 p-6">
-              <h2 className="text-2xl font-black text-red-300">
+            <div className="rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-6">
+              <h2 className="text-2xl font-black text-emerald-300">
                 Коротко
               </h2>
 
@@ -100,14 +100,14 @@ export default function PrivacyPage() {
           <div className="mt-10 flex flex-wrap gap-4">
             <Link
               href="/rules"
-              className="rounded-full bg-red-500 px-6 py-4 font-black text-white transition hover:bg-red-400"
+              className="rounded-full bg-emerald-400 px-6 py-4 font-black text-white transition hover:bg-emerald-400"
             >
               Правила користування
             </Link>
 
             <Link
               href="/"
-              className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+              className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
             >
               На головну
             </Link>

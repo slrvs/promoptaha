@@ -91,7 +91,7 @@ function statusClass(status: string | null | undefined) {
   }
 
   if (status === "rejected") {
-    return "border-red-400/30 bg-red-400/10 text-red-300";
+    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
   }
 
   if (status === "expired") {
@@ -318,12 +318,12 @@ export default function AdminPage() {
               Завантаження адмінки...
             </div>
           ) : !user ? (
-            <div className="mt-8 rounded-3xl border border-red-400/30 bg-red-400/10 p-6 text-red-300">
+            <div className="mt-8 rounded-3xl border border-emerald-400/30 bg-emerald-400/10 p-6 text-emerald-300">
               <h2 className="text-2xl font-black">
                 Потрібно увійти в акаунт
               </h2>
 
-              <p className="mt-3 text-red-200">
+              <p className="mt-3 text-emerald-200">
                 Адмінка доступна тільки після входу.
               </p>
 
@@ -337,10 +337,10 @@ export default function AdminPage() {
               </div>
             </div>
           ) : !isAdmin ? (
-            <div className="mt-8 rounded-3xl border border-red-400/30 bg-red-400/10 p-6 text-red-300">
+            <div className="mt-8 rounded-3xl border border-emerald-400/30 bg-emerald-400/10 p-6 text-emerald-300">
               <h2 className="text-2xl font-black">Немає доступу</h2>
 
-              <p className="mt-3 text-red-200">
+              <p className="mt-3 text-emerald-200">
                 Твій акаунт не має прав адміністратора.
               </p>
             </div>
@@ -368,8 +368,8 @@ export default function AdminPage() {
                   <p className="mt-1 text-sm text-slate-400">активні</p>
                 </div>
 
-                <div className="rounded-3xl border border-red-400/20 bg-red-400/10 p-5">
-                  <p className="text-3xl font-black text-red-300">
+                <div className="rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-5">
+                  <p className="text-3xl font-black text-emerald-300">
                     {rejectedCount}
                   </p>
                   <p className="mt-1 text-sm text-slate-400">відхилені</p>
@@ -537,7 +537,7 @@ export default function AdminPage() {
                               onClick={() =>
                                 updatePromoStatus(promo.id, "rejected")
                               }
-                              className="rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950"
+                              className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
                             >
                               Відхилити
                             </button>
@@ -562,7 +562,7 @@ export default function AdminPage() {
 
                             <button
                               onClick={() => deletePromo(promo.id)}
-                              className="rounded-2xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 transition hover:border-red-400 hover:text-red-300"
+                              className="rounded-2xl border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
                             >
                               Видалити
                             </button>

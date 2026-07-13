@@ -4,10 +4,10 @@ export default function Loading() {
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-10 text-white">
       <section className="mx-auto flex min-h-[70vh] w-full max-w-5xl items-center justify-center">
-        <div className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center shadow-2xl shadow-red-950/20">
-          <div className="mx-auto flex h-24 w-24 animate-pulse items-center justify-center overflow-hidden rounded-[2rem] border border-red-400/30 bg-slate-950 shadow-xl shadow-red-950/30">
+        <div className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center shadow-2xl shadow-emerald-950/20">
+          <div className="mx-auto flex h-24 w-24 animate-pulse items-center justify-center overflow-hidden rounded-[2rem] border border-emerald-400/30 bg-slate-950 shadow-xl shadow-emerald-950/30">
             <Image
-              src="/icons/promoptaha-red-bird.png"
+              src="/icons/promoptaha-bird.png"
               alt="ПромоПтаха"
               width={96}
               height={96}

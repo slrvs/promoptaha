@@ -40,12 +40,12 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/icons/promoptaha-red-bird.png",
+        url: "/icons/promoptaha-bird.png",
         type: "image/png",
       },
     ],
-    shortcut: "/icons/promoptaha-red-bird.png",
-    apple: "/icons/promoptaha-red-bird.png",
+    shortcut: "/icons/promoptaha-bird.png",
+    apple: "/icons/promoptaha-bird.png",
   },
   manifest: "/manifest.webmanifest",
   openGraph: {
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     siteName: "ПромоПтаха",
     images: [
       {
-        url: "/icons/promoptaha-red-bird.png",
+        url: "/icons/promoptaha-bird.png",
         width: 512,
         height: 512,
         alt: "ПромоПтаха",
@@ -69,7 +69,7 @@ export const metadata: Metadata = {
     title: "ПромоПтаха — на крилах знижок",
     description:
       "Спільна база промокодів, де користувачі додають і перевіряють знижки.",
-    images: ["/icons/promoptaha-red-bird.png"],
+    images: ["/icons/promoptaha-bird.png"],
   },
 };
 

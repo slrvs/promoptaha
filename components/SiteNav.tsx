@@ -24,8 +24,8 @@ function navLinkClass(pathname: string, href: string) {
 
   return `rounded-full px-4 py-2 text-sm font-bold transition ${
     isActive
-      ? "bg-red-500 text-white"
-      : "text-slate-300 hover:bg-slate-800 hover:text-red-300"
+      ? "bg-emerald-400 text-white"
+      : "text-slate-300 hover:bg-slate-800 hover:text-emerald-300"
   }`;
 }
 
@@ -37,17 +37,17 @@ function mobileNavLinkClass(pathname: string, href: string) {
 
   return `block rounded-2xl px-4 py-3 text-base font-bold transition ${
     isActive
-      ? "bg-red-500 text-white"
-      : "text-slate-300 hover:bg-slate-800 hover:text-red-300"
+      ? "bg-emerald-400 text-white"
+      : "text-slate-300 hover:bg-slate-800 hover:text-emerald-300"
   }`;
 }
 
 function Logo() {
   return (
     <Link href="/" className="group flex items-center gap-3">
-      <div className="relative h-11 w-11 overflow-hidden rounded-2xl border border-red-400/30 bg-slate-900 shadow-lg shadow-red-950/30">
+      <div className="relative h-11 w-11 overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 shadow-lg shadow-emerald-950/30">
         <Image
-          src="/icons/promoptaha-red-bird.png"
+          src="/icons/promoptaha-bird.png"
           alt="ПромоПтаха"
           fill
           sizes="44px"
@@ -201,7 +201,7 @@ function SiteNavContent() {
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="rounded-full border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 transition hover:border-red-400 hover:bg-red-400/10 hover:text-red-300"
+                className="rounded-full border border-slate-700 px-4 py-2 text-sm font-bold text-slate-300 transition hover:border-emerald-400 hover:bg-emerald-400/10 hover:text-emerald-300"
               >
                 Вийти
               </button>
@@ -211,7 +211,7 @@ function SiteNavContent() {
           <button
             type="button"
             onClick={() => setIsMobileMenuOpen((value) => !value)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-xl font-black text-slate-200 transition hover:border-red-400 hover:text-red-300 lg:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-700 bg-slate-900 text-xl font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 lg:hidden"
             aria-label="Відкрити меню"
             aria-expanded={isMobileMenuOpen}
           >
@@ -220,7 +220,7 @@ function SiteNavContent() {
         </div>
 
         {isMobileMenuOpen && (
-          <div className="mt-4 rounded-[1.75rem] border border-slate-800 bg-slate-900 p-3 shadow-2xl shadow-red-950/20 lg:hidden">
+          <div className="mt-4 rounded-[1.75rem] border border-slate-800 bg-slate-900 p-3 shadow-2xl shadow-emerald-950/20 lg:hidden">
             <div className="grid gap-2">
               <Link href="/" className={mobileNavLinkClass(pathname, "/")}>
                 Головна
@@ -267,7 +267,7 @@ function SiteNavContent() {
                 <>
                   <div className="my-2 border-t border-slate-800" />
 
-                  <p className="px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-red-300">
+                  <p className="px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-emerald-300">
                     Адмін
                   </p>
 
@@ -312,7 +312,7 @@ function SiteNavContent() {
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="rounded-2xl border border-slate-700 px-4 py-3 text-left text-base font-bold text-slate-300 transition hover:border-red-400 hover:bg-red-400/10 hover:text-red-300"
+                  className="rounded-2xl border border-slate-700 px-4 py-3 text-left text-base font-bold text-slate-300 transition hover:border-emerald-400 hover:bg-emerald-400/10 hover:text-emerald-300"
                 >
                   Вийти
                 </button>

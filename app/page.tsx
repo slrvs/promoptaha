@@ -75,7 +75,7 @@ function getPromoHealth(works: number, notWorks: number) {
 
   return {
     label: "Є скарги",
-    className: "border-red-400/30 bg-red-400/10 text-red-300",
+    className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
   };
 }
 
@@ -86,12 +86,12 @@ function PromoCard({ promo }: { promo: PromoCode }) {
   const health = getPromoHealth(works, notWorks);
 
   return (
-    <article className="group rounded-[2rem] border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-red-400/40 hover:shadow-red-950/20">
+    <article className="group rounded-[2rem] border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:shadow-emerald-950/20">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link
             href={promo.store_slug ? `/stores/${promo.store_slug}` : "/stores"}
-            className="inline-flex rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-400 transition hover:border-red-400 hover:text-red-300"
+            className="inline-flex rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-400 transition hover:border-emerald-400 hover:text-emerald-300"
           >
             {promo.store_name || "Магазин"}
           </Link>
@@ -104,7 +104,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
         <span
           className={`rounded-full border px-3 py-1 text-xs font-black ${
             expired
-              ? "border-red-400/30 bg-red-400/10 text-red-300"
+              ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
               : promo.expires_at
               ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
               : "border-yellow-400/30 bg-yellow-400/10 text-yellow-300"
@@ -117,7 +117,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
       <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-4">
         <p className="text-sm font-bold text-slate-500">Умова / знижка</p>
 
-        <p className="mt-2 text-lg font-black text-red-300">
+        <p className="mt-2 text-lg font-black text-emerald-300">
           {promo.discount_value || "Умову не вказано"}
         </p>
       </div>
@@ -155,7 +155,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           href={`/codes/${promo.id}`}
-          className="flex-1 rounded-2xl bg-red-500 px-5 py-3 text-center font-black text-white transition hover:bg-red-400"
+          className="flex-1 rounded-2xl bg-emerald-400 px-5 py-3 text-center font-black text-white transition hover:bg-emerald-400"
         >
           Детальніше
         </Link>
@@ -163,7 +163,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
         <button
           type="button"
           onClick={() => navigator.clipboard.writeText(promo.code)}
-          className="rounded-2xl border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+          className="rounded-2xl border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
         >
           Копіювати
         </button>
@@ -245,10 +245,10 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <section className="mx-auto w-full max-w-7xl">
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-red-950/20">
+        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
           <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
             <div className="flex flex-col justify-center">
-              <p className="mb-5 inline-flex w-fit rounded-full border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-bold text-red-300">
+              <p className="mb-5 inline-flex w-fit rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 На крилах знижок
               </p>
 
@@ -265,21 +265,21 @@ export default function HomePage() {
               <div className="mt-8 flex flex-wrap gap-4">
                 <Link
                   href="/codes"
-                  className="rounded-full bg-red-500 px-6 py-4 font-black text-white transition hover:bg-red-400"
+                  className="rounded-full bg-emerald-400 px-6 py-4 font-black text-white transition hover:bg-emerald-400"
                 >
                   Дивитись промокоди
                 </Link>
 
                 <Link
                   href="/add"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
                   Додати промокод
                 </Link>
 
                 <Link
                   href="/request-store"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
                   Запропонувати магазин
                 </Link>
@@ -287,7 +287,7 @@ export default function HomePage() {
 
               <div className="mt-10 grid gap-4 sm:grid-cols-3">
                 <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="text-3xl font-black text-red-300">
+                  <p className="text-3xl font-black text-emerald-300">
                     {promos.length}
                   </p>
                   <p className="mt-2 text-sm font-bold text-slate-500">
@@ -315,13 +315,13 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="relative flex min-h-[420px] items-center justify-center rounded-[2rem] border border-red-400/20 bg-slate-950 p-8">
+            <div className="relative flex min-h-[420px] items-center justify-center rounded-[2rem] border border-emerald-400/20 bg-slate-950 p-8">
               <div className="absolute inset-0 rounded-[2rem] bg-[radial-gradient(circle_at_center,rgba(239,68,68,0.25),transparent_60%)]" />
 
               <div className="relative">
-                <div className="relative mx-auto h-56 w-56 overflow-hidden rounded-[3rem] border border-red-400/30 bg-slate-900 shadow-2xl shadow-red-950/40 md:h-72 md:w-72">
+                <div className="relative mx-auto h-56 w-56 overflow-hidden rounded-[3rem] border border-emerald-400/30 bg-slate-900 shadow-2xl shadow-emerald-950/40 md:h-72 md:w-72">
                   <Image
-                    src="/icons/promoptaha-red-bird.png"
+                    src="/icons/promoptaha-bird.png"
                     alt="ПромоПтаха"
                     fill
                     sizes="288px"
@@ -343,10 +343,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-red-950/10 lg:p-10">
+        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/10 lg:p-10">
           <div className="flex flex-wrap items-end justify-between gap-5">
             <div>
-              <p className="mb-4 inline-flex rounded-full border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-bold text-red-300">
+              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Свіжі коди
               </p>
 
@@ -362,7 +362,7 @@ export default function HomePage() {
 
             <Link
               href="/codes"
-              className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+              className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
             >
               Всі промокоди
             </Link>
@@ -372,11 +372,11 @@ export default function HomePage() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Пошук: магазин, код, доставка, знижка..."
-            className="mt-6 w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-red-400"
+            className="mt-6 w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
           />
 
           {errorMessage && (
-            <div className="mt-6 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-red-300">
+            <div className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-emerald-300">
               Помилка завантаження: {errorMessage}
             </div>
           )}
@@ -404,7 +404,7 @@ export default function HomePage() {
 
               <Link
                 href="/add"
-                className="mt-6 inline-flex rounded-full bg-red-500 px-6 py-4 font-black text-white transition hover:bg-red-400"
+                className="mt-6 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-white transition hover:bg-emerald-400"
               >
                 Додати промокод
               </Link>
@@ -451,7 +451,7 @@ export default function HomePage() {
           <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-10">
             <div className="flex flex-wrap items-end justify-between gap-5">
               <div>
-                <p className="mb-4 inline-flex rounded-full border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-bold text-red-300">
+                <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                   Магазини
                 </p>
 
@@ -462,7 +462,7 @@ export default function HomePage() {
 
               <Link
                 href="/stores"
-                className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+                className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
               >
                 Всі магазини
               </Link>
@@ -473,7 +473,7 @@ export default function HomePage() {
                 <Link
                   key={store.id}
                   href={`/stores/${store.slug}`}
-                  className="rounded-full border border-slate-800 bg-slate-950 px-5 py-3 font-bold text-slate-300 transition hover:border-red-400 hover:text-red-300"
+                  className="rounded-full border border-slate-800 bg-slate-950 px-5 py-3 font-bold text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
                   {store.name}
                 </Link>

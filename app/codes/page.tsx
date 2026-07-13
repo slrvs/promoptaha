@@ -82,7 +82,7 @@ function getPromoHealth(works: number, notWorks: number) {
 
   return {
     label: "Є скарги",
-    className: "border-red-400/30 bg-red-400/10 text-red-300",
+    className: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
   };
 }
 
@@ -93,14 +93,14 @@ function PromoCard({ promo }: { promo: PromoCode }) {
   const health = getPromoHealth(works, notWorks);
 
   return (
-    <article className="group rounded-[2rem] border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-red-400/40 hover:shadow-red-950/20">
+    <article className="group rounded-[2rem] border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:shadow-emerald-950/20">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link
             href={
               promo.store_slug ? `/stores/${promo.store_slug}` : "/stores"
             }
-            className="inline-flex rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-400 transition hover:border-red-400 hover:text-red-300"
+            className="inline-flex rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-400 transition hover:border-emerald-400 hover:text-emerald-300"
           >
             {promo.store_name || "Магазин"}
           </Link>
@@ -113,7 +113,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
         <span
           className={`rounded-full border px-3 py-1 text-xs font-black ${
             expired
-              ? "border-red-400/30 bg-red-400/10 text-red-300"
+              ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
               : promo.expires_at
               ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
               : "border-yellow-400/30 bg-yellow-400/10 text-yellow-300"
@@ -126,7 +126,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
       <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-4">
         <p className="text-sm font-bold text-slate-500">Умова / знижка</p>
 
-        <p className="mt-2 text-lg font-black text-red-300">
+        <p className="mt-2 text-lg font-black text-emerald-300">
           {promo.discount_value || "Умову не вказано"}
         </p>
       </div>
@@ -172,7 +172,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           href={`/codes/${promo.id}`}
-          className="flex-1 rounded-2xl bg-red-500 px-5 py-3 text-center font-black text-white transition hover:bg-red-400"
+          className="flex-1 rounded-2xl bg-emerald-400 px-5 py-3 text-center font-black text-white transition hover:bg-emerald-400"
         >
           Детальніше
         </Link>
@@ -180,7 +180,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
         <button
           type="button"
           onClick={() => navigator.clipboard.writeText(promo.code)}
-          className="rounded-2xl border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+          className="rounded-2xl border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
         >
           Копіювати
         </button>
@@ -251,10 +251,10 @@ export default function CodesPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <section className="mx-auto w-full max-w-7xl">
-        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-red-950/20 lg:p-10">
+        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
-              <p className="mb-4 inline-flex rounded-full border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-bold text-red-300">
+              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Промокоди
               </p>
 
@@ -270,7 +270,7 @@ export default function CodesPage() {
 
             <Link
               href="/add"
-              className="rounded-full bg-red-500 px-6 py-4 font-black text-white transition hover:bg-red-400"
+              className="rounded-full bg-emerald-400 px-6 py-4 font-black text-white transition hover:bg-emerald-400"
             >
               Додати промокод
             </Link>
@@ -281,7 +281,7 @@ export default function CodesPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Пошук: ROZETKA, знижка, доставка, код..."
-              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-red-400"
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
             />
 
             <div className="flex flex-wrap gap-2">
@@ -290,8 +290,8 @@ export default function CodesPage() {
                 onClick={() => setFilter("all")}
                 className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
                   filter === "all"
-                    ? "bg-red-500 text-white"
-                    : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-red-400 hover:text-red-300"
+                    ? "bg-emerald-400 text-white"
+                    : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
                 }`}
               >
                 Усі {promos.length}
@@ -302,8 +302,8 @@ export default function CodesPage() {
                 onClick={() => setFilter("active")}
                 className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
                   filter === "active"
-                    ? "bg-red-500 text-white"
-                    : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-red-400 hover:text-red-300"
+                    ? "bg-emerald-400 text-white"
+                    : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
                 }`}
               >
                 Активні {activeCount}
@@ -314,8 +314,8 @@ export default function CodesPage() {
                 onClick={() => setFilter("expired")}
                 className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
                   filter === "expired"
-                    ? "bg-red-500 text-white"
-                    : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-red-400 hover:text-red-300"
+                    ? "bg-emerald-400 text-white"
+                    : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
                 }`}
               >
                 Прострочені {expiredCount}
@@ -326,8 +326,8 @@ export default function CodesPage() {
                 onClick={() => setFilter("no-date")}
                 className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
                   filter === "no-date"
-                    ? "bg-red-500 text-white"
-                    : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-red-400 hover:text-red-300"
+                    ? "bg-emerald-400 text-white"
+                    : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
                 }`}
               >
                 Без дати {noDateCount}
@@ -336,7 +336,7 @@ export default function CodesPage() {
           </div>
 
           {errorMessage && (
-            <div className="mt-6 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-red-300">
+            <div className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-emerald-300">
               Помилка завантаження: {errorMessage}
             </div>
           )}
@@ -365,7 +365,7 @@ export default function CodesPage() {
 
               <Link
                 href="/add"
-                className="mt-6 inline-flex rounded-full bg-red-500 px-6 py-4 font-black text-white transition hover:bg-red-400"
+                className="mt-6 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-white transition hover:bg-emerald-400"
               >
                 Додати промокод
               </Link>

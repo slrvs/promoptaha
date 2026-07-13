@@ -109,7 +109,7 @@ function statusClass(status: string | null | undefined) {
   }
 
   if (status === "rejected") {
-    return "border-red-400/30 bg-red-400/10 text-red-300";
+    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
   }
 
   if (status === "expired") {
@@ -309,12 +309,12 @@ export default function ProfilePage() {
               Завантаження профілю...
             </div>
           ) : !user ? (
-            <div className="mt-8 rounded-3xl border border-red-400/30 bg-red-400/10 p-6 text-red-300">
+            <div className="mt-8 rounded-3xl border border-emerald-400/30 bg-emerald-400/10 p-6 text-emerald-300">
               <h2 className="text-2xl font-black">
                 Потрібно увійти в акаунт
               </h2>
 
-              <p className="mt-3 text-red-200">
+              <p className="mt-3 text-emerald-200">
                 Профіль доступний тільки зареєстрованим користувачам.
               </p>
 
@@ -357,7 +357,7 @@ export default function ProfilePage() {
 
                     <button
                       onClick={signOut}
-                      className="rounded-2xl border border-red-400/30 bg-red-400/10 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950"
+                      className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 text-sm font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
                     >
                       Вийти з акаунта
                     </button>
@@ -464,8 +464,8 @@ export default function ProfilePage() {
                     onClick={() => setPromoFilter("rejected")}
                     className={`rounded-2xl border px-4 py-3 text-sm font-black transition ${
                       promoFilter === "rejected"
-                        ? "border-red-400 bg-red-400 text-slate-950"
-                        : "border-slate-800 bg-slate-900 text-slate-300 hover:border-red-400 hover:text-red-300"
+                        ? "border-emerald-400 bg-emerald-400 text-slate-950"
+                        : "border-slate-800 bg-slate-900 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
                     }`}
                   >
                     Відхилені ({rejectedPromos})
@@ -591,7 +591,7 @@ export default function ProfilePage() {
 
                               <button
                                 onClick={() => deletePendingPromo(promo.id)}
-                                className="rounded-2xl border border-red-400/30 bg-red-400/10 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950"
+                                className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 text-sm font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
                               >
                                 Видалити
                               </button>

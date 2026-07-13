@@ -9,16 +9,16 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     background_color: "#020617",
-    theme_color: "#dc2626",
+    theme_color: "#34D399",
     icons: [
       {
-        src: "/icons/promoptaha-red-bird.png",
+        src: "/icons/promoptaha-bird.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icons/promoptaha-red-bird.png",
+        src: "/icons/promoptaha-bird.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

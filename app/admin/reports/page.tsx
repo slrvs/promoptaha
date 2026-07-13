@@ -125,7 +125,7 @@ function statusClass(status: string | null | undefined) {
   }
 
   if (status === "rejected") {
-    return "border-red-400/30 bg-red-400/10 text-red-300";
+    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
   }
 
   return "border-slate-700 bg-slate-800 text-slate-300";
@@ -375,8 +375,8 @@ export default function AdminReportsPage() {
               onClick={() => setFilter("rejected")}
               className={`rounded-2xl border px-4 py-3 text-sm font-black transition ${
                 filter === "rejected"
-                  ? "border-red-400 bg-red-400 text-slate-950"
-                  : "border-slate-800 bg-slate-950 text-slate-300 hover:border-red-400 hover:text-red-300"
+                  ? "border-emerald-400 bg-emerald-400 text-slate-950"
+                  : "border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
               }`}
             >
               Відхилені ({rejectedCount})
@@ -405,7 +405,7 @@ export default function AdminReportsPage() {
               Завантаження репортів...
             </div>
           ) : !user ? (
-            <div className="mt-6 rounded-3xl border border-red-400/30 bg-red-400/10 p-6 text-red-300">
+            <div className="mt-6 rounded-3xl border border-emerald-400/30 bg-emerald-400/10 p-6 text-emerald-300">
               Спочатку потрібно увійти.
 
               <div className="mt-5">
@@ -418,7 +418,7 @@ export default function AdminReportsPage() {
               </div>
             </div>
           ) : !isAdmin ? (
-            <div className="mt-6 rounded-3xl border border-red-400/30 bg-red-400/10 p-6 text-red-300">
+            <div className="mt-6 rounded-3xl border border-emerald-400/30 bg-emerald-400/10 p-6 text-emerald-300">
               У тебе немає доступу до цієї сторінки.
             </div>
           ) : filteredReports.length === 0 ? (
@@ -517,7 +517,7 @@ export default function AdminReportsPage() {
 
                     <button
                       onClick={() => updateReportStatus(report.id, "rejected")}
-                      className="rounded-2xl border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950"
+                      className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
                     >
                       Відхилити
                     </button>

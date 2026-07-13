@@ -190,8 +190,8 @@ export default function PromoVote({
           disabled={isLoading}
           className={`rounded-2xl border px-4 py-2 text-sm font-black transition disabled:opacity-60 ${
             myVote === "not_works"
-              ? "border-red-400 bg-red-400 text-slate-950"
-              : "border-red-400/30 bg-red-400/10 text-red-300 hover:bg-red-400 hover:text-slate-950"
+              ? "border-emerald-400 bg-emerald-400 text-slate-950"
+              : "border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400 hover:text-slate-950"
           }`}
         >
           👎 Не працює ({notWorksCount})

@@ -264,7 +264,7 @@ export default function LoginPage() {
 
                     <button
                       onClick={signOut}
-                      className="rounded-2xl border border-red-400/30 bg-red-400/10 px-5 py-4 font-black text-red-300 transition hover:bg-red-400 hover:text-slate-950"
+                      className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-4 font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
                     >
                       Вийти
                     </button>
@@ -340,7 +340,7 @@ export default function LoginPage() {
                           messageType === "success"
                             ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                             : messageType === "error"
-                            ? "border-red-400/30 bg-red-400/10 text-red-300"
+                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                             : "border-slate-700 bg-slate-900 text-slate-300"
                         }`}
                       >

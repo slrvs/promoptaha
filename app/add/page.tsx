@@ -263,10 +263,10 @@ export default function AddPromoPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <section className="mx-auto w-full max-w-5xl">
-        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-red-950/20 lg:p-10">
+        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
-              <p className="mb-4 inline-flex rounded-full border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-bold text-red-300">
+              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Додати промокод
               </p>
 
@@ -289,14 +289,14 @@ export default function AddPromoPage() {
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/request-store"
-                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
               >
                 Немає магазину?
               </Link>
 
               <Link
                 href="/codes"
-                className="rounded-full bg-red-500 px-5 py-3 text-sm font-black text-white transition hover:bg-red-400"
+                className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-white transition hover:bg-emerald-400"
               >
                 До промокодів
               </Link>
@@ -308,18 +308,18 @@ export default function AddPromoPage() {
               Завантаження форми...
             </div>
           ) : !user ? (
-            <div className="mt-8 rounded-[2rem] border border-red-400/30 bg-red-400/10 p-6">
-              <h2 className="text-2xl font-black text-red-300">
+            <div className="mt-8 rounded-[2rem] border border-emerald-400/30 bg-emerald-400/10 p-6">
+              <h2 className="text-2xl font-black text-emerald-300">
                 Потрібен вхід
               </h2>
 
-              <p className="mt-3 leading-7 text-red-100">
+              <p className="mt-3 leading-7 text-emerald-100">
                 Щоб додавати промокоди, потрібно увійти в акаунт.
               </p>
 
               <Link
                 href="/login"
-                className="mt-6 inline-flex rounded-full bg-red-500 px-6 py-4 font-black text-white transition hover:bg-red-400"
+                className="mt-6 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-white transition hover:bg-emerald-400"
               >
                 Увійти
               </Link>
@@ -336,7 +336,7 @@ export default function AddPromoPage() {
 
               <Link
                 href="/request-store"
-                className="mt-6 inline-flex rounded-full bg-red-500 px-6 py-4 font-black text-white transition hover:bg-red-400"
+                className="mt-6 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-white transition hover:bg-emerald-400"
               >
                 Запропонувати магазин
               </Link>
@@ -353,7 +353,7 @@ export default function AddPromoPage() {
                     value={code}
                     onChange={(event) => setCode(event.target.value)}
                     placeholder="Наприклад: PTAXA20"
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-red-400"
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
 
@@ -365,7 +365,7 @@ export default function AddPromoPage() {
                   <select
                     value={storeId}
                     onChange={(event) => setStoreId(event.target.value)}
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-red-400"
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
                   >
                     {stores.map((store) => (
                       <option key={store.id} value={store.id}>
@@ -386,7 +386,7 @@ export default function AddPromoPage() {
                     value={discountValue}
                     onChange={(event) => setDiscountValue(event.target.value)}
                     placeholder="Наприклад: -20%, безкоштовна доставка"
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-red-400"
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
 
@@ -399,7 +399,7 @@ export default function AddPromoPage() {
                     type="date"
                     value={expiresAt}
                     onChange={(event) => setExpiresAt(event.target.value)}
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-red-400"
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
                   />
                 </div>
               </div>
@@ -412,7 +412,7 @@ export default function AddPromoPage() {
                 <select
                   value={sourceType}
                   onChange={(event) => setSourceType(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-red-400"
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
                 >
                   <option value="youtube">YouTube</option>
                   <option value="telegram">Telegram</option>
@@ -433,7 +433,7 @@ export default function AddPromoPage() {
                   value={sourceUrl}
                   onChange={(event) => setSourceUrl(event.target.value)}
                   placeholder="https://..."
-                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-red-400"
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                 />
               </div>
 
@@ -447,7 +447,7 @@ export default function AddPromoPage() {
                   onChange={(event) => setDescription(event.target.value)}
                   placeholder="Наприклад: промокод з відео блогера, працює від 1000 грн"
                   rows={6}
-                  className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-red-400"
+                  className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                 />
               </div>
 
@@ -457,7 +457,7 @@ export default function AddPromoPage() {
                     messageType === "success"
                       ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                       : messageType === "error"
-                      ? "border-red-400/30 bg-red-400/10 text-red-300"
+                      ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                       : "border-slate-700 bg-slate-950 text-slate-300"
                   }`}
                 >
@@ -469,7 +469,7 @@ export default function AddPromoPage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex-1 rounded-2xl bg-red-500 px-5 py-4 font-black text-white transition hover:bg-red-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex-1 rounded-2xl bg-emerald-400 px-5 py-4 font-black text-white transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSaving ? "Додаю..." : "Додати на модерацію"}
                 </button>
@@ -477,7 +477,7 @@ export default function AddPromoPage() {
                 <button
                   type="button"
                   onClick={clearFormDraft}
-                  className="rounded-2xl border border-slate-700 px-5 py-4 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+                  className="rounded-2xl border border-slate-700 px-5 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
                   Очистити чернетку
                 </button>
