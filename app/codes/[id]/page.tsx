@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import CodeDetailsClient from "./CodeDetailsClient";
 
@@ -110,6 +111,11 @@ export async function generateMetadata({
 
 export default async function CodeDetailsPage({ params }: PageProps) {
   const { id } = await params;
+  const promo = await getPromo(id);
+
+  if (promo?.slug && isUuid(id)) {
+    redirect(`/codes/${promo.slug}`);
+  }
 
   return <CodeDetailsClient codeParam={id} />;
 }
