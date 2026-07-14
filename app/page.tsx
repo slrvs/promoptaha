@@ -16,6 +16,7 @@ type Store = {
 
 type PromoCode = {
   id: string;
+  slug?: string | null;
   code: string;
   store_id?: string | null;
   store_name?: string | null;
@@ -114,6 +115,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
   const notWorks = promo.not_works_count || 0;
   const expired = isExpired(promo.expires_at);
   const health = getPromoHealth(works, notWorks);
+  const promoUrl = `/codes/${promo.slug || promo.id}`;
 
   return (
     <article className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:shadow-emerald-950/20">
@@ -123,9 +125,11 @@ function PromoCard({ promo }: { promo: PromoCode }) {
             {promo.store_name || "Магазин"}
           </p>
 
-          <h3 className="mt-4 break-all text-3xl font-black text-white">
-            {promo.code}
-          </h3>
+          <Link href={promoUrl}>
+            <h3 className="mt-4 break-all text-3xl font-black text-white transition hover:text-emerald-300">
+              {promo.code}
+            </h3>
+          </Link>
         </div>
 
         <span
@@ -183,7 +187,7 @@ function PromoCard({ promo }: { promo: PromoCode }) {
 
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
-          href={`/codes/${promo.id}`}
+          href={promoUrl}
           className="flex-1 rounded-2xl bg-emerald-400 px-5 py-3 text-center font-black text-slate-950 transition hover:bg-emerald-300"
         >
           Детальніше
@@ -234,7 +238,7 @@ export default function HomePage() {
     const { data, error } = await supabase
       .from("promo_code_stats")
       .select(
-        "id, code, store_id, store_name, store_slug, discount_value, expires_at, source_type, created_at, works_count, not_works_count"
+        "id, slug, code, store_id, store_name, store_slug, discount_value, expires_at, source_type, created_at, works_count, not_works_count"
       )
       .order("created_at", { ascending: false })
       .limit(12);
