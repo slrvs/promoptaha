@@ -38,6 +38,11 @@ type CategoryJoin =
   | null
   | undefined;
 
+type StoreCategoryLink = {
+  category_id: string;
+  categories?: CategoryJoin;
+};
+
 type Store = {
   id: string;
   name: string;
@@ -49,6 +54,7 @@ type Store = {
   search_aliases?: string[] | null;
   created_at?: string | null;
   categories?: CategoryJoin;
+  store_categories?: StoreCategoryLink[] | null;
 };
 
 const ADMIN_EMAIL = "jchameleonl96@gmail.com";
@@ -61,14 +67,42 @@ const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
-function getCategoryName(categoryJoin: CategoryJoin) {
-  if (!categoryJoin) return "Без категорії";
+function getSingleCategoryName(categoryJoin: CategoryJoin) {
+  if (!categoryJoin) return null;
 
   if (Array.isArray(categoryJoin)) {
-    return categoryJoin[0]?.name || "Без категорії";
+    return categoryJoin[0]?.name || null;
   }
 
-  return categoryJoin.name || "Без категорії";
+  return categoryJoin.name || null;
+}
+
+function getStoreCategoryIds(store: Store) {
+  const idsFromLinks =
+    store.store_categories
+      ?.map((link) => link.category_id)
+      .filter(Boolean) || [];
+
+  if (idsFromLinks.length > 0) {
+    return Array.from(new Set(idsFromLinks));
+  }
+
+  return store.category_id ? [store.category_id] : [];
+}
+
+function getStoreCategoryNames(store: Store) {
+  const namesFromLinks =
+    store.store_categories
+      ?.map((link) => getSingleCategoryName(link.categories))
+      .filter(Boolean) || [];
+
+  if (namesFromLinks.length > 0) {
+    return Array.from(new Set(namesFromLinks));
+  }
+
+  const fallbackName = getSingleCategoryName(store.categories);
+
+  return fallbackName ? [fallbackName] : [];
 }
 
 function formatDate(date: string | null | undefined) {
@@ -107,6 +141,14 @@ function getStatusClass(status: string | null | undefined) {
   return "border-slate-700 bg-slate-800 text-slate-300";
 }
 
+function toggleId(list: string[], id: string) {
+  if (list.includes(id)) {
+    return list.filter((item) => item !== id);
+  }
+
+  return [...list, id];
+}
+
 export default function AdminStoresPage() {
   const [user, setUser] = useState<User | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
@@ -131,7 +173,7 @@ export default function AdminStoresPage() {
   const [editWebsiteUrl, setEditWebsiteUrl] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editStatus, setEditStatus] = useState<StoreStatus>("active");
-  const [editCategoryId, setEditCategoryId] = useState("");
+  const [editCategoryIds, setEditCategoryIds] = useState<string[]>([]);
   const [editAliases, setEditAliases] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -141,7 +183,7 @@ export default function AdminStoresPage() {
   const [createWebsiteUrl, setCreateWebsiteUrl] = useState("");
   const [createDescription, setCreateDescription] = useState("");
   const [createStatus, setCreateStatus] = useState<StoreStatus>("active");
-  const [createCategoryId, setCreateCategoryId] = useState("");
+  const [createCategoryIds, setCreateCategoryIds] = useState<string[]>([]);
   const [createAliases, setCreateAliases] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
@@ -163,7 +205,6 @@ export default function AdminStoresPage() {
     const { data, error } = await supabase
       .from("categories")
       .select("id, name, slug, description, status")
-      .eq("status", "active")
       .order("name", { ascending: true });
 
     if (error) {
@@ -185,7 +226,7 @@ export default function AdminStoresPage() {
     const { data, error } = await supabase
       .from("stores")
       .select(
-        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at, categories(id, name, slug)"
+        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at, categories(id, name, slug), store_categories(category_id, categories(id, name, slug))"
       )
       .order("created_at", { ascending: false });
 
@@ -223,7 +264,8 @@ export default function AdminStoresPage() {
       active: stores.filter((store) => store.status === "active").length,
       pending: stores.filter((store) => store.status === "pending").length,
       rejected: stores.filter((store) => store.status === "rejected").length,
-      noCategory: stores.filter((store) => !store.category_id).length,
+      noCategory: stores.filter((store) => getStoreCategoryIds(store).length === 0)
+        .length,
     };
   }, [stores]);
 
@@ -232,7 +274,8 @@ export default function AdminStoresPage() {
 
     return stores.filter((store) => {
       const aliasesText = (store.search_aliases || []).join(" ");
-      const categoryName = getCategoryName(store.categories);
+      const categoryNames = getStoreCategoryNames(store);
+      const categoryIds = getStoreCategoryIds(store);
 
       const haystack = normalizeSearchText(
         [
@@ -240,7 +283,7 @@ export default function AdminStoresPage() {
           store.slug,
           store.description || "",
           store.website_url || "",
-          categoryName,
+          categoryNames.join(" "),
           aliasesText,
         ].join(" ")
       );
@@ -253,8 +296,8 @@ export default function AdminStoresPage() {
 
       const matchesCategory =
         categoryFilter === "all" ||
-        (categoryFilter === "none" && !store.category_id) ||
-        store.category_id === categoryFilter;
+        (categoryFilter === "none" && categoryIds.length === 0) ||
+        categoryIds.includes(categoryFilter);
 
       return matchesSearch && matchesStatus && matchesCategory;
     });
@@ -286,6 +329,32 @@ export default function AdminStoresPage() {
     }
   }
 
+  async function syncStoreCategories(storeId: string, categoryIds: string[]) {
+    const uniqueCategoryIds = Array.from(new Set(categoryIds)).filter(Boolean);
+
+    const deleteResult = await supabase
+      .from("store_categories")
+      .delete()
+      .eq("store_id", storeId);
+
+    if (deleteResult.error) {
+      return deleteResult.error;
+    }
+
+    if (uniqueCategoryIds.length === 0) {
+      return null;
+    }
+
+    const insertResult = await supabase.from("store_categories").insert(
+      uniqueCategoryIds.map((categoryId) => ({
+        store_id: storeId,
+        category_id: categoryId,
+      }))
+    );
+
+    return insertResult.error || null;
+  }
+
   function startEdit(store: Store) {
     setEditingStoreId(store.id);
     setEditName(store.name);
@@ -293,7 +362,7 @@ export default function AdminStoresPage() {
     setEditWebsiteUrl(store.website_url || "");
     setEditDescription(store.description || "");
     setEditStatus((store.status as StoreStatus) || "active");
-    setEditCategoryId(store.category_id || "");
+    setEditCategoryIds(getStoreCategoryIds(store));
     setEditAliases(aliasesToText(store.search_aliases));
     setMessage("");
   }
@@ -305,7 +374,7 @@ export default function AdminStoresPage() {
     setEditWebsiteUrl("");
     setEditDescription("");
     setEditStatus("active");
-    setEditCategoryId("");
+    setEditCategoryIds([]);
     setEditAliases("");
   }
 
@@ -315,7 +384,7 @@ export default function AdminStoresPage() {
     setCreateWebsiteUrl("");
     setCreateDescription("");
     setCreateStatus("active");
-    setCreateCategoryId("");
+    setCreateCategoryIds([]);
     setCreateAliases("");
   }
 
@@ -343,27 +412,46 @@ export default function AdminStoresPage() {
       customAliases,
     });
 
-    const { error } = await supabase.from("stores").insert({
-      name: createName.trim(),
-      slug: uniqueSlug,
-      website_url: normalizedWebsiteUrl || null,
-      description: createDescription.trim() || null,
-      status: createStatus,
-      category_id: createCategoryId || null,
-      search_aliases: finalAliases,
-    });
+    const { data: createdStore, error } = await supabase
+      .from("stores")
+      .insert({
+        name: createName.trim(),
+        slug: uniqueSlug,
+        website_url: normalizedWebsiteUrl || null,
+        description: createDescription.trim() || null,
+        status: createStatus,
+        category_id: createCategoryIds[0] || null,
+        search_aliases: finalAliases,
+      })
+      .select("id")
+      .single();
+
+    if (error || !createdStore) {
+      setIsCreating(false);
+      setMessage(`Не вдалося створити магазин: ${error?.message || "немає id"}`);
+      setMessageType("error");
+      return;
+    }
+
+    const categorySyncError = await syncStoreCategories(
+      createdStore.id,
+      createCategoryIds
+    );
 
     setIsCreating(false);
 
-    if (error) {
-      setMessage(`Не вдалося створити магазин: ${error.message}`);
+    if (categorySyncError) {
+      setMessage(
+        `Магазин створено, але категорії не збереглись: ${categorySyncError.message}`
+      );
       setMessageType("error");
+      loadStores();
       return;
     }
 
     resetCreateForm();
     setIsCreateOpen(false);
-    setMessage("Магазин створено. Пошукові слова згенеровано автоматично.");
+    setMessage("Магазин створено. Категорії та пошукові слова збережено.");
     setMessageType("success");
     loadStores();
   }
@@ -400,21 +488,34 @@ export default function AdminStoresPage() {
         website_url: normalizedWebsiteUrl || null,
         description: editDescription.trim() || null,
         status: editStatus,
-        category_id: editCategoryId || null,
+        category_id: editCategoryIds[0] || null,
         search_aliases: finalAliases,
       })
       .eq("id", editingStoreId);
 
-    setIsSaving(false);
-
     if (error) {
+      setIsSaving(false);
       setMessage(`Не вдалося зберегти магазин: ${error.message}`);
       setMessageType("error");
       return;
     }
 
+    const categorySyncError = await syncStoreCategories(
+      editingStoreId,
+      editCategoryIds
+    );
+
+    setIsSaving(false);
+
+    if (categorySyncError) {
+      setMessage(`Магазин оновлено, але категорії не збереглись: ${categorySyncError.message}`);
+      setMessageType("error");
+      loadStores();
+      return;
+    }
+
     cancelEdit();
-    setMessage("Магазин оновлено. Пошукові слова перебудовано автоматично.");
+    setMessage("Магазин оновлено. Категорії та пошук перебудовано.");
     setMessageType("success");
     loadStores();
   }
@@ -502,10 +603,9 @@ export default function AdminStoresPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-400">
-                Створюй магазини, змінюй статус, категорію, сайт, опис і
-                пошукові слова. При створенні або збереженні система сама
-                генерує варіанти пошуку: транслітерацію, неправильну розкладку,
-                домен і популярні назви.
+                Тепер один магазин може мати кілька категорій. Перша вибрана
+                категорія буде головною для старої логіки, а всі вибрані
+                категорії зберігаються окремо.
               </p>
             </div>
 
@@ -531,10 +631,10 @@ export default function AdminStoresPage() {
               </button>
 
               <Link
-                href="/admin/store-requests"
+                href="/admin/categories"
                 className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
               >
-                Заявки
+                Категорії
               </Link>
             </div>
           </div>
@@ -563,8 +663,8 @@ export default function AdminStoresPage() {
                   <h2 className="text-3xl font-black">Новий магазин</h2>
 
                   <p className="mt-2 leading-7 text-slate-400">
-                    Пошукові слова можна не заповнювати — система сама згенерує
-                    базові aliases із назви, slug і сайту.
+                    Обери одну або декілька категорій. Перший вибір буде
+                    головною категорією.
                   </p>
                 </div>
 
@@ -597,7 +697,7 @@ export default function AdminStoresPage() {
                         setCreateSlug(slugify(nextName));
                       }
                     }}
-                    placeholder="KFC"
+                    placeholder="KRKR"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
@@ -610,7 +710,7 @@ export default function AdminStoresPage() {
                   <input
                     value={createSlug}
                     onChange={(event) => setCreateSlug(slugify(event.target.value))}
-                    placeholder="kfc"
+                    placeholder="krkr"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
@@ -623,7 +723,7 @@ export default function AdminStoresPage() {
                   <input
                     value={createWebsiteUrl}
                     onChange={(event) => setCreateWebsiteUrl(event.target.value)}
-                    placeholder="https://kfc.ua"
+                    placeholder="https://example.com"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
@@ -645,39 +745,56 @@ export default function AdminStoresPage() {
                     <option value="rejected">Прихований</option>
                   </select>
                 </div>
+              </div>
 
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-300">
-                    Категорія
-                  </label>
+              <div className="mt-5">
+                <label className="mb-2 block text-sm font-bold text-slate-300">
+                  Категорії
+                </label>
 
-                  <select
-                    value={createCategoryId}
-                    onChange={(event) => setCreateCategoryId(event.target.value)}
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-                  >
-                    <option value="">Без категорії</option>
+                <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-800 bg-slate-950 p-3">
+                  {categories.map((category) => {
+                    const isSelected = createCategoryIds.includes(category.id);
 
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() =>
+                          setCreateCategoryIds((current) =>
+                            toggleId(current, category.id)
+                          )
+                        }
+                        className={`rounded-full border px-4 py-2 text-sm font-black transition ${
+                          isSelected
+                            ? "border-emerald-400 bg-emerald-400 text-slate-950"
+                            : "border-slate-700 bg-slate-900 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+                        }`}
+                      >
                         {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                      </button>
+                    );
+                  })}
 
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-slate-300">
-                    Додаткові пошукові слова
-                  </label>
-
-                  <input
-                    value={createAliases}
-                    onChange={(event) => setCreateAliases(event.target.value)}
-                    placeholder="кфс, кркр, лас"
-                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
-                  />
+                  {categories.length === 0 && (
+                    <p className="text-sm text-slate-500">
+                      Категорій ще немає.
+                    </p>
+                  )}
                 </div>
+              </div>
+
+              <div className="mt-5">
+                <label className="mb-2 block text-sm font-bold text-slate-300">
+                  Додаткові пошукові слова
+                </label>
+
+                <input
+                  value={createAliases}
+                  onChange={(event) => setCreateAliases(event.target.value)}
+                  placeholder="через кому"
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                />
               </div>
 
               <div className="mt-5">
@@ -708,7 +825,7 @@ export default function AdminStoresPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Пошук: KFC, кфс, кркр, Comfy, комфі..."
+              placeholder="Пошук магазину..."
               className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
             />
 
@@ -803,6 +920,7 @@ export default function AdminStoresPage() {
             {filteredStores.map((store) => {
               const isEditing = editingStoreId === store.id;
               const aliases = store.search_aliases || [];
+              const categoryNames = getStoreCategoryNames(store);
 
               return (
                 <article
@@ -883,43 +1001,58 @@ export default function AdminStoresPage() {
                             <option value="rejected">Прихований</option>
                           </select>
                         </div>
+                      </div>
 
-                        <div>
-                          <label className="mb-2 block text-sm font-bold text-slate-300">
-                            Категорія
-                          </label>
+                      <div className="mt-4">
+                        <label className="mb-2 block text-sm font-bold text-slate-300">
+                          Категорії
+                        </label>
 
-                          <select
-                            value={editCategoryId}
-                            onChange={(event) =>
-                              setEditCategoryId(event.target.value)
-                            }
-                            className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
-                          >
-                            <option value="">Без категорії</option>
+                        <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-800 bg-slate-950 p-3">
+                          {categories.map((category) => {
+                            const isSelected = editCategoryIds.includes(
+                              category.id
+                            );
 
-                            {categories.map((category) => (
-                              <option key={category.id} value={category.id}>
+                            return (
+                              <button
+                                key={category.id}
+                                type="button"
+                                onClick={() =>
+                                  setEditCategoryIds((current) =>
+                                    toggleId(current, category.id)
+                                  )
+                                }
+                                className={`rounded-full border px-4 py-2 text-sm font-black transition ${
+                                  isSelected
+                                    ? "border-emerald-400 bg-emerald-400 text-slate-950"
+                                    : "border-slate-700 bg-slate-900 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+                                }`}
+                              >
                                 {category.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                              </button>
+                            );
+                          })}
 
-                        <div>
-                          <label className="mb-2 block text-sm font-bold text-slate-300">
-                            Додаткові пошукові слова
-                          </label>
-
-                          <input
-                            value={editAliases}
-                            onChange={(event) =>
-                              setEditAliases(event.target.value)
-                            }
-                            placeholder="кфс, кркр, лас"
-                            className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
-                          />
+                          {categories.length === 0 && (
+                            <p className="text-sm text-slate-500">
+                              Категорій ще немає.
+                            </p>
+                          )}
                         </div>
+                      </div>
+
+                      <div className="mt-4">
+                        <label className="mb-2 block text-sm font-bold text-slate-300">
+                          Додаткові пошукові слова
+                        </label>
+
+                        <input
+                          value={editAliases}
+                          onChange={(event) => setEditAliases(event.target.value)}
+                          placeholder="через кому"
+                          className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                        />
                       </div>
 
                       <div className="mt-4">
@@ -985,11 +1118,25 @@ export default function AdminStoresPage() {
                       <div className="mt-5 grid gap-3 sm:grid-cols-2">
                         <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
                           <p className="text-xs font-bold text-slate-500">
-                            Категорія
+                            Категорії
                           </p>
-                          <p className="mt-1 font-black text-emerald-300">
-                            {getCategoryName(store.categories)}
-                          </p>
+
+                          {categoryNames.length === 0 ? (
+                            <p className="mt-2 font-black text-slate-500">
+                              Без категорії
+                            </p>
+                          ) : (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {categoryNames.map((categoryName) => (
+                                <span
+                                  key={categoryName}
+                                  className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300"
+                                >
+                                  {categoryName}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
