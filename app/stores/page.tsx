@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
+import { getHostName, matchesSearch } from "@/lib/searchAliases";
 
 type Category = {
   id: string;
@@ -13,19 +14,10 @@ type Category = {
   status?: string | null;
 };
 
-type CategoryJoin =
-  | {
-      id?: string | null;
-      name?: string | null;
-      slug?: string | null;
-    }
-  | {
-      id?: string | null;
-      name?: string | null;
-      slug?: string | null;
-    }[]
-  | null
-  | undefined;
+type StoreCategoryLink = {
+  store_id: string;
+  category_id: string;
+};
 
 type Store = {
   id: string;
@@ -37,28 +29,28 @@ type Store = {
   category_id?: string | null;
   search_aliases?: string[] | null;
   created_at?: string | null;
-  categories?: CategoryJoin;
+  store_categories?: StoreCategoryLink[] | null;
 };
 
-type PromoCode = {
+type PromoStats = {
   id: string;
-  store_id?: string | null;
+  store_id: string;
   expires_at?: string | null;
+  status?: string | null;
   works_count?: number | null;
   not_works_count?: number | null;
-  category_id?: string | null;
-  category_name?: string | null;
-  category_slug?: string | null;
 };
 
 type StoreStats = {
-  totalCodes: number;
-  activeCodes: number;
-  expiredCodes: number;
-  verifiedCodes: number;
-  worksCount: number;
-  notWorksCount: number;
+  total: number;
+  active: number;
+  expired: number;
+  verified: number;
+  works: number;
+  notWorks: number;
 };
+
+type SortMode = "popular" | "active" | "newest" | "name";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -80,245 +72,76 @@ function isExpired(date: string | null | undefined) {
   return expires < today;
 }
 
-function emptyStats(): StoreStats {
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("uk-UA").format(value);
+}
+
+function formatDate(date: string | null | undefined) {
+  if (!date) return "Дата невідома";
+
+  return new Intl.DateTimeFormat("uk-UA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(date));
+}
+
+function getStoreCategoryIds(store: Store) {
+  const idsFromLinks =
+    store.store_categories
+      ?.map((link) => link.category_id)
+      .filter(Boolean) || [];
+
+  if (idsFromLinks.length > 0) {
+    return Array.from(new Set(idsFromLinks));
+  }
+
+  return store.category_id ? [store.category_id] : [];
+}
+
+function getStoreCategoryNames(
+  store: Store,
+  categoryById: Map<string, Category>
+) {
+  return getStoreCategoryIds(store)
+    .map((categoryId) => categoryById.get(categoryId)?.name)
+    .filter(Boolean) as string[];
+}
+
+function makeEmptyStats(): StoreStats {
   return {
-    totalCodes: 0,
-    activeCodes: 0,
-    expiredCodes: 0,
-    verifiedCodes: 0,
-    worksCount: 0,
-    notWorksCount: 0,
+    total: 0,
+    active: 0,
+    expired: 0,
+    verified: 0,
+    works: 0,
+    notWorks: 0,
   };
-}
-
-function normalizeSearchText(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/ё/g, "е")
-    .replace(/ґ/g, "г")
-    .replace(/[’'ʼ`]/g, "")
-    .replace(/\s+/g, " ");
-}
-
-function splitSearchTokens(value: string) {
-  return normalizeSearchText(value)
-    .split(" ")
-    .map((token) => token.trim())
-    .filter(Boolean);
-}
-
-function getCategory(categoryJoin: CategoryJoin) {
-  if (!categoryJoin) return null;
-
-  if (Array.isArray(categoryJoin)) {
-    return categoryJoin[0] || null;
-  }
-
-  return categoryJoin;
-}
-
-function getCategoryNameFromJoin(categoryJoin: CategoryJoin) {
-  const category = getCategory(categoryJoin);
-
-  return category?.name || "Без категорії";
-}
-
-function getCategorySlugFromJoin(categoryJoin: CategoryJoin) {
-  const category = getCategory(categoryJoin);
-
-  return category?.slug || null;
-}
-
-function getHostName(url: string | null | undefined) {
-  if (!url) return null;
-
-  try {
-    const normalizedUrl = url.startsWith("http") ? url : `https://${url}`;
-
-    return new URL(normalizedUrl).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
-
-function getStoreSearchHaystack(store: Store) {
-  const categoryName = getCategoryNameFromJoin(store.categories);
-  const categorySlug = getCategorySlugFromJoin(store.categories);
-  const aliases = store.search_aliases || [];
-  const host = getHostName(store.website_url);
-
-  return normalizeSearchText(
-    [
-      store.name,
-      store.slug,
-      store.description || "",
-      store.website_url || "",
-      host || "",
-      categoryName,
-      categorySlug || "",
-      ...aliases,
-    ].join(" ")
-  );
-}
-
-function StatPill({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: number;
-  tone?: "default" | "green" | "yellow" | "red" | "orange";
-}) {
-  const valueClass =
-    tone === "green"
-      ? "text-emerald-300"
-      : tone === "yellow"
-      ? "text-yellow-300"
-      : tone === "red"
-      ? "text-red-300"
-      : tone === "orange"
-      ? "text-orange-300"
-      : "text-white";
-
-  return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
-      <p className={`text-3xl font-black ${valueClass}`}>{value}</p>
-      <p className="mt-2 text-sm font-bold text-slate-500">{label}</p>
-    </div>
-  );
-}
-
-function StoreCard({ store, stats }: { store: Store; stats: StoreStats }) {
-  const aliases = store.search_aliases || [];
-  const categoryName = getCategoryNameFromJoin(store.categories);
-
-  return (
-    <article className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:shadow-emerald-950/20">
-      <div className="flex items-start gap-4">
-        <StoreLogo name={store.name} websiteUrl={store.website_url} size="md" />
-
-        <div className="min-w-0 flex-1">
-          <Link
-            href={`/stores/${store.slug}`}
-            className="break-words text-2xl font-black text-white transition hover:text-emerald-300"
-          >
-            {store.name}
-          </Link>
-
-          <p className="mt-1 break-all text-sm font-bold text-slate-500">
-            /stores/{store.slug}
-          </p>
-
-          {store.website_url && (
-            <p className="mt-1 break-all text-sm font-bold text-slate-500">
-              {getHostName(store.website_url)}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-5 flex flex-wrap gap-2">
-        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
-          {categoryName}
-        </span>
-
-        {stats.activeCodes > 0 ? (
-          <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-300">
-            Є активні коди
-          </span>
-        ) : (
-          <span className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-black text-slate-300">
-            Кодів поки немає
-          </span>
-        )}
-      </div>
-
-      <p className="mt-5 line-clamp-3 min-h-[84px] leading-7 text-slate-400">
-        {store.description ||
-          "Магазин у базі ПромоПтахи. Тут можуть з’являтися промокоди, знижки та перевірені користувачами коди."}
-      </p>
-
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-center">
-          <p className="text-2xl font-black text-emerald-300">
-            {stats.totalCodes}
-          </p>
-          <p className="mt-1 text-xs font-bold text-slate-500">кодів</p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-center">
-          <p className="text-2xl font-black text-yellow-300">
-            {stats.activeCodes}
-          </p>
-          <p className="mt-1 text-xs font-bold text-slate-500">дійсних</p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-center">
-          <p className="text-2xl font-black text-slate-200">
-            {stats.verifiedCodes}
-          </p>
-          <p className="mt-1 text-xs font-bold text-slate-500">перевіряли</p>
-        </div>
-      </div>
-
-      {aliases.length > 0 && (
-        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-4">
-          <p className="text-xs font-bold text-slate-500">Пошукові слова</p>
-
-          <div className="mt-2 flex flex-wrap gap-2">
-            {aliases.slice(0, 6).map((alias) => (
-              <span
-                key={alias}
-                className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300"
-              >
-                {alias}
-              </span>
-            ))}
-
-            {aliases.length > 6 && (
-              <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-500">
-                +{aliases.length - 6}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Link
-          href={`/stores/${store.slug}`}
-          className="flex-1 rounded-2xl bg-emerald-400 px-5 py-3 text-center font-black text-slate-950 transition hover:bg-emerald-300"
-        >
-          Відкрити
-        </Link>
-
-        <Link
-          href="/add"
-          className="rounded-2xl border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-        >
-          Додати код
-        </Link>
-      </div>
-    </article>
-  );
 }
 
 export default function StoresPage() {
   const [stores, setStores] = useState<Store[]>([]);
-  const [promos, setPromos] = useState<PromoCode[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [promos, setPromos] = useState<PromoStats[]>([]);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortMode, setSortMode] = useState("popular");
+  const [sortMode, setSortMode] = useState<SortMode>("popular");
 
   const [isLoadingStores, setIsLoadingStores] = useState(true);
-  const [isLoadingPromos, setIsLoadingPromos] = useState(true);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [isLoadingPromos, setIsLoadingPromos] = useState(true);
 
-  const [errorMessage, setErrorMessage] = useState("");
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error" | "info">(
+    "info"
+  );
+
+  const isLoading = isLoadingStores || isLoadingCategories || isLoadingPromos;
+
+  const categoryById = useMemo(() => {
+    return new Map(categories.map((category) => [category.id, category]));
+  }, [categories]);
 
   async function loadCategories() {
     setIsLoadingCategories(true);
@@ -331,6 +154,8 @@ export default function StoresPage() {
 
     if (error) {
       setCategories([]);
+      setMessage(`Не вдалося завантажити категорії: ${error.message}`);
+      setMessageType("error");
       setIsLoadingCategories(false);
       return;
     }
@@ -341,24 +166,63 @@ export default function StoresPage() {
 
   async function loadStores() {
     setIsLoadingStores(true);
-    setErrorMessage("");
+    setMessage("");
 
-    const { data, error } = await supabase
+    const { data: storeData, error: storeError } = await supabase
       .from("stores")
       .select(
-        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at, categories(id, name, slug)"
+        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at"
       )
       .eq("status", "active")
       .order("name", { ascending: true });
 
-    if (error) {
+    if (storeError) {
       setStores([]);
-      setErrorMessage(error.message);
+      setMessage(`Не вдалося завантажити магазини: ${storeError.message}`);
+      setMessageType("error");
       setIsLoadingStores(false);
       return;
     }
 
-    setStores((data || []) as unknown as Store[]);
+    const loadedStores = (storeData || []) as unknown as Store[];
+    const storeIds = loadedStores.map((store) => store.id);
+
+    if (storeIds.length === 0) {
+      setStores([]);
+      setIsLoadingStores(false);
+      return;
+    }
+
+    const { data: linkData, error: linkError } = await supabase
+      .from("store_categories")
+      .select("store_id, category_id")
+      .in("store_id", storeIds);
+
+    if (linkError) {
+      setStores(loadedStores);
+      setMessage(
+        `Магазини завантажено, але категорії не підтягнулись: ${linkError.message}`
+      );
+      setMessageType("error");
+      setIsLoadingStores(false);
+      return;
+    }
+
+    const links = (linkData || []) as unknown as StoreCategoryLink[];
+    const linksByStoreId = new Map<string, StoreCategoryLink[]>();
+
+    for (const link of links) {
+      const currentLinks = linksByStoreId.get(link.store_id) || [];
+
+      linksByStoreId.set(link.store_id, [...currentLinks, link]);
+    }
+
+    const storesWithCategories = loadedStores.map((store) => ({
+      ...store,
+      store_categories: linksByStoreId.get(store.id) || [],
+    }));
+
+    setStores(storesWithCategories);
     setIsLoadingStores(false);
   }
 
@@ -368,18 +232,20 @@ export default function StoresPage() {
     const { data, error } = await supabase
       .from("promo_code_stats")
       .select(
-        "id, store_id, expires_at, works_count, not_works_count, category_id, category_name, category_slug"
+        "id, store_id, expires_at, status, works_count, not_works_count"
       )
       .order("created_at", { ascending: false })
-      .limit(1000);
+      .limit(5000);
 
     if (error) {
       setPromos([]);
+      setMessage(`Не вдалося завантажити промокоди: ${error.message}`);
+      setMessageType("error");
       setIsLoadingPromos(false);
       return;
     }
 
-    setPromos((data || []) as unknown as PromoCode[]);
+    setPromos((data || []) as unknown as PromoStats[]);
     setIsLoadingPromos(false);
   }
 
@@ -390,118 +256,119 @@ export default function StoresPage() {
   }, []);
 
   const statsByStoreId = useMemo(() => {
-    const result: Record<string, StoreStats> = {};
+    const map = new Map<string, StoreStats>();
 
     for (const promo of promos) {
-      if (!promo.store_id) continue;
+      const currentStats = map.get(promo.store_id) || makeEmptyStats();
 
-      if (!result[promo.store_id]) {
-        result[promo.store_id] = emptyStats();
-      }
+      const works = promo.works_count || 0;
+      const notWorks = promo.not_works_count || 0;
+      const expired = isExpired(promo.expires_at);
 
-      const stats = result[promo.store_id];
+      currentStats.total += 1;
+      currentStats.works += works;
+      currentStats.notWorks += notWorks;
 
-      stats.totalCodes += 1;
-      stats.worksCount += promo.works_count || 0;
-      stats.notWorksCount += promo.not_works_count || 0;
-
-      if (isExpired(promo.expires_at)) {
-        stats.expiredCodes += 1;
+      if (expired) {
+        currentStats.expired += 1;
       } else {
-        stats.activeCodes += 1;
+        currentStats.active += 1;
       }
 
-      if ((promo.works_count || 0) + (promo.not_works_count || 0) > 0) {
-        stats.verifiedCodes += 1;
+      if (works > notWorks && works > 0) {
+        currentStats.verified += 1;
+      }
+
+      map.set(promo.store_id, currentStats);
+    }
+
+    return map;
+  }, [promos]);
+
+  const categoryStoreCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const store of stores) {
+      const categoryIds = getStoreCategoryIds(store);
+
+      for (const categoryId of categoryIds) {
+        counts.set(categoryId, (counts.get(categoryId) || 0) + 1);
       }
     }
 
-    return result;
-  }, [promos]);
+    return counts;
+  }, [stores]);
 
   const counts = useMemo(() => {
     return {
-      all: stores.length,
-      withCodes: stores.filter(
-        (store) => (statsByStoreId[store.id]?.totalCodes || 0) > 0
+      allStores: stores.length,
+      withPromos: stores.filter(
+        (store) => (statsByStoreId.get(store.id)?.total || 0) > 0
       ).length,
-      withActiveCodes: stores.filter(
-        (store) => (statsByStoreId[store.id]?.activeCodes || 0) > 0
-      ).length,
-      noCategory: stores.filter((store) => !store.category_id).length,
+      activePromos: promos.filter((promo) => !isExpired(promo.expires_at))
+        .length,
+      noCategory: stores.filter((store) => getStoreCategoryIds(store).length === 0)
+        .length,
     };
-  }, [stores, statsByStoreId]);
-
-  const categoryCounts = useMemo(() => {
-    const result: Record<string, number> = {};
-
-    for (const store of stores) {
-      if (!store.category_id) continue;
-
-      result[store.category_id] = (result[store.category_id] || 0) + 1;
-    }
-
-    return result;
-  }, [stores]);
+  }, [stores, promos, statsByStoreId]);
 
   const filteredStores = useMemo(() => {
-    const searchTokens = splitSearchTokens(search);
-
     const filtered = stores.filter((store) => {
-      const haystack = getStoreSearchHaystack(store);
+      const categoryIds = getStoreCategoryIds(store);
+      const categoryNames = getStoreCategoryNames(store, categoryById);
+      const aliases = store.search_aliases || [];
 
-      const matchesSearch =
-        searchTokens.length === 0 ||
-        searchTokens.every((token) => haystack.includes(token));
+      const matchesSearchQuery = matchesSearch(
+        [
+          store.name,
+          store.slug,
+          store.description || "",
+          store.website_url || "",
+          getHostName(store.website_url) || "",
+          categoryNames.join(" "),
+          aliases.join(" "),
+        ],
+        search
+      );
 
       const matchesCategory =
         categoryFilter === "all" ||
-        (categoryFilter === "none" && !store.category_id) ||
-        store.category_id === categoryFilter;
+        (categoryFilter === "none" && categoryIds.length === 0) ||
+        categoryIds.includes(categoryFilter);
 
-      return matchesSearch && matchesCategory;
+      return matchesSearchQuery && matchesCategory;
     });
 
-    return filtered.sort((first, second) => {
-      const firstStats = statsByStoreId[first.id] || emptyStats();
-      const secondStats = statsByStoreId[second.id] || emptyStats();
+    return [...filtered].sort((firstStore, secondStore) => {
+      const firstStats = statsByStoreId.get(firstStore.id) || makeEmptyStats();
+      const secondStats = statsByStoreId.get(secondStore.id) || makeEmptyStats();
 
-      if (sortMode === "name") {
-        return first.name.localeCompare(second.name, "uk");
+      if (sortMode === "active") {
+        return (
+          secondStats.active - firstStats.active ||
+          secondStats.total - firstStats.total ||
+          firstStore.name.localeCompare(secondStore.name, "uk")
+        );
       }
 
       if (sortMode === "newest") {
-        const firstTime = first.created_at
-          ? new Date(first.created_at).getTime()
-          : 0;
-        const secondTime = second.created_at
-          ? new Date(second.created_at).getTime()
-          : 0;
-
-        return secondTime - firstTime;
+        return (
+          new Date(secondStore.created_at || 0).getTime() -
+          new Date(firstStore.created_at || 0).getTime()
+        );
       }
 
-      if (sortMode === "active") {
-        if (secondStats.activeCodes !== firstStats.activeCodes) {
-          return secondStats.activeCodes - firstStats.activeCodes;
-        }
-
-        return secondStats.totalCodes - firstStats.totalCodes;
+      if (sortMode === "name") {
+        return firstStore.name.localeCompare(secondStore.name, "uk");
       }
 
-      if (secondStats.totalCodes !== firstStats.totalCodes) {
-        return secondStats.totalCodes - firstStats.totalCodes;
-      }
-
-      if (secondStats.activeCodes !== firstStats.activeCodes) {
-        return secondStats.activeCodes - firstStats.activeCodes;
-      }
-
-      return first.name.localeCompare(second.name, "uk");
+      return (
+        secondStats.total - firstStats.total ||
+        secondStats.active - firstStats.active ||
+        firstStore.name.localeCompare(secondStore.name, "uk")
+      );
     });
-  }, [stores, search, categoryFilter, sortMode, statsByStoreId]);
-
-  const isLoading = isLoadingStores || isLoadingPromos || isLoadingCategories;
+  }, [stores, search, categoryFilter, sortMode, categoryById, statsByStoreId]);
 
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
@@ -514,90 +381,112 @@ export default function StoresPage() {
           <span className="text-slate-300">Магазини</span>
         </div>
 
-        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
-          <div className="flex flex-wrap items-start justify-between gap-6">
+        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
+          <div className="grid gap-8 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
             <div>
-              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
-                Каталог магазинів
+              <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+                Магазини
               </p>
 
-              <h1 className="text-5xl font-black tracking-tight md:text-6xl">
-                Магазини
+              <h1 className="text-5xl font-black tracking-tight md:text-7xl">
+                Усі магазини
               </h1>
 
-              <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-400">
-                Шукай магазин за назвою, категорією або скороченням. Наприклад:
-                можна написати “Comfy”, “комфі”, “komfi” або “comfy.ua”.
+              <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-400">
+                Обирай магазин і знаходь актуальні промокоди, знижки та купони.
+                Один магазин може бути одразу в кількох категоріях: наприклад
+                “Догляд та побут”, “Краса” або “Маркетплейси”.
               </p>
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link
+                  href="/codes"
+                  className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+                >
+                  Дивитись промокоди
+                </Link>
+
+                <Link
+                  href="/request-store"
+                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                >
+                  Запропонувати магазин
+                </Link>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/add"
-                className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
-              >
-                Додати код
-              </Link>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                <p className="text-4xl font-black text-white">
+                  {formatNumber(counts.allStores)}
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-500">
+                  магазинів
+                </p>
+              </div>
 
-              <Link
-                href="/request-store"
-                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Запропонувати магазин
-              </Link>
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                <p className="text-4xl font-black text-emerald-300">
+                  {formatNumber(counts.withPromos)}
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-500">
+                  з промокодами
+                </p>
+              </div>
+
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                <p className="text-4xl font-black text-yellow-300">
+                  {formatNumber(counts.activePromos)}
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-500">
+                  активних кодів
+                </p>
+              </div>
+
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                <p className="text-4xl font-black text-orange-300">
+                  {formatNumber(categories.length)}
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-500">
+                  категорій
+                </p>
+              </div>
             </div>
           </div>
+        </section>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-4">
-            <StatPill label="усі" value={counts.all} />
-            <StatPill label="з кодами" value={counts.withCodes} tone="yellow" />
-            <StatPill
-              label="з дійсними"
-              value={counts.withActiveCodes}
-              tone="green"
-            />
-            <StatPill
-              label="без категорії"
-              value={counts.noCategory}
-              tone="orange"
-            />
+        {message && (
+          <div
+            className={`mt-6 rounded-2xl border p-4 ${
+              messageType === "success"
+                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                : messageType === "error"
+                ? "border-red-400/30 bg-red-400/10 text-red-300"
+                : "border-slate-700 bg-slate-900 text-slate-300"
+            }`}
+          >
+            {message}
           </div>
+        )}
 
-          <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_auto_auto]">
+        <section className="mt-8 rounded-[2rem] border border-slate-800 bg-slate-900/80 p-5">
+          <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Пошук: Comfy, комфі, komfi, rozetka, розетка, техніка..."
+              placeholder="Пошук: KRKR, кркр, Comfy, комфі, Rozetka..."
               className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
             />
 
             <select
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-              className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-            >
-              <option value="all">Усі категорії</option>
-              <option value="none">Без категорії</option>
-
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                  {categoryCounts[category.id]
-                    ? ` (${categoryCounts[category.id]})`
-                    : ""}
-                </option>
-              ))}
-            </select>
-
-            <select
               value={sortMode}
-              onChange={(event) => setSortMode(event.target.value)}
+              onChange={(event) => setSortMode(event.target.value as SortMode)}
               className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
             >
-              <option value="popular">Популярні</option>
-              <option value="active">Найбільше дійсних кодів</option>
+              <option value="popular">Спочатку популярні</option>
+              <option value="active">Більше активних кодів</option>
+              <option value="newest">Спочатку нові</option>
               <option value="name">За назвою</option>
-              <option value="newest">Нові магазини</option>
             </select>
           </div>
 
@@ -605,25 +494,25 @@ export default function StoresPage() {
             <button
               type="button"
               onClick={() => setCategoryFilter("all")}
-              className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+              className={`rounded-full border px-4 py-2 text-sm font-black transition ${
                 categoryFilter === "all"
-                  ? "bg-emerald-400 text-slate-950"
-                  : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+                  ? "border-emerald-400 bg-emerald-400 text-slate-950"
+                  : "border-slate-700 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
               }`}
             >
-              Усі {counts.all}
+              Усі · {formatNumber(stores.length)}
             </button>
 
             <button
               type="button"
               onClick={() => setCategoryFilter("none")}
-              className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+              className={`rounded-full border px-4 py-2 text-sm font-black transition ${
                 categoryFilter === "none"
-                  ? "bg-emerald-400 text-slate-950"
-                  : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+                  ? "border-emerald-400 bg-emerald-400 text-slate-950"
+                  : "border-slate-700 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
               }`}
             >
-              Без категорії {counts.noCategory}
+              Без категорії · {formatNumber(counts.noCategory)}
             </button>
 
             {categories.map((category) => (
@@ -631,23 +520,18 @@ export default function StoresPage() {
                 key={category.id}
                 type="button"
                 onClick={() => setCategoryFilter(category.id)}
-                className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+                className={`rounded-full border px-4 py-2 text-sm font-black transition ${
                   categoryFilter === category.id
-                    ? "bg-emerald-400 text-slate-950"
-                    : "border border-slate-800 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
+                    ? "border-emerald-400 bg-emerald-400 text-slate-950"
+                    : "border-slate-700 bg-slate-950 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
                 }`}
               >
-                {category.name} {categoryCounts[category.id] || 0}
+                {category.name} ·{" "}
+                {formatNumber(categoryStoreCounts.get(category.id) || 0)}
               </button>
             ))}
           </div>
         </section>
-
-        {errorMessage && (
-          <div className="mt-8 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-red-300">
-            Помилка завантаження: {errorMessage}
-          </div>
-        )}
 
         {isLoading ? (
           <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -660,33 +544,117 @@ export default function StoresPage() {
           </section>
         ) : filteredStores.length === 0 ? (
           <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center">
-            <div className="text-5xl">🏪</div>
+            <div className="text-6xl">🔎</div>
 
-            <h2 className="mt-4 text-3xl font-black">
+            <h2 className="mt-5 text-4xl font-black">
               Магазинів не знайдено
             </h2>
 
-            <p className="mx-auto mt-3 max-w-xl leading-7 text-slate-400">
-              Спробуй інший запит або категорію. Якщо магазину ще немає —
-              запропонуй його.
+            <p className="mx-auto mt-4 max-w-xl leading-7 text-slate-400">
+              Спробуй змінити пошук або обрати іншу категорію.
             </p>
-
-            <Link
-              href="/request-store"
-              className="mt-6 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
-            >
-              Запропонувати магазин
-            </Link>
           </section>
         ) : (
           <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {filteredStores.map((store) => (
-              <StoreCard
-                key={store.id}
-                store={store}
-                stats={statsByStoreId[store.id] || emptyStats()}
-              />
-            ))}
+            {filteredStores.map((store) => {
+              const stats = statsByStoreId.get(store.id) || makeEmptyStats();
+              const categoryNames = getStoreCategoryNames(store, categoryById);
+
+              return (
+                <article
+                  key={store.id}
+                  className="group flex min-h-[420px] flex-col rounded-[2rem] border border-slate-800 bg-slate-900/80 p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:shadow-emerald-950/30"
+                >
+                  <div className="flex items-start gap-4">
+                    <StoreLogo
+                      name={store.name}
+                      websiteUrl={store.website_url}
+                      size="md"
+                    />
+
+                    <div className="min-w-0">
+                      <h2 className="break-words text-2xl font-black text-white transition group-hover:text-emerald-300">
+                        {store.name}
+                      </h2>
+
+                      <p className="mt-1 break-all text-sm font-bold text-slate-500">
+                        /stores/{store.slug}
+                      </p>
+
+                      {store.website_url && (
+                        <p className="mt-1 break-all text-sm font-bold text-slate-600">
+                          {getHostName(store.website_url)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {categoryNames.length === 0 ? (
+                      <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-black text-slate-500">
+                        Без категорії
+                      </span>
+                    ) : (
+                      categoryNames.map((categoryName) => (
+                        <span
+                          key={categoryName}
+                          className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300"
+                        >
+                          {categoryName}
+                        </span>
+                      ))
+                    )}
+                  </div>
+
+                  <p className="mt-5 line-clamp-3 min-h-[84px] leading-7 text-slate-400">
+                    {store.description ||
+                      "Промокоди, купони та знижки для цього магазину від спільноти ПромоПтаха."}
+                  </p>
+
+                  <div className="mt-5 grid grid-cols-3 gap-3">
+                    <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 text-center">
+                      <p className="text-2xl font-black text-white">
+                        {formatNumber(stats.total)}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-slate-500">
+                        всього
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 text-center">
+                      <p className="text-2xl font-black text-emerald-300">
+                        {formatNumber(stats.active)}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-slate-500">
+                        активні
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 text-center">
+                      <p className="text-2xl font-black text-yellow-300">
+                        {formatNumber(stats.verified)}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-slate-500">
+                        робочі
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-auto pt-6">
+                    <p className="mb-4 text-xs font-bold text-slate-600">
+                      Додано: {formatDate(store.created_at)}
+                    </p>
+
+                    <Link
+                      href={`/stores/${store.slug}`}
+                      className="flex w-full justify-center rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+                    >
+                      Відкрити магазин
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
           </section>
         )}
       </section>
