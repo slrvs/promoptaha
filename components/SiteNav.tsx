@@ -58,6 +58,10 @@ const adminLinks: NavLink[] = [
     label: "Магазини",
   },
   {
+    href: "/admin/categories",
+    label: "Категорії",
+  },
+  {
     href: "/admin/search-tools",
     label: "Інструменти пошуку",
   },
