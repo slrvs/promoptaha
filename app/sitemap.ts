@@ -59,6 +59,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     },
     {
+      url: `${siteUrl}/stats`,
+      lastModified: fallbackDate,
+      changeFrequency: "daily",
+      priority: 0.75,
+    },
+    {
       url: `${siteUrl}/add`,
       lastModified: fallbackDate,
       changeFrequency: "weekly",
@@ -109,7 +115,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .order("created_at", { ascending: false })
     .limit(1000);
 
-  const storePages: MetadataRoute.Sitemap = ((stores || []) as StoreSitemapItem[])
+  const storePages: MetadataRoute.Sitemap = (
+    (stores || []) as StoreSitemapItem[]
+  )
     .filter((store) => Boolean(store.slug))
     .map((store) => ({
       url: `${siteUrl}/stores/${store.slug}`,
@@ -118,7 +126,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.75,
     }));
 
-  const promoPages: MetadataRoute.Sitemap = ((promos || []) as PromoSitemapItem[])
+  const promoPages: MetadataRoute.Sitemap = (
+    (promos || []) as PromoSitemapItem[]
+  )
     .filter((promo) => Boolean(promo.slug || promo.id))
     .map((promo) => ({
       url: `${siteUrl}/codes/${promo.slug || promo.id}`,
