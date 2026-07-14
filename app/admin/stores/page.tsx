@@ -7,14 +7,39 @@ import StoreLogo from "@/components/StoreLogo";
 
 type StoreStatus = "active" | "pending" | "rejected";
 
+type Category = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  status?: string | null;
+};
+
+type CategoryJoin =
+  | {
+      id?: string | null;
+      name?: string | null;
+      slug?: string | null;
+    }
+  | {
+      id?: string | null;
+      name?: string | null;
+      slug?: string | null;
+    }[]
+  | null
+  | undefined;
+
 type Store = {
   id: string;
   name: string;
   slug: string;
   description?: string | null;
   website_url?: string | null;
-  status?: string | null;
+  status?: StoreStatus | string | null;
+  category_id?: string | null;
+  search_aliases?: string[] | null;
   created_at?: string | null;
+  categories?: CategoryJoin;
 };
 
 const ADMIN_EMAIL = "jchameleonl96@gmail.com";
@@ -27,31 +52,18 @@ const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
-function makeSlug(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/['’`]/g, "")
-    .replace(/&/g, " and ")
-    .replace(/[^a-zа-яіїєґ0-9]+/gi, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-}
+function getCategoryName(categoryJoin: CategoryJoin) {
+  if (!categoryJoin) return "Без категорії";
 
-function normalizeUrl(value: string) {
-  const trimmed = value.trim();
-
-  if (!trimmed) return "";
-
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-    return trimmed;
+  if (Array.isArray(categoryJoin)) {
+    return categoryJoin[0]?.name || "Без категорії";
   }
 
-  return `https://${trimmed}`;
+  return categoryJoin.name || "Без категорії";
 }
 
 function formatDate(date: string | null | undefined) {
-  if (!date) return "Не вказано";
+  if (!date) return "Дата невідома";
 
   return new Intl.DateTimeFormat("uk-UA", {
     day: "2-digit",
@@ -62,19 +74,9 @@ function formatDate(date: string | null | undefined) {
   }).format(new Date(date));
 }
 
-function getHostName(url: string | null | undefined) {
-  if (!url) return "Сайт не вказано";
-
-  try {
-    return new URL(url).hostname.replace("www.", "");
-  } catch {
-    return url;
-  }
-}
-
 function getStatusLabel(status: string | null | undefined) {
   if (status === "active") return "Активний";
-  if (status === "pending") return "На модерації";
+  if (status === "pending") return "Очікує";
   if (status === "rejected") return "Прихований";
 
   return status || "Невідомо";
@@ -96,67 +98,151 @@ function getStatusClass(status: string | null | undefined) {
   return "border-slate-700 bg-slate-800 text-slate-300";
 }
 
-async function getUniqueSlug(baseSlug: string, currentStoreId?: string) {
-  const cleanBaseSlug = baseSlug || "store";
+function normalizeUrl(url: string) {
+  const trimmedUrl = url.trim();
 
-  let slug = cleanBaseSlug;
-  let counter = 2;
+  if (!trimmedUrl) return "";
 
-  while (true) {
-    const { data, error } = await supabase
-      .from("stores")
-      .select("id")
-      .eq("slug", slug)
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    if (!data || data.id === currentStoreId) {
-      return slug;
-    }
-
-    slug = `${cleanBaseSlug}-${counter}`;
-    counter += 1;
+  if (trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")) {
+    return trimmedUrl;
   }
+
+  return `https://${trimmedUrl}`;
+}
+
+function getHostName(url: string | null | undefined) {
+  if (!url) return null;
+
+  try {
+    return new URL(normalizeUrl(url)).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function slugify(value: string) {
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/['’ʼ`]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9а-яіїєґё]+/gi, "-")
+    .replace(/^-+|-+$/g, "");
+
+  const transliterated = normalized
+    .replace(/а/g, "a")
+    .replace(/б/g, "b")
+    .replace(/в/g, "v")
+    .replace(/г/g, "h")
+    .replace(/ґ/g, "g")
+    .replace(/д/g, "d")
+    .replace(/е/g, "e")
+    .replace(/є/g, "ie")
+    .replace(/ж/g, "zh")
+    .replace(/з/g, "z")
+    .replace(/и/g, "y")
+    .replace(/і/g, "i")
+    .replace(/ї/g, "i")
+    .replace(/й/g, "i")
+    .replace(/к/g, "k")
+    .replace(/л/g, "l")
+    .replace(/м/g, "m")
+    .replace(/н/g, "n")
+    .replace(/о/g, "o")
+    .replace(/п/g, "p")
+    .replace(/р/g, "r")
+    .replace(/с/g, "s")
+    .replace(/т/g, "t")
+    .replace(/у/g, "u")
+    .replace(/ф/g, "f")
+    .replace(/х/g, "kh")
+    .replace(/ц/g, "ts")
+    .replace(/ч/g, "ch")
+    .replace(/ш/g, "sh")
+    .replace(/щ/g, "shch")
+    .replace(/ь/g, "")
+    .replace(/ю/g, "iu")
+    .replace(/я/g, "ia")
+    .replace(/ё/g, "e")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return transliterated || "store";
+}
+
+function normalizeSearchText(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function parseAliases(value: string) {
+  const aliases = value
+    .split(/[\n,;]/g)
+    .map((alias) => normalizeSearchText(alias))
+    .filter(Boolean);
+
+  return Array.from(new Set(aliases));
+}
+
+function aliasesToText(aliases: string[] | null | undefined) {
+  return (aliases || []).join(", ");
+}
+
+function makeDefaultAliases(name: string, slug: string, websiteUrl: string) {
+  const host = getHostName(websiteUrl);
+
+  const aliases = [
+    name,
+    slug,
+    name.replace(/\s+/g, ""),
+    slug.replace(/-/g, " "),
+    host || "",
+  ]
+    .map((alias) => normalizeSearchText(alias))
+    .filter(Boolean);
+
+  return Array.from(new Set(aliases));
 }
 
 export default function AdminStoresPage() {
   const [user, setUser] = useState<User | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | StoreStatus>("all");
-
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-
-  const [createName, setCreateName] = useState("");
-  const [createSlug, setCreateSlug] = useState("");
-  const [createWebsiteUrl, setCreateWebsiteUrl] = useState("");
-  const [createDescription, setCreateDescription] = useState("");
-  const [createStatus, setCreateStatus] = useState<StoreStatus>("active");
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [savingId, setSavingId] = useState<string | null>(null);
-
-  const [editName, setEditName] = useState("");
-  const [editSlug, setEditSlug] = useState("");
-  const [editWebsiteUrl, setEditWebsiteUrl] = useState("");
-  const [editDescription, setEditDescription] = useState("");
-  const [editStatus, setEditStatus] = useState<StoreStatus>("active");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [isLoadingStores, setIsLoadingStores] = useState(true);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "info">(
     "info"
   );
 
+  const [editingStoreId, setEditingStoreId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editSlug, setEditSlug] = useState("");
+  const [editWebsiteUrl, setEditWebsiteUrl] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editStatus, setEditStatus] = useState<StoreStatus>("active");
+  const [editCategoryId, setEditCategoryId] = useState("");
+  const [editAliases, setEditAliases] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createSlug, setCreateSlug] = useState("");
+  const [createWebsiteUrl, setCreateWebsiteUrl] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createStatus, setCreateStatus] = useState<StoreStatus>("active");
+  const [createCategoryId, setCreateCategoryId] = useState("");
+  const [createAliases, setCreateAliases] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+
   const isAdmin = user?.email === ADMIN_EMAIL;
+  const isLoading = isLoadingUser || isLoadingStores || isLoadingCategories;
 
   async function loadUser() {
     setIsLoadingUser(true);
@@ -167,18 +253,41 @@ export default function AdminStoresPage() {
     setIsLoadingUser(false);
   }
 
+  async function loadCategories() {
+    setIsLoadingCategories(true);
+
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, name, slug, description, status")
+      .eq("status", "active")
+      .order("name", { ascending: true });
+
+    if (error) {
+      setCategories([]);
+      setMessage(`Помилка категорій: ${error.message}`);
+      setMessageType("error");
+      setIsLoadingCategories(false);
+      return;
+    }
+
+    setCategories((data || []) as Category[]);
+    setIsLoadingCategories(false);
+  }
+
   async function loadStores() {
     setIsLoadingStores(true);
     setMessage("");
 
     const { data, error } = await supabase
       .from("stores")
-      .select("id, name, slug, description, website_url, status, created_at")
-      .order("name", { ascending: true });
+      .select(
+        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at, categories(id, name, slug)"
+      )
+      .order("created_at", { ascending: false });
 
     if (error) {
       setStores([]);
-      setMessage(`Помилка завантаження магазинів: ${error.message}`);
+      setMessage(`Помилка магазинів: ${error.message}`);
       setMessageType("error");
       setIsLoadingStores(false);
       return;
@@ -190,43 +299,108 @@ export default function AdminStoresPage() {
 
   useEffect(() => {
     loadUser();
+    loadCategories();
   }, []);
 
   useEffect(() => {
-    if (!isLoadingUser && isAdmin) {
+    if (isAdmin) {
       loadStores();
-    }
-
-    if (!isLoadingUser && !isAdmin) {
+    } else {
       setIsLoadingStores(false);
     }
-  }, [isLoadingUser, isAdmin]);
+  }, [isAdmin]);
+
+  const counts = useMemo(() => {
+    return {
+      all: stores.length,
+      active: stores.filter((store) => store.status === "active").length,
+      pending: stores.filter((store) => store.status === "pending").length,
+      rejected: stores.filter((store) => store.status === "rejected").length,
+      noCategory: stores.filter((store) => !store.category_id).length,
+    };
+  }, [stores]);
 
   const filteredStores = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+    const normalizedSearch = normalizeSearchText(search);
 
     return stores.filter((store) => {
+      const aliasesText = (store.search_aliases || []).join(" ");
+      const categoryName = getCategoryName(store.categories);
+
+      const haystack = normalizeSearchText(
+        [
+          store.name,
+          store.slug,
+          store.description || "",
+          store.website_url || "",
+          categoryName,
+          aliasesText,
+        ].join(" ")
+      );
+
+      const matchesSearch =
+        !normalizedSearch || haystack.includes(normalizedSearch);
+
       const matchesStatus =
         statusFilter === "all" || store.status === statusFilter;
 
-      const matchesSearch =
-        !normalizedSearch ||
-        store.name.toLowerCase().includes(normalizedSearch) ||
-        store.slug.toLowerCase().includes(normalizedSearch) ||
-        (store.website_url || "").toLowerCase().includes(normalizedSearch) ||
-        (store.description || "").toLowerCase().includes(normalizedSearch);
+      const matchesCategory =
+        categoryFilter === "all" ||
+        (categoryFilter === "none" && !store.category_id) ||
+        store.category_id === categoryFilter;
 
-      return matchesStatus && matchesSearch;
+      return matchesSearch && matchesStatus && matchesCategory;
     });
-  }, [stores, search, statusFilter]);
+  }, [stores, search, statusFilter, categoryFilter]);
 
-  const activeCount = stores.filter((store) => store.status === "active").length;
-  const pendingCount = stores.filter(
-    (store) => store.status === "pending"
-  ).length;
-  const rejectedCount = stores.filter(
-    (store) => store.status === "rejected"
-  ).length;
+  async function getUniqueSlug(baseSlug: string, currentStoreId?: string) {
+    let candidate = baseSlug || "store";
+    let counter = 2;
+
+    while (true) {
+      let query = supabase.from("stores").select("id").eq("slug", candidate);
+
+      if (currentStoreId) {
+        query = query.neq("id", currentStoreId);
+      }
+
+      const { data, error } = await query.limit(1);
+
+      if (error) {
+        return candidate;
+      }
+
+      if (!data || data.length === 0) {
+        return candidate;
+      }
+
+      candidate = `${baseSlug}-${counter}`;
+      counter += 1;
+    }
+  }
+
+  function startEdit(store: Store) {
+    setEditingStoreId(store.id);
+    setEditName(store.name);
+    setEditSlug(store.slug);
+    setEditWebsiteUrl(store.website_url || "");
+    setEditDescription(store.description || "");
+    setEditStatus((store.status as StoreStatus) || "active");
+    setEditCategoryId(store.category_id || "");
+    setEditAliases(aliasesToText(store.search_aliases));
+    setMessage("");
+  }
+
+  function cancelEdit() {
+    setEditingStoreId(null);
+    setEditName("");
+    setEditSlug("");
+    setEditWebsiteUrl("");
+    setEditDescription("");
+    setEditStatus("active");
+    setEditCategoryId("");
+    setEditAliases("");
+  }
 
   function resetCreateForm() {
     setCreateName("");
@@ -234,13 +408,12 @@ export default function AdminStoresPage() {
     setCreateWebsiteUrl("");
     setCreateDescription("");
     setCreateStatus("active");
+    setCreateCategoryId("");
+    setCreateAliases("");
   }
 
   async function createStore(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    setMessage("");
-    setMessageType("info");
 
     if (!createName.trim()) {
       setMessage("Вкажи назву магазину.");
@@ -249,83 +422,49 @@ export default function AdminStoresPage() {
     }
 
     setIsCreating(true);
+    setMessage("");
 
-    try {
-      const baseSlug =
-        makeSlug(createSlug) || makeSlug(createName) || "store";
+    const baseSlug = slugify(createSlug || createName);
+    const uniqueSlug = await getUniqueSlug(baseSlug);
+    const normalizedWebsiteUrl = normalizeUrl(createWebsiteUrl);
+    const customAliases = parseAliases(createAliases);
+    const defaultAliases = makeDefaultAliases(
+      createName,
+      uniqueSlug,
+      normalizedWebsiteUrl
+    );
 
-      const finalSlug = await getUniqueSlug(baseSlug);
+    const finalAliases = Array.from(
+      new Set([...defaultAliases, ...customAliases])
+    );
 
-      const finalWebsiteUrl = createWebsiteUrl.trim()
-        ? normalizeUrl(createWebsiteUrl)
-        : null;
+    const { error } = await supabase.from("stores").insert({
+      name: createName.trim(),
+      slug: uniqueSlug,
+      website_url: normalizedWebsiteUrl || null,
+      description: createDescription.trim() || null,
+      status: createStatus,
+      category_id: createCategoryId || null,
+      search_aliases: finalAliases,
+    });
 
-      const { data, error } = await supabase
-        .from("stores")
-        .insert({
-          name: createName.trim(),
-          slug: finalSlug,
-          website_url: finalWebsiteUrl,
-          description: createDescription.trim() || null,
-          status: createStatus,
-        })
-        .select("id, name, slug, description, website_url, status, created_at")
-        .single();
+    setIsCreating(false);
 
-      if (error) {
-        setMessage(`Помилка створення магазину: ${error.message}`);
-        setMessageType("error");
-        setIsCreating(false);
-        return;
-      }
-
-      setStores((currentStores) =>
-        [data as Store, ...currentStores].sort((firstStore, secondStore) =>
-          firstStore.name.localeCompare(secondStore.name, "uk")
-        )
-      );
-
-      resetCreateForm();
-      setIsCreateOpen(false);
-
-      setMessage(`Магазин “${data.name}” створено зі slug: ${data.slug}`);
-      setMessageType("success");
-      setIsCreating(false);
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? `Помилка створення магазину: ${error.message}`
-          : "Помилка створення магазину."
-      );
+    if (error) {
+      setMessage(`Не вдалося створити магазин: ${error.message}`);
       setMessageType("error");
-      setIsCreating(false);
+      return;
     }
+
+    resetCreateForm();
+    setIsCreateOpen(false);
+    setMessage("Магазин створено.");
+    setMessageType("success");
+    loadStores();
   }
 
-  function startEdit(store: Store) {
-    setEditingId(store.id);
-    setEditName(store.name || "");
-    setEditSlug(store.slug || "");
-    setEditWebsiteUrl(store.website_url || "");
-    setEditDescription(store.description || "");
-    setEditStatus((store.status as StoreStatus) || "active");
-    setMessage("");
-  }
-
-  function cancelEdit() {
-    setEditingId(null);
-    setEditName("");
-    setEditSlug("");
-    setEditWebsiteUrl("");
-    setEditDescription("");
-    setEditStatus("active");
-  }
-
-  async function saveStore(event: FormEvent<HTMLFormElement>, storeId: string) {
-    event.preventDefault();
-
-    setMessage("");
-    setMessageType("info");
+  async function saveStore() {
+    if (!editingStoreId) return;
 
     if (!editName.trim()) {
       setMessage("Назва магазину не може бути порожньою.");
@@ -333,71 +472,55 @@ export default function AdminStoresPage() {
       return;
     }
 
-    setSavingId(storeId);
+    setIsSaving(true);
+    setMessage("");
 
-    try {
-      const baseSlug = makeSlug(editSlug) || makeSlug(editName) || "store";
-      const finalSlug = await getUniqueSlug(baseSlug, storeId);
+    const baseSlug = slugify(editSlug || editName);
+    const uniqueSlug = await getUniqueSlug(baseSlug, editingStoreId);
+    const normalizedWebsiteUrl = normalizeUrl(editWebsiteUrl);
+    const customAliases = parseAliases(editAliases);
+    const defaultAliases = makeDefaultAliases(
+      editName,
+      uniqueSlug,
+      normalizedWebsiteUrl
+    );
 
-      const finalWebsiteUrl = editWebsiteUrl.trim()
-        ? normalizeUrl(editWebsiteUrl)
-        : null;
+    const finalAliases = Array.from(
+      new Set([...defaultAliases, ...customAliases])
+    );
 
-      const { error } = await supabase
-        .from("stores")
-        .update({
-          name: editName.trim(),
-          slug: finalSlug,
-          website_url: finalWebsiteUrl,
-          description: editDescription.trim() || null,
-          status: editStatus,
-        })
-        .eq("id", storeId);
+    const { error } = await supabase
+      .from("stores")
+      .update({
+        name: editName.trim(),
+        slug: uniqueSlug,
+        website_url: normalizedWebsiteUrl || null,
+        description: editDescription.trim() || null,
+        status: editStatus,
+        category_id: editCategoryId || null,
+        search_aliases: finalAliases,
+      })
+      .eq("id", editingStoreId);
 
-      setSavingId(null);
+    setIsSaving(false);
 
-      if (error) {
-        setMessage(`Помилка збереження магазину: ${error.message}`);
-        setMessageType("error");
-        return;
-      }
-
-      setStores((currentStores) =>
-        currentStores.map((store) =>
-          store.id === storeId
-            ? {
-                ...store,
-                name: editName.trim(),
-                slug: finalSlug,
-                website_url: finalWebsiteUrl,
-                description: editDescription.trim() || null,
-                status: editStatus,
-              }
-            : store
-        )
-      );
-
-      setEditingId(null);
-      setMessage("Магазин оновлено. Лого має підтягнутись по website_url.");
-      setMessageType("success");
-    } catch (error) {
-      setSavingId(null);
-      setMessage(
-        error instanceof Error
-          ? `Помилка збереження магазину: ${error.message}`
-          : "Помилка збереження магазину."
-      );
+    if (error) {
+      setMessage(`Не вдалося зберегти магазин: ${error.message}`);
       setMessageType("error");
+      return;
     }
+
+    cancelEdit();
+    setMessage("Магазин оновлено.");
+    setMessageType("success");
+    loadStores();
   }
 
   if (isLoadingUser) {
     return (
       <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
         <section className="mx-auto w-full max-w-7xl">
-          <div className="rounded-[2rem] border border-slate-800 bg-slate-900 p-6 text-slate-400">
-            Перевіряю доступ...
-          </div>
+          <div className="h-[520px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
         </section>
       </main>
     );
@@ -411,7 +534,7 @@ export default function AdminStoresPage() {
             <h1 className="text-4xl font-black text-red-300">Потрібен вхід</h1>
 
             <p className="mx-auto mt-4 max-w-xl leading-7 text-red-100">
-              Щоб відкрити адмінку, потрібно увійти в акаунт адміністратора.
+              Щоб керувати магазинами, потрібно увійти в акаунт адміністратора.
             </p>
 
             <Link
@@ -431,10 +554,10 @@ export default function AdminStoresPage() {
       <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
         <section className="mx-auto w-full max-w-5xl">
           <div className="rounded-[2.5rem] border border-red-400/30 bg-red-400/10 p-8 text-center">
-            <h1 className="text-4xl font-black text-red-300">Немає доступу</h1>
+            <h1 className="text-4xl font-black text-red-300">Доступ закрито</h1>
 
             <p className="mx-auto mt-4 max-w-xl leading-7 text-red-100">
-              Ця сторінка доступна тільки адміністратору.
+              Ця сторінка доступна тільки адміністратору ПромоПтахи.
             </p>
 
             <Link
@@ -452,6 +575,18 @@ export default function AdminStoresPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <section className="mx-auto w-full max-w-7xl">
+        <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+          <Link href="/" className="hover:text-emerald-300">
+            Головна
+          </Link>
+          <span>/</span>
+          <Link href="/admin" className="hover:text-emerald-300">
+            Адмінка
+          </Link>
+          <span>/</span>
+          <span className="text-slate-300">Магазини</span>
+        </div>
+
         <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
@@ -459,75 +594,89 @@ export default function AdminStoresPage() {
                 Адмінка
               </p>
 
-              <h1 className="text-5xl font-black tracking-tight">Магазини</h1>
+              <h1 className="text-5xl font-black tracking-tight md:text-6xl">
+                Магазини
+              </h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-400">
-                Тут можна створювати магазини вручну, редагувати назву, сайт,
-                опис і статус. Лого підтягуватиметься автоматично з
-                website_url.
+                Створюй магазини, змінюй статус, категорію, сайт, опис і
+                пошукові слова. Пошукові слова допоможуть знаходити Comfy через
+                “комфі”, “komfi” або “comfy.ua”.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Link
-                href="/admin"
-                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              <button
+                type="button"
+                onClick={() => setIsCreateOpen((current) => !current)}
+                className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
               >
-                Промокоди
-              </Link>
-
-              <Link
-                href="/admin/store-requests"
-                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Заявки
-              </Link>
-
-              <Link
-                href="/admin/reports"
-                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Репорти
-              </Link>
+                {isCreateOpen ? "Закрити форму" : "Створити магазин"}
+              </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setIsCreateOpen((currentValue) => !currentValue);
-                  setMessage("");
+                  loadCategories();
+                  loadStores();
                 }}
-                className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                disabled={isLoadingStores || isLoadingCategories}
+                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isCreateOpen ? "Закрити створення" : "Створити магазин"}
+                Оновити
               </button>
+
+              <Link
+                href="/admin/store-requests"
+                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              >
+                Заявки
+              </Link>
             </div>
           </div>
+
+          {message && (
+            <div
+              className={`mt-8 rounded-2xl border p-4 ${
+                messageType === "success"
+                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                  : messageType === "error"
+                  ? "border-red-400/30 bg-red-400/10 text-red-300"
+                  : "border-slate-700 bg-slate-950 text-slate-300"
+              }`}
+            >
+              {message}
+            </div>
+          )}
 
           {isCreateOpen && (
             <form
               onSubmit={createStore}
-              className="mt-8 rounded-[2rem] border border-emerald-400/30 bg-emerald-400/10 p-5"
+              className="mt-8 rounded-[2rem] border border-emerald-400/20 bg-emerald-400/5 p-5"
             >
-              <div className="flex flex-wrap items-start gap-5">
-                <StoreLogo
-                  name={createName || "Новий магазин"}
-                  websiteUrl={createWebsiteUrl}
-                  size="lg"
-                />
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-black">Новий магазин</h2>
 
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-3xl font-black text-white">
-                    Новий магазин
-                  </h2>
-
-                  <p className="mt-2 leading-7 text-slate-300">
-                    Вкажи назву та сайт магазину. Якщо slug уже зайнятий, сайт
-                    автоматично додасть `-2`, `-3` і так далі.
+                  <p className="mt-2 leading-7 text-slate-400">
+                    Категорія і пошукові слова одразу працюватимуть у фільтрах і
+                    пошуку.
                   </p>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetCreateForm();
+                    setIsCreateOpen(false);
+                  }}
+                  className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300"
+                >
+                  Скасувати
+                </button>
               </div>
 
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
+              <div className="mt-6 grid gap-5 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-bold text-slate-300">
                     Назва
@@ -537,9 +686,12 @@ export default function AdminStoresPage() {
                     value={createName}
                     onChange={(event) => {
                       setCreateName(event.target.value);
-                      setCreateSlug(makeSlug(event.target.value));
+
+                      if (!createSlug.trim()) {
+                        setCreateSlug(slugify(event.target.value));
+                      }
                     }}
-                    placeholder="Наприклад: Rozetka"
+                    placeholder="Comfy"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
@@ -551,29 +703,23 @@ export default function AdminStoresPage() {
 
                   <input
                     value={createSlug}
-                    onChange={(event) => setCreateSlug(makeSlug(event.target.value))}
-                    placeholder="rozetka"
+                    onChange={(event) => setCreateSlug(slugify(event.target.value))}
+                    placeholder="comfy"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
-              </div>
 
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-sm font-bold text-slate-300">
-                    Website URL
+                    Сайт
                   </label>
 
                   <input
                     value={createWebsiteUrl}
                     onChange={(event) => setCreateWebsiteUrl(event.target.value)}
-                    placeholder="https://rozetka.com.ua"
+                    placeholder="https://comfy.ua"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
-
-                  <p className="mt-2 text-sm text-slate-400">
-                    Можна вводити без https://
-                  </p>
                 </div>
 
                 <div>
@@ -589,9 +735,42 @@ export default function AdminStoresPage() {
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
                   >
                     <option value="active">Активний</option>
-                    <option value="pending">На модерації</option>
+                    <option value="pending">Очікує</option>
                     <option value="rejected">Прихований</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-slate-300">
+                    Категорія
+                  </label>
+
+                  <select
+                    value={createCategoryId}
+                    onChange={(event) => setCreateCategoryId(event.target.value)}
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
+                  >
+                    <option value="">Без категорії</option>
+
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-bold text-slate-300">
+                    Пошукові слова
+                  </label>
+
+                  <input
+                    value={createAliases}
+                    onChange={(event) => setCreateAliases(event.target.value)}
+                    placeholder="comfy, комфі, komfi, comfy.ua"
+                    className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  />
                 </div>
               </div>
 
@@ -603,395 +782,378 @@ export default function AdminStoresPage() {
                 <textarea
                   value={createDescription}
                   onChange={(event) => setCreateDescription(event.target.value)}
-                  rows={5}
                   placeholder="Короткий опис магазину..."
+                  rows={4}
                   className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                 />
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-3">
-                <button
-                  type="submit"
-                  disabled={isCreating}
-                  className="flex-1 rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isCreating ? "Створюю..." : "Створити магазин"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetCreateForm();
-                    setIsCreateOpen(false);
-                  }}
-                  className="rounded-2xl border border-slate-700 px-5 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                >
-                  Скасувати
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={isCreating}
+                className="mt-5 w-full rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isCreating ? "Створюю..." : "Створити магазин"}
+              </button>
             </form>
           )}
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-4">
-            <button
-              type="button"
-              onClick={() => setStatusFilter("all")}
-              className={`rounded-3xl border p-5 text-left transition ${
-                statusFilter === "all"
-                  ? "border-slate-400 bg-slate-400/10"
-                  : "border-slate-800 bg-slate-950 hover:border-slate-500"
-              }`}
-            >
-              <p className="text-3xl font-black text-slate-200">
-                {stores.length}
-              </p>
-              <p className="mt-2 text-sm font-bold text-slate-500">усього</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setStatusFilter("active")}
-              className={`rounded-3xl border p-5 text-left transition ${
-                statusFilter === "active"
-                  ? "border-emerald-400 bg-emerald-400/10"
-                  : "border-slate-800 bg-slate-950 hover:border-emerald-400/50"
-              }`}
-            >
-              <p className="text-3xl font-black text-emerald-300">
-                {activeCount}
-              </p>
-              <p className="mt-2 text-sm font-bold text-slate-500">активні</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setStatusFilter("pending")}
-              className={`rounded-3xl border p-5 text-left transition ${
-                statusFilter === "pending"
-                  ? "border-yellow-400 bg-yellow-400/10"
-                  : "border-slate-800 bg-slate-950 hover:border-yellow-400/50"
-              }`}
-            >
-              <p className="text-3xl font-black text-yellow-300">
-                {pendingCount}
-              </p>
-              <p className="mt-2 text-sm font-bold text-slate-500">
-                на модерації
-              </p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setStatusFilter("rejected")}
-              className={`rounded-3xl border p-5 text-left transition ${
-                statusFilter === "rejected"
-                  ? "border-red-400 bg-red-400/10"
-                  : "border-slate-800 bg-slate-950 hover:border-red-400/50"
-              }`}
-            >
-              <p className="text-3xl font-black text-red-300">
-                {rejectedCount}
-              </p>
-              <p className="mt-2 text-sm font-bold text-slate-500">
-                приховані
-              </p>
-            </button>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_auto_auto]">
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Пошук: назва, slug, сайт, опис..."
-              className="min-w-0 flex-1 rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              placeholder="Пошук: Comfy, комфі, komfi, техніка..."
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
             />
 
-            <button
-              type="button"
-              onClick={loadStores}
-              className="rounded-2xl border border-slate-700 px-5 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
             >
-              Оновити
-            </button>
+              <option value="all">Усі статуси</option>
+              <option value="active">Активні</option>
+              <option value="pending">Очікують</option>
+              <option value="rejected">Приховані</option>
+            </select>
+
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
+            >
+              <option value="all">Усі категорії</option>
+              <option value="none">Без категорії</option>
+
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {message && (
-            <div
-              className={`mt-6 rounded-2xl border px-4 py-3 text-sm ${
-                messageType === "success"
-                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-                  : messageType === "error"
-                  ? "border-red-400/30 bg-red-400/10 text-red-300"
-                  : "border-slate-700 bg-slate-950 text-slate-300"
-              }`}
-            >
-              {message}
+          <div className="mt-5 grid gap-4 sm:grid-cols-5">
+            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
+              <p className="text-3xl font-black text-white">{counts.all}</p>
+              <p className="mt-2 text-sm font-bold text-slate-500">усі</p>
             </div>
-          )}
 
-          {isLoadingStores ? (
-            <div className="mt-8 grid gap-5">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-56 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-950"
-                />
-              ))}
+            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
+              <p className="text-3xl font-black text-emerald-300">
+                {counts.active}
+              </p>
+              <p className="mt-2 text-sm font-bold text-slate-500">активні</p>
             </div>
-          ) : filteredStores.length === 0 ? (
-            <div className="mt-8 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center">
-              <div className="text-5xl">🏪</div>
 
-              <h2 className="mt-4 text-3xl font-black">
-                Магазинів не знайдено
-              </h2>
+            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
+              <p className="text-3xl font-black text-yellow-300">
+                {counts.pending}
+              </p>
+              <p className="mt-2 text-sm font-bold text-slate-500">очікують</p>
+            </div>
 
-              <p className="mx-auto mt-3 max-w-xl leading-7 text-slate-400">
-                Спробуй змінити фільтр або пошук.
+            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
+              <p className="text-3xl font-black text-red-300">
+                {counts.rejected}
+              </p>
+              <p className="mt-2 text-sm font-bold text-slate-500">приховані</p>
+            </div>
+
+            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
+              <p className="text-3xl font-black text-orange-300">
+                {counts.noCategory}
+              </p>
+              <p className="mt-2 text-sm font-bold text-slate-500">
+                без категорії
               </p>
             </div>
-          ) : (
-            <div className="mt-8 grid gap-5">
-              {filteredStores.map((store) => {
-                const isEditing = editingId === store.id;
-                const isSaving = savingId === store.id;
+          </div>
+        </section>
 
-                return (
-                  <article
-                    key={store.id}
-                    className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/20"
-                  >
-                    {!isEditing ? (
-                      <div className="grid gap-5 lg:grid-cols-[1fr_auto]">
-                        <div className="flex gap-5">
+        {isLoading ? (
+          <div className="mt-8 grid gap-5 md:grid-cols-2">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-80 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900"
+              />
+            ))}
+          </div>
+        ) : filteredStores.length === 0 ? (
+          <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center">
+            <div className="text-5xl">🏪</div>
+
+            <h2 className="mt-4 text-3xl font-black">
+              Магазинів не знайдено
+            </h2>
+
+            <p className="mx-auto mt-3 max-w-xl leading-7 text-slate-400">
+              Спробуй змінити пошук, статус або категорію.
+            </p>
+          </section>
+        ) : (
+          <section className="mt-8 grid gap-5 md:grid-cols-2">
+            {filteredStores.map((store) => {
+              const isEditing = editingStoreId === store.id;
+              const aliases = store.search_aliases || [];
+
+              return (
+                <article
+                  key={store.id}
+                  className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-5 shadow-xl shadow-black/20"
+                >
+                  {isEditing ? (
+                    <div>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h2 className="text-2xl font-black">
+                          Редагування магазину
+                        </h2>
+
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="rounded-full border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 transition hover:border-red-400 hover:text-red-300"
+                        >
+                          Скасувати
+                        </button>
+                      </div>
+
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <div>
+                          <label className="mb-2 block text-sm font-bold text-slate-300">
+                            Назва
+                          </label>
+
+                          <input
+                            value={editName}
+                            onChange={(event) => setEditName(event.target.value)}
+                            className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-bold text-slate-300">
+                            Slug
+                          </label>
+
+                          <input
+                            value={editSlug}
+                            onChange={(event) =>
+                              setEditSlug(slugify(event.target.value))
+                            }
+                            className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-bold text-slate-300">
+                            Сайт
+                          </label>
+
+                          <input
+                            value={editWebsiteUrl}
+                            onChange={(event) =>
+                              setEditWebsiteUrl(event.target.value)
+                            }
+                            className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-bold text-slate-300">
+                            Статус
+                          </label>
+
+                          <select
+                            value={editStatus}
+                            onChange={(event) =>
+                              setEditStatus(event.target.value as StoreStatus)
+                            }
+                            className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
+                          >
+                            <option value="active">Активний</option>
+                            <option value="pending">Очікує</option>
+                            <option value="rejected">Прихований</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-bold text-slate-300">
+                            Категорія
+                          </label>
+
+                          <select
+                            value={editCategoryId}
+                            onChange={(event) =>
+                              setEditCategoryId(event.target.value)
+                            }
+                            className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
+                          >
+                            <option value="">Без категорії</option>
+
+                            {categories.map((category) => (
+                              <option key={category.id} value={category.id}>
+                                {category.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-2 block text-sm font-bold text-slate-300">
+                            Пошукові слова
+                          </label>
+
+                          <input
+                            value={editAliases}
+                            onChange={(event) =>
+                              setEditAliases(event.target.value)
+                            }
+                            placeholder="comfy, комфі, komfi"
+                            className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-4">
+                        <label className="mb-2 block text-sm font-bold text-slate-300">
+                          Опис
+                        </label>
+
+                        <textarea
+                          value={editDescription}
+                          onChange={(event) =>
+                            setEditDescription(event.target.value)
+                          }
+                          rows={4}
+                          className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-emerald-400"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={saveStore}
+                        disabled={isSaving}
+                        className="mt-5 w-full rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isSaving ? "Зберігаю..." : "Зберегти"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-start gap-4">
                           <StoreLogo
                             name={store.name}
                             websiteUrl={store.website_url}
-                            size="lg"
+                            size="md"
                           />
 
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span
-                                className={`rounded-full border px-3 py-1 text-xs font-black ${getStatusClass(
-                                  store.status
-                                )}`}
-                              >
-                                {getStatusLabel(store.status)}
-                              </span>
-
-                              <span className="rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-400">
-                                Додано: {formatDate(store.created_at)}
-                              </span>
-                            </div>
-
-                            <h2 className="mt-4 break-words text-4xl font-black text-white">
+                          <div className="min-w-0">
+                            <h2 className="break-words text-2xl font-black text-white">
                               {store.name}
                             </h2>
 
-                            <p className="mt-2 break-all text-sm font-bold text-slate-500">
+                            <p className="mt-1 break-all text-sm font-bold text-slate-500">
                               /stores/{store.slug}
                             </p>
 
-                            <div className="mt-4 grid gap-3 md:grid-cols-2">
-                              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                                <p className="text-xs font-bold text-slate-500">
-                                  Website URL
-                                </p>
-
-                                {store.website_url ? (
-                                  <a
-                                    href={store.website_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="mt-1 inline-flex break-all font-black text-emerald-300 hover:text-emerald-200"
-                                  >
-                                    {getHostName(store.website_url)} →
-                                  </a>
-                                ) : (
-                                  <p className="mt-1 font-black text-red-300">
-                                    Не вказано — лого не підтягнеться
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                                <p className="text-xs font-bold text-slate-500">
-                                  Slug
-                                </p>
-
-                                <p className="mt-1 break-all font-black text-slate-200">
-                                  {store.slug}
-                                </p>
-                              </div>
-                            </div>
-
-                            {store.description && (
-                              <p className="mt-4 whitespace-pre-wrap leading-7 text-slate-400">
-                                {store.description}
+                            {store.website_url && (
+                              <p className="mt-1 break-all text-sm font-bold text-slate-500">
+                                {getHostName(store.website_url)}
                               </p>
                             )}
                           </div>
                         </div>
 
-                        <div className="flex min-w-56 flex-col gap-3">
-                          <button
-                            type="button"
-                            onClick={() => startEdit(store)}
-                            className="rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
-                          >
-                            Редагувати
-                          </button>
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-black ${getStatusClass(
+                            store.status
+                          )}`}
+                        >
+                          {getStatusLabel(store.status)}
+                        </span>
+                      </div>
 
-                          {store.status === "active" && (
-                            <Link
-                              href={`/stores/${store.slug}`}
-                              className="rounded-2xl border border-slate-700 px-5 py-4 text-center font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                            >
-                              Відкрити
-                            </Link>
-                          )}
+                      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                          <p className="text-xs font-bold text-slate-500">
+                            Категорія
+                          </p>
+                          <p className="mt-1 font-black text-emerald-300">
+                            {getCategoryName(store.categories)}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                          <p className="text-xs font-bold text-slate-500">
+                            Створено
+                          </p>
+                          <p className="mt-1 font-black text-slate-200">
+                            {formatDate(store.created_at)}
+                          </p>
                         </div>
                       </div>
-                    ) : (
-                      <form
-                        onSubmit={(event) => saveStore(event, store.id)}
-                        className="space-y-5"
-                      >
-                        <div className="flex flex-wrap items-start gap-5">
-                          <StoreLogo
-                            name={editName || store.name}
-                            websiteUrl={editWebsiteUrl || store.website_url}
-                            size="lg"
-                          />
 
-                          <div className="min-w-0 flex-1">
-                            <h2 className="text-3xl font-black text-white">
-                              Редагування магазину
-                            </h2>
+                      {store.description && (
+                        <p className="mt-5 line-clamp-3 leading-7 text-slate-400">
+                          {store.description}
+                        </p>
+                      )}
 
-                            <p className="mt-2 leading-7 text-slate-400">
-                              Вкажи правильний сайт магазину. Саме з нього буде
-                              підтягуватись логотип.
-                            </p>
+                      <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                        <p className="text-xs font-bold text-slate-500">
+                          Пошукові слова
+                        </p>
+
+                        {aliases.length === 0 ? (
+                          <p className="mt-2 text-sm text-slate-500">
+                            Не вказано.
+                          </p>
+                        ) : (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {aliases.slice(0, 12).map((alias) => (
+                              <span
+                                key={alias}
+                                className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300"
+                              >
+                                {alias}
+                              </span>
+                            ))}
+
+                            {aliases.length > 12 && (
+                              <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-500">
+                                +{aliases.length - 12}
+                              </span>
+                            )}
                           </div>
-                        </div>
+                        )}
+                      </div>
 
-                        <div className="grid gap-5 md:grid-cols-2">
-                          <div>
-                            <label className="mb-2 block text-sm font-bold text-slate-300">
-                              Назва
-                            </label>
+                      <div className="mt-6 flex flex-wrap gap-3">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(store)}
+                          className="flex-1 rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-300"
+                        >
+                          Редагувати
+                        </button>
 
-                            <input
-                              value={editName}
-                              onChange={(event) => {
-                                setEditName(event.target.value);
-
-                                if (!editSlug.trim()) {
-                                  setEditSlug(makeSlug(event.target.value));
-                                }
-                              }}
-                              className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-bold text-slate-300">
-                              Slug
-                            </label>
-
-                            <input
-                              value={editSlug}
-                              onChange={(event) =>
-                                setEditSlug(makeSlug(event.target.value))
-                              }
-                              placeholder="comfy"
-                              className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid gap-5 md:grid-cols-2">
-                          <div>
-                            <label className="mb-2 block text-sm font-bold text-slate-300">
-                              Website URL
-                            </label>
-
-                            <input
-                              value={editWebsiteUrl}
-                              onChange={(event) =>
-                                setEditWebsiteUrl(event.target.value)
-                              }
-                              placeholder="https://comfy.ua"
-                              className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
-                            />
-
-                            <p className="mt-2 text-sm text-slate-500">
-                              Можна вводити без https://
-                            </p>
-                          </div>
-
-                          <div>
-                            <label className="mb-2 block text-sm font-bold text-slate-300">
-                              Статус
-                            </label>
-
-                            <select
-                              value={editStatus}
-                              onChange={(event) =>
-                                setEditStatus(event.target.value as StoreStatus)
-                              }
-                              className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-                            >
-                              <option value="active">Активний</option>
-                              <option value="pending">На модерації</option>
-                              <option value="rejected">Прихований</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="mb-2 block text-sm font-bold text-slate-300">
-                            Опис
-                          </label>
-
-                          <textarea
-                            value={editDescription}
-                            onChange={(event) =>
-                              setEditDescription(event.target.value)
-                            }
-                            rows={5}
-                            placeholder="Короткий опис магазину..."
-                            className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
-                          />
-                        </div>
-
-                        <div className="flex flex-wrap gap-3">
-                          <button
-                            type="submit"
-                            disabled={isSaving}
-                            className="flex-1 rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isSaving ? "Зберігаю..." : "Зберегти магазин"}
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={cancelEdit}
-                            className="rounded-2xl border border-slate-700 px-5 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                          >
-                            Скасувати
-                          </button>
-                        </div>
-                      </form>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
+                        <Link
+                          href={`/stores/${store.slug}`}
+                          className="rounded-2xl border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                        >
+                          Відкрити
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </section>
+        )}
       </section>
     </main>
   );
