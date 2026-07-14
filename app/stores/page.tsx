@@ -14,11 +14,6 @@ type Category = {
   status?: string | null;
 };
 
-type StoreCategoryLink = {
-  store_id: string;
-  category_id: string;
-};
-
 type Store = {
   id: string;
   name: string;
@@ -29,25 +24,17 @@ type Store = {
   category_id?: string | null;
   search_aliases?: string[] | null;
   created_at?: string | null;
-  store_categories?: StoreCategoryLink[] | null;
-};
 
-type PromoStats = {
-  id: string;
-  store_id: string;
-  expires_at?: string | null;
-  status?: string | null;
-  works_count?: number | null;
-  not_works_count?: number | null;
-};
+  category_ids?: string[] | null;
+  category_names?: string[] | null;
+  category_slugs?: string[] | null;
 
-type StoreStats = {
-  total: number;
-  active: number;
-  expired: number;
-  verified: number;
-  works: number;
-  notWorks: number;
+  promo_count?: number | string | null;
+  active_promo_count?: number | string | null;
+  expired_promo_count?: number | string | null;
+  verified_promo_count?: number | string | null;
+  works_count?: number | string | null;
+  not_works_count?: number | string | null;
 };
 
 type SortMode = "popular" | "active" | "newest" | "name";
@@ -60,16 +47,22 @@ const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
-function isExpired(date: string | null | undefined) {
-  if (!date) return false;
+function toNumber(value: number | string | null | undefined) {
+  if (typeof value === "number") return value;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  if (typeof value === "string") {
+    const parsed = Number(value);
 
-  const expires = new Date(date);
-  expires.setHours(0, 0, 0, 0);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
 
-  return expires < today;
+  return 0;
+}
+
+function toArray(value: string[] | null | undefined) {
+  if (!value) return [];
+
+  return Array.isArray(value) ? value : [];
 }
 
 function formatNumber(value: number) {
@@ -87,42 +80,16 @@ function formatDate(date: string | null | undefined) {
 }
 
 function getStoreCategoryIds(store: Store) {
-  const idsFromLinks =
-    store.store_categories
-      ?.map((link) => link.category_id)
-      .filter(Boolean) || [];
-
-  if (idsFromLinks.length > 0) {
-    return Array.from(new Set(idsFromLinks));
-  }
-
-  return store.category_id ? [store.category_id] : [];
+  return toArray(store.category_ids);
 }
 
-function getStoreCategoryNames(
-  store: Store,
-  categoryById: Map<string, Category>
-) {
-  return getStoreCategoryIds(store)
-    .map((categoryId) => categoryById.get(categoryId)?.name)
-    .filter(Boolean) as string[];
-}
-
-function makeEmptyStats(): StoreStats {
-  return {
-    total: 0,
-    active: 0,
-    expired: 0,
-    verified: 0,
-    works: 0,
-    notWorks: 0,
-  };
+function getStoreCategoryNames(store: Store) {
+  return toArray(store.category_names);
 }
 
 export default function StoresPage() {
   const [stores, setStores] = useState<Store[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [promos, setPromos] = useState<PromoStats[]>([]);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -130,18 +97,13 @@ export default function StoresPage() {
 
   const [isLoadingStores, setIsLoadingStores] = useState(true);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [isLoadingPromos, setIsLoadingPromos] = useState(true);
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "info">(
     "info"
   );
 
-  const isLoading = isLoadingStores || isLoadingCategories || isLoadingPromos;
-
-  const categoryById = useMemo(() => {
-    return new Map(categories.map((category) => [category.id, category]));
-  }, [categories]);
+  const isLoading = isLoadingStores || isLoadingCategories;
 
   async function loadCategories() {
     setIsLoadingCategories(true);
@@ -168,122 +130,29 @@ export default function StoresPage() {
     setIsLoadingStores(true);
     setMessage("");
 
-    const { data: storeData, error: storeError } = await supabase
-      .from("stores")
+    const { data, error } = await supabase
+      .from("store_category_stats")
       .select(
-        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at"
+        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at, category_ids, category_names, category_slugs, promo_count, active_promo_count, expired_promo_count, verified_promo_count, works_count, not_works_count"
       )
-      .eq("status", "active")
       .order("name", { ascending: true });
 
-    if (storeError) {
-      setStores([]);
-      setMessage(`Не вдалося завантажити магазини: ${storeError.message}`);
-      setMessageType("error");
-      setIsLoadingStores(false);
-      return;
-    }
-
-    const loadedStores = (storeData || []) as unknown as Store[];
-    const storeIds = loadedStores.map((store) => store.id);
-
-    if (storeIds.length === 0) {
-      setStores([]);
-      setIsLoadingStores(false);
-      return;
-    }
-
-    const { data: linkData, error: linkError } = await supabase
-      .from("store_categories")
-      .select("store_id, category_id")
-      .in("store_id", storeIds);
-
-    if (linkError) {
-      setStores(loadedStores);
-      setMessage(
-        `Магазини завантажено, але категорії не підтягнулись: ${linkError.message}`
-      );
-      setMessageType("error");
-      setIsLoadingStores(false);
-      return;
-    }
-
-    const links = (linkData || []) as unknown as StoreCategoryLink[];
-    const linksByStoreId = new Map<string, StoreCategoryLink[]>();
-
-    for (const link of links) {
-      const currentLinks = linksByStoreId.get(link.store_id) || [];
-
-      linksByStoreId.set(link.store_id, [...currentLinks, link]);
-    }
-
-    const storesWithCategories = loadedStores.map((store) => ({
-      ...store,
-      store_categories: linksByStoreId.get(store.id) || [],
-    }));
-
-    setStores(storesWithCategories);
-    setIsLoadingStores(false);
-  }
-
-  async function loadPromos() {
-    setIsLoadingPromos(true);
-
-    const { data, error } = await supabase
-      .from("promo_code_stats")
-      .select(
-        "id, store_id, expires_at, status, works_count, not_works_count"
-      )
-      .order("created_at", { ascending: false })
-      .limit(5000);
-
     if (error) {
-      setPromos([]);
-      setMessage(`Не вдалося завантажити промокоди: ${error.message}`);
+      setStores([]);
+      setMessage(`Не вдалося завантажити магазини: ${error.message}`);
       setMessageType("error");
-      setIsLoadingPromos(false);
+      setIsLoadingStores(false);
       return;
     }
 
-    setPromos((data || []) as unknown as PromoStats[]);
-    setIsLoadingPromos(false);
+    setStores((data || []) as unknown as Store[]);
+    setIsLoadingStores(false);
   }
 
   useEffect(() => {
     loadCategories();
     loadStores();
-    loadPromos();
   }, []);
-
-  const statsByStoreId = useMemo(() => {
-    const map = new Map<string, StoreStats>();
-
-    for (const promo of promos) {
-      const currentStats = map.get(promo.store_id) || makeEmptyStats();
-
-      const works = promo.works_count || 0;
-      const notWorks = promo.not_works_count || 0;
-      const expired = isExpired(promo.expires_at);
-
-      currentStats.total += 1;
-      currentStats.works += works;
-      currentStats.notWorks += notWorks;
-
-      if (expired) {
-        currentStats.expired += 1;
-      } else {
-        currentStats.active += 1;
-      }
-
-      if (works > notWorks && works > 0) {
-        currentStats.verified += 1;
-      }
-
-      map.set(promo.store_id, currentStats);
-    }
-
-    return map;
-  }, [promos]);
 
   const categoryStoreCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -302,20 +171,21 @@ export default function StoresPage() {
   const counts = useMemo(() => {
     return {
       allStores: stores.length,
-      withPromos: stores.filter(
-        (store) => (statsByStoreId.get(store.id)?.total || 0) > 0
-      ).length,
-      activePromos: promos.filter((promo) => !isExpired(promo.expires_at))
+      withPromos: stores.filter((store) => toNumber(store.promo_count) > 0)
         .length,
+      activePromos: stores.reduce(
+        (sum, store) => sum + toNumber(store.active_promo_count),
+        0
+      ),
       noCategory: stores.filter((store) => getStoreCategoryIds(store).length === 0)
         .length,
     };
-  }, [stores, promos, statsByStoreId]);
+  }, [stores]);
 
   const filteredStores = useMemo(() => {
     const filtered = stores.filter((store) => {
       const categoryIds = getStoreCategoryIds(store);
-      const categoryNames = getStoreCategoryNames(store, categoryById);
+      const categoryNames = getStoreCategoryNames(store);
       const aliases = store.search_aliases || [];
 
       const matchesSearchQuery = matchesSearch(
@@ -340,13 +210,11 @@ export default function StoresPage() {
     });
 
     return [...filtered].sort((firstStore, secondStore) => {
-      const firstStats = statsByStoreId.get(firstStore.id) || makeEmptyStats();
-      const secondStats = statsByStoreId.get(secondStore.id) || makeEmptyStats();
-
       if (sortMode === "active") {
         return (
-          secondStats.active - firstStats.active ||
-          secondStats.total - firstStats.total ||
+          toNumber(secondStore.active_promo_count) -
+            toNumber(firstStore.active_promo_count) ||
+          toNumber(secondStore.promo_count) - toNumber(firstStore.promo_count) ||
           firstStore.name.localeCompare(secondStore.name, "uk")
         );
       }
@@ -363,12 +231,14 @@ export default function StoresPage() {
       }
 
       return (
-        secondStats.total - firstStats.total ||
-        secondStats.active - firstStats.active ||
+        toNumber(secondStore.promo_count) - toNumber(firstStore.promo_count) ||
+        toNumber(secondStore.active_promo_count) -
+          toNumber(firstStore.active_promo_count) ||
+        toNumber(secondStore.works_count) - toNumber(firstStore.works_count) ||
         firstStore.name.localeCompare(secondStore.name, "uk")
       );
     });
-  }, [stores, search, categoryFilter, sortMode, categoryById, statsByStoreId]);
+  }, [stores, search, categoryFilter, sortMode]);
 
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
@@ -394,8 +264,8 @@ export default function StoresPage() {
 
               <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-400">
                 Обирай магазин і знаходь актуальні промокоди, знижки та купони.
-                Один магазин може бути одразу в кількох категоріях: наприклад
-                “Догляд та побут”, “Краса” або “Маркетплейси”.
+                Тепер сторінка працює через SQL view, тому категорії та
+                статистика магазинів підтягуються швидше.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
@@ -557,8 +427,7 @@ export default function StoresPage() {
         ) : (
           <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {filteredStores.map((store) => {
-              const stats = statsByStoreId.get(store.id) || makeEmptyStats();
-              const categoryNames = getStoreCategoryNames(store, categoryById);
+              const categoryNames = getStoreCategoryNames(store);
 
               return (
                 <article
@@ -614,7 +483,7 @@ export default function StoresPage() {
                   <div className="mt-5 grid grid-cols-3 gap-3">
                     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 text-center">
                       <p className="text-2xl font-black text-white">
-                        {formatNumber(stats.total)}
+                        {formatNumber(toNumber(store.promo_count))}
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
                         всього
@@ -623,7 +492,7 @@ export default function StoresPage() {
 
                     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 text-center">
                       <p className="text-2xl font-black text-emerald-300">
-                        {formatNumber(stats.active)}
+                        {formatNumber(toNumber(store.active_promo_count))}
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
                         активні
@@ -632,7 +501,7 @@ export default function StoresPage() {
 
                     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 text-center">
                       <p className="text-2xl font-black text-yellow-300">
-                        {formatNumber(stats.verified)}
+                        {formatNumber(toNumber(store.verified_promo_count))}
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
                         робочі
