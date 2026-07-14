@@ -13,23 +13,25 @@ type Category = {
   status?: string | null;
 };
 
-type StoreCategoryLink = {
-  store_id: string;
-  category_id: string;
-};
-
 type PromoCode = {
   id: string;
   slug?: string | null;
   code: string;
   normalized_code?: string | null;
+
   store_id: string;
   store_name?: string | null;
   store_slug?: string | null;
   store_search_aliases?: string[] | null;
+
   category_id?: string | null;
   category_name?: string | null;
   category_slug?: string | null;
+
+  all_category_ids?: string[] | null;
+  all_category_names?: string[] | null;
+  all_category_slugs?: string[] | null;
+
   search_aliases?: string[] | null;
   discount_value?: string | null;
   expires_at?: string | null;
@@ -38,8 +40,8 @@ type PromoCode = {
   source_url?: string | null;
   description?: string | null;
   created_at?: string | null;
-  works_count?: number | null;
-  not_works_count?: number | null;
+  works_count?: number | string | null;
+  not_works_count?: number | string | null;
 };
 
 type SortMode = "newest" | "popular" | "works" | "expires";
@@ -52,6 +54,24 @@ const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co",
   supabaseAnonKey || "placeholder"
 );
+
+function toNumber(value: number | string | null | undefined) {
+  if (typeof value === "number") return value;
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function toArray(value: string[] | null | undefined) {
+  if (!value) return [];
+
+  return Array.isArray(value) ? value : [];
+}
 
 function isExpired(date: string | null | undefined) {
   if (!date) return false;
@@ -66,8 +86,8 @@ function isExpired(date: string | null | undefined) {
 }
 
 function isVerified(promo: PromoCode) {
-  const works = promo.works_count || 0;
-  const notWorks = promo.not_works_count || 0;
+  const works = toNumber(promo.works_count);
+  const notWorks = toNumber(promo.not_works_count);
 
   return works > 0 && works > notWorks;
 }
@@ -125,69 +145,29 @@ function getSourceLabel(sourceType: string | null | undefined) {
   return "Джерело";
 }
 
-function getPromoCategoryIds(
-  promo: PromoCode,
-  storeCategoriesByStoreId: Map<string, StoreCategoryLink[]>
-) {
-  const ids = new Set<string>();
+function getPromoCategoryIds(promo: PromoCode) {
+  const ids = toArray(promo.all_category_ids);
 
-  if (promo.category_id) {
-    ids.add(promo.category_id);
+  if (ids.length > 0) {
+    return ids;
   }
 
-  const storeCategoryLinks = storeCategoriesByStoreId.get(promo.store_id) || [];
-
-  for (const link of storeCategoryLinks) {
-    if (link.category_id) {
-      ids.add(link.category_id);
-    }
-  }
-
-  return Array.from(ids);
+  return promo.category_id ? [promo.category_id] : [];
 }
 
-function getPromoCategoryNames(
-  promo: PromoCode,
-  categoryById: Map<string, Category>,
-  storeCategoriesByStoreId: Map<string, StoreCategoryLink[]>
-) {
-  const names = new Set<string>();
+function getPromoCategoryNames(promo: PromoCode) {
+  const names = toArray(promo.all_category_names);
 
-  if (promo.category_name) {
-    names.add(promo.category_name);
+  if (names.length > 0) {
+    return names;
   }
 
-  const categoryIds = getPromoCategoryIds(promo, storeCategoriesByStoreId);
-
-  for (const categoryId of categoryIds) {
-    const categoryName = categoryById.get(categoryId)?.name;
-
-    if (categoryName) {
-      names.add(categoryName);
-    }
-  }
-
-  return Array.from(names);
-}
-
-function makeStoreCategoryMap(links: StoreCategoryLink[]) {
-  const map = new Map<string, StoreCategoryLink[]>();
-
-  for (const link of links) {
-    const currentLinks = map.get(link.store_id) || [];
-
-    map.set(link.store_id, [...currentLinks, link]);
-  }
-
-  return map;
+  return promo.category_name ? [promo.category_name] : [];
 }
 
 export default function CodesPage() {
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [storeCategoryLinks, setStoreCategoryLinks] = useState<
-    StoreCategoryLink[]
-  >([]);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -198,24 +178,13 @@ export default function CodesPage() {
 
   const [isLoadingPromos, setIsLoadingPromos] = useState(true);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [isLoadingStoreCategories, setIsLoadingStoreCategories] =
-    useState(true);
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "info">(
     "info"
   );
 
-  const isLoading =
-    isLoadingPromos || isLoadingCategories || isLoadingStoreCategories;
-
-  const categoryById = useMemo(() => {
-    return new Map(categories.map((category) => [category.id, category]));
-  }, [categories]);
-
-  const storeCategoriesByStoreId = useMemo(() => {
-    return makeStoreCategoryMap(storeCategoryLinks);
-  }, [storeCategoryLinks]);
+  const isLoading = isLoadingPromos || isLoadingCategories;
 
   async function loadCategories() {
     setIsLoadingCategories(true);
@@ -240,59 +209,26 @@ export default function CodesPage() {
 
   async function loadPromos() {
     setIsLoadingPromos(true);
-    setIsLoadingStoreCategories(true);
     setMessage("");
 
     const { data, error } = await supabase
-      .from("promo_code_stats")
+      .from("promo_code_category_stats")
       .select(
-        "id, slug, code, normalized_code, store_id, store_name, store_slug, store_search_aliases, category_id, category_name, category_slug, search_aliases, discount_value, expires_at, status, source_type, source_url, description, created_at, works_count, not_works_count"
+        "id, slug, code, normalized_code, store_id, store_name, store_slug, store_search_aliases, category_id, category_name, category_slug, all_category_ids, all_category_names, all_category_slugs, search_aliases, discount_value, expires_at, status, source_type, source_url, description, created_at, works_count, not_works_count"
       )
       .order("created_at", { ascending: false })
       .limit(5000);
 
     if (error) {
       setPromos([]);
-      setStoreCategoryLinks([]);
       setMessage(`Не вдалося завантажити промокоди: ${error.message}`);
       setMessageType("error");
       setIsLoadingPromos(false);
-      setIsLoadingStoreCategories(false);
       return;
     }
 
-    const loadedPromos = (data || []) as unknown as PromoCode[];
-
-    setPromos(loadedPromos);
+    setPromos((data || []) as unknown as PromoCode[]);
     setIsLoadingPromos(false);
-
-    const storeIds = Array.from(
-      new Set(loadedPromos.map((promo) => promo.store_id).filter(Boolean))
-    );
-
-    if (storeIds.length === 0) {
-      setStoreCategoryLinks([]);
-      setIsLoadingStoreCategories(false);
-      return;
-    }
-
-    const { data: linkData, error: linkError } = await supabase
-      .from("store_categories")
-      .select("store_id, category_id")
-      .in("store_id", storeIds);
-
-    if (linkError) {
-      setStoreCategoryLinks([]);
-      setMessage(
-        `Промокоди завантажено, але категорії магазинів не підтягнулись: ${linkError.message}`
-      );
-      setMessageType("error");
-      setIsLoadingStoreCategories(false);
-      return;
-    }
-
-    setStoreCategoryLinks((linkData || []) as unknown as StoreCategoryLink[]);
-    setIsLoadingStoreCategories(false);
   }
 
   useEffect(() => {
@@ -304,7 +240,7 @@ export default function CodesPage() {
     const counts = new Map<string, number>();
 
     for (const promo of promos) {
-      const categoryIds = getPromoCategoryIds(promo, storeCategoriesByStoreId);
+      const categoryIds = getPromoCategoryIds(promo);
 
       for (const categoryId of categoryIds) {
         counts.set(categoryId, (counts.get(categoryId) || 0) + 1);
@@ -312,7 +248,7 @@ export default function CodesPage() {
     }
 
     return counts;
-  }, [promos, storeCategoriesByStoreId]);
+  }, [promos]);
 
   const counts = useMemo(() => {
     return {
@@ -324,20 +260,15 @@ export default function CodesPage() {
       noDate: promos.filter((promo) => !promo.expires_at).length,
       verified: promos.filter((promo) => isVerified(promo)).length,
       noCategory: promos.filter(
-        (promo) =>
-          getPromoCategoryIds(promo, storeCategoriesByStoreId).length === 0
+        (promo) => getPromoCategoryIds(promo).length === 0
       ).length,
     };
-  }, [promos, storeCategoriesByStoreId]);
+  }, [promos]);
 
   const filteredPromos = useMemo(() => {
     const filtered = promos.filter((promo) => {
-      const categoryIds = getPromoCategoryIds(promo, storeCategoriesByStoreId);
-      const categoryNames = getPromoCategoryNames(
-        promo,
-        categoryById,
-        storeCategoriesByStoreId
-      );
+      const categoryIds = getPromoCategoryIds(promo);
+      const categoryNames = getPromoCategoryNames(promo);
 
       const matchesSearchQuery = matchesSearch(
         [
@@ -350,6 +281,8 @@ export default function CodesPage() {
           promo.source_type || "",
           promo.category_name || "",
           promo.category_slug || "",
+          toArray(promo.all_category_names).join(" "),
+          toArray(promo.all_category_slugs).join(" "),
           categoryNames.join(" "),
           (promo.search_aliases || []).join(" "),
           (promo.store_search_aliases || []).join(" "),
@@ -375,12 +308,13 @@ export default function CodesPage() {
     });
 
     return [...filtered].sort((firstPromo, secondPromo) => {
-      const firstWorks = firstPromo.works_count || 0;
-      const secondWorks = secondPromo.works_count || 0;
+      const firstWorks = toNumber(firstPromo.works_count);
+      const secondWorks = toNumber(secondPromo.works_count);
       const firstTotalVotes =
-        (firstPromo.works_count || 0) + (firstPromo.not_works_count || 0);
+        toNumber(firstPromo.works_count) + toNumber(firstPromo.not_works_count);
       const secondTotalVotes =
-        (secondPromo.works_count || 0) + (secondPromo.not_works_count || 0);
+        toNumber(secondPromo.works_count) +
+        toNumber(secondPromo.not_works_count);
 
       if (sortMode === "popular") {
         return (
@@ -417,15 +351,7 @@ export default function CodesPage() {
         new Date(firstPromo.created_at || 0).getTime()
       );
     });
-  }, [
-    promos,
-    search,
-    categoryFilter,
-    statusFilter,
-    sortMode,
-    categoryById,
-    storeCategoriesByStoreId,
-  ]);
+  }, [promos, search, categoryFilter, statusFilter, sortMode]);
 
   async function copyCode(promo: PromoCode) {
     try {
@@ -465,8 +391,8 @@ export default function CodesPage() {
 
               <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-400">
                 Шукай промокоди за магазином, категорією, назвою або джерелом.
-                Тепер промокоди враховують усі категорії магазину, а не тільки
-                одну головну.
+                Тепер сторінка працює через SQL view, тому всі категорії
+                магазину вже приходять готовим масивом.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
@@ -642,11 +568,7 @@ export default function CodesPage() {
         ) : (
           <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {filteredPromos.map((promo) => {
-              const categoryNames = getPromoCategoryNames(
-                promo,
-                categoryById,
-                storeCategoriesByStoreId
-              );
+              const categoryNames = getPromoCategoryNames(promo);
 
               return (
                 <article
@@ -711,7 +633,7 @@ export default function CodesPage() {
                   <div className="mt-5 grid grid-cols-3 gap-3">
                     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 text-center">
                       <p className="text-2xl font-black text-emerald-300">
-                        {formatNumber(promo.works_count || 0)}
+                        {formatNumber(toNumber(promo.works_count))}
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
                         працює
@@ -720,7 +642,7 @@ export default function CodesPage() {
 
                     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 text-center">
                       <p className="text-2xl font-black text-red-300">
-                        {formatNumber(promo.not_works_count || 0)}
+                        {formatNumber(toNumber(promo.not_works_count))}
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
                         ні
