@@ -4,6 +4,15 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient, User } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
+import {
+  aliasesToText,
+  generateSearchAliases,
+  getHostName,
+  normalizeSearchText,
+  normalizeUrl,
+  parseAliases,
+  slugify,
+} from "@/lib/searchAliases";
 
 type StoreStatus = "active" | "pending" | "rejected";
 
@@ -98,111 +107,6 @@ function getStatusClass(status: string | null | undefined) {
   return "border-slate-700 bg-slate-800 text-slate-300";
 }
 
-function normalizeUrl(url: string) {
-  const trimmedUrl = url.trim();
-
-  if (!trimmedUrl) return "";
-
-  if (trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://")) {
-    return trimmedUrl;
-  }
-
-  return `https://${trimmedUrl}`;
-}
-
-function getHostName(url: string | null | undefined) {
-  if (!url) return null;
-
-  try {
-    return new URL(normalizeUrl(url)).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
-
-function slugify(value: string) {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/['’ʼ`]/g, "")
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9а-яіїєґё]+/gi, "-")
-    .replace(/^-+|-+$/g, "");
-
-  const transliterated = normalized
-    .replace(/а/g, "a")
-    .replace(/б/g, "b")
-    .replace(/в/g, "v")
-    .replace(/г/g, "h")
-    .replace(/ґ/g, "g")
-    .replace(/д/g, "d")
-    .replace(/е/g, "e")
-    .replace(/є/g, "ie")
-    .replace(/ж/g, "zh")
-    .replace(/з/g, "z")
-    .replace(/и/g, "y")
-    .replace(/і/g, "i")
-    .replace(/ї/g, "i")
-    .replace(/й/g, "i")
-    .replace(/к/g, "k")
-    .replace(/л/g, "l")
-    .replace(/м/g, "m")
-    .replace(/н/g, "n")
-    .replace(/о/g, "o")
-    .replace(/п/g, "p")
-    .replace(/р/g, "r")
-    .replace(/с/g, "s")
-    .replace(/т/g, "t")
-    .replace(/у/g, "u")
-    .replace(/ф/g, "f")
-    .replace(/х/g, "kh")
-    .replace(/ц/g, "ts")
-    .replace(/ч/g, "ch")
-    .replace(/ш/g, "sh")
-    .replace(/щ/g, "shch")
-    .replace(/ь/g, "")
-    .replace(/ю/g, "iu")
-    .replace(/я/g, "ia")
-    .replace(/ё/g, "e")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return transliterated || "store";
-}
-
-function normalizeSearchText(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-function parseAliases(value: string) {
-  const aliases = value
-    .split(/[\n,;]/g)
-    .map((alias) => normalizeSearchText(alias))
-    .filter(Boolean);
-
-  return Array.from(new Set(aliases));
-}
-
-function aliasesToText(aliases: string[] | null | undefined) {
-  return (aliases || []).join(", ");
-}
-
-function makeDefaultAliases(name: string, slug: string, websiteUrl: string) {
-  const host = getHostName(websiteUrl);
-
-  const aliases = [
-    name,
-    slug,
-    name.replace(/\s+/g, ""),
-    slug.replace(/-/g, " "),
-    host || "",
-  ]
-    .map((alias) => normalizeSearchText(alias))
-    .filter(Boolean);
-
-  return Array.from(new Set(aliases));
-}
-
 export default function AdminStoresPage() {
   const [user, setUser] = useState<User | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
@@ -270,7 +174,7 @@ export default function AdminStoresPage() {
       return;
     }
 
-    setCategories((data || []) as Category[]);
+    setCategories((data || []) as unknown as Category[]);
     setIsLoadingCategories(false);
   }
 
@@ -293,7 +197,7 @@ export default function AdminStoresPage() {
       return;
     }
 
-    setStores((data || []) as Store[]);
+    setStores((data || []) as unknown as Store[]);
     setIsLoadingStores(false);
   }
 
@@ -305,10 +209,13 @@ export default function AdminStoresPage() {
   useEffect(() => {
     if (isAdmin) {
       loadStores();
-    } else {
+      return;
+    }
+
+    if (!isLoadingUser) {
       setIsLoadingStores(false);
     }
-  }, [isAdmin]);
+  }, [isAdmin, isLoadingUser]);
 
   const counts = useMemo(() => {
     return {
@@ -428,15 +335,13 @@ export default function AdminStoresPage() {
     const uniqueSlug = await getUniqueSlug(baseSlug);
     const normalizedWebsiteUrl = normalizeUrl(createWebsiteUrl);
     const customAliases = parseAliases(createAliases);
-    const defaultAliases = makeDefaultAliases(
-      createName,
-      uniqueSlug,
-      normalizedWebsiteUrl
-    );
 
-    const finalAliases = Array.from(
-      new Set([...defaultAliases, ...customAliases])
-    );
+    const finalAliases = generateSearchAliases({
+      name: createName,
+      slug: uniqueSlug,
+      websiteUrl: normalizedWebsiteUrl,
+      customAliases,
+    });
 
     const { error } = await supabase.from("stores").insert({
       name: createName.trim(),
@@ -458,7 +363,7 @@ export default function AdminStoresPage() {
 
     resetCreateForm();
     setIsCreateOpen(false);
-    setMessage("Магазин створено.");
+    setMessage("Магазин створено. Пошукові слова згенеровано автоматично.");
     setMessageType("success");
     loadStores();
   }
@@ -479,15 +384,13 @@ export default function AdminStoresPage() {
     const uniqueSlug = await getUniqueSlug(baseSlug, editingStoreId);
     const normalizedWebsiteUrl = normalizeUrl(editWebsiteUrl);
     const customAliases = parseAliases(editAliases);
-    const defaultAliases = makeDefaultAliases(
-      editName,
-      uniqueSlug,
-      normalizedWebsiteUrl
-    );
 
-    const finalAliases = Array.from(
-      new Set([...defaultAliases, ...customAliases])
-    );
+    const finalAliases = generateSearchAliases({
+      name: editName,
+      slug: uniqueSlug,
+      websiteUrl: normalizedWebsiteUrl,
+      customAliases,
+    });
 
     const { error } = await supabase
       .from("stores")
@@ -511,7 +414,7 @@ export default function AdminStoresPage() {
     }
 
     cancelEdit();
-    setMessage("Магазин оновлено.");
+    setMessage("Магазин оновлено. Пошукові слова перебудовано автоматично.");
     setMessageType("success");
     loadStores();
   }
@@ -600,8 +503,9 @@ export default function AdminStoresPage() {
 
               <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-400">
                 Створюй магазини, змінюй статус, категорію, сайт, опис і
-                пошукові слова. Пошукові слова допоможуть знаходити Comfy через
-                “комфі”, “komfi” або “comfy.ua”.
+                пошукові слова. При створенні або збереженні система сама
+                генерує варіанти пошуку: транслітерацію, неправильну розкладку,
+                домен і популярні назви.
               </p>
             </div>
 
@@ -659,8 +563,8 @@ export default function AdminStoresPage() {
                   <h2 className="text-3xl font-black">Новий магазин</h2>
 
                   <p className="mt-2 leading-7 text-slate-400">
-                    Категорія і пошукові слова одразу працюватимуть у фільтрах і
-                    пошуку.
+                    Пошукові слова можна не заповнювати — система сама згенерує
+                    базові aliases із назви, slug і сайту.
                   </p>
                 </div>
 
@@ -685,13 +589,15 @@ export default function AdminStoresPage() {
                   <input
                     value={createName}
                     onChange={(event) => {
-                      setCreateName(event.target.value);
+                      const nextName = event.target.value;
+
+                      setCreateName(nextName);
 
                       if (!createSlug.trim()) {
-                        setCreateSlug(slugify(event.target.value));
+                        setCreateSlug(slugify(nextName));
                       }
                     }}
-                    placeholder="Comfy"
+                    placeholder="KFC"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
@@ -704,7 +610,7 @@ export default function AdminStoresPage() {
                   <input
                     value={createSlug}
                     onChange={(event) => setCreateSlug(slugify(event.target.value))}
-                    placeholder="comfy"
+                    placeholder="kfc"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
@@ -717,7 +623,7 @@ export default function AdminStoresPage() {
                   <input
                     value={createWebsiteUrl}
                     onChange={(event) => setCreateWebsiteUrl(event.target.value)}
-                    placeholder="https://comfy.ua"
+                    placeholder="https://kfc.ua"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
@@ -762,13 +668,13 @@ export default function AdminStoresPage() {
 
                 <div>
                   <label className="mb-2 block text-sm font-bold text-slate-300">
-                    Пошукові слова
+                    Додаткові пошукові слова
                   </label>
 
                   <input
                     value={createAliases}
                     onChange={(event) => setCreateAliases(event.target.value)}
-                    placeholder="comfy, комфі, komfi, comfy.ua"
+                    placeholder="кфс, кркр, лас"
                     className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </div>
@@ -802,7 +708,7 @@ export default function AdminStoresPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Пошук: Comfy, комфі, komfi, техніка..."
+              placeholder="Пошук: KFC, кфс, кркр, Comfy, комфі..."
               className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
             />
 
@@ -1002,7 +908,7 @@ export default function AdminStoresPage() {
 
                         <div>
                           <label className="mb-2 block text-sm font-bold text-slate-300">
-                            Пошукові слова
+                            Додаткові пошукові слова
                           </label>
 
                           <input
@@ -1010,7 +916,7 @@ export default function AdminStoresPage() {
                             onChange={(event) =>
                               setEditAliases(event.target.value)
                             }
-                            placeholder="comfy, комфі, komfi"
+                            placeholder="кфс, кркр, лас"
                             className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                           />
                         </div>
@@ -1113,7 +1019,7 @@ export default function AdminStoresPage() {
                           </p>
                         ) : (
                           <div className="mt-2 flex flex-wrap gap-2">
-                            {aliases.slice(0, 12).map((alias) => (
+                            {aliases.slice(0, 16).map((alias) => (
                               <span
                                 key={alias}
                                 className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-300"
@@ -1122,9 +1028,9 @@ export default function AdminStoresPage() {
                               </span>
                             ))}
 
-                            {aliases.length > 12 && (
+                            {aliases.length > 16 && (
                               <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-bold text-slate-500">
-                                +{aliases.length - 12}
+                                +{aliases.length - 16}
                               </span>
                             )}
                           </div>
