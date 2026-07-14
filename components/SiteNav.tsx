@@ -58,6 +58,10 @@ const adminLinks: NavLink[] = [
     label: "Магазини",
   },
   {
+    href: "/admin/search-tools",
+    label: "Інструменти пошуку",
+  },
+  {
     href: "/admin/store-requests",
     label: "Заявки магазинів",
   },
@@ -223,7 +227,7 @@ function SiteNavContent() {
               </button>
 
               {isAdminOpen && (
-                <div className="absolute right-0 top-12 w-72 rounded-[1.5rem] border border-slate-800 bg-slate-950 p-2 shadow-2xl shadow-black/40">
+                <div className="absolute right-0 top-12 w-80 rounded-[1.5rem] border border-slate-800 bg-slate-950 p-2 shadow-2xl shadow-black/40">
                   {adminLinks.map((link) => {
                     const isActive = isActivePath(pathname, link.href);
 
