@@ -35,6 +35,10 @@ const mainLinks: NavLink[] = [
     label: "Магазини",
   },
   {
+    href: "/stats",
+    label: "Статистика",
+  },
+  {
     href: "/add",
     label: "Додати",
   },
