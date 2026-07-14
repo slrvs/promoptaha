@@ -35,7 +35,7 @@ async function getStore(slug: string) {
   return data as Store | null;
 }
 
-function makeDescription(store: Store | null, slug: string) {
+function makeDescription(store: Store | null) {
   if (!store) {
     return "Сторінка магазину в ПромоПтасі. Перевірені промокоди, знижки та купони від спільноти.";
   }
@@ -45,6 +45,20 @@ function makeDescription(store: Store | null, slug: string) {
   }
 
   return `Промокоди ${store.name}: актуальні знижки, купони, умови використання та перевірка від спільноти ПромоПтаха.`;
+}
+
+function makeStoreJsonLd(store: Store) {
+  const pageUrl = `${siteUrl}/stores/${store.slug}`;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Store",
+    name: store.name,
+    description: makeDescription(store),
+    url: pageUrl,
+    sameAs: store.website_url ? [store.website_url] : undefined,
+    image: `${siteUrl}/icons/promoptaha-bird.png`,
+  };
 }
 
 export async function generateMetadata({
@@ -57,7 +71,7 @@ export async function generateMetadata({
     ? `Промокоди ${store.name} — знижки та купони`
     : "Магазин не знайдено";
 
-  const description = makeDescription(store, slug);
+  const description = makeDescription(store);
   const pageUrl = `${siteUrl}/stores/${store?.slug || slug}`;
 
   return {
@@ -93,6 +107,20 @@ export async function generateMetadata({
 
 export default async function StoreDetailsPage({ params }: PageProps) {
   const { slug } = await params;
+  const store = await getStore(slug);
 
-  return <StoreDetailsClient slug={slug} />;
+  return (
+    <>
+      {store && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(makeStoreJsonLd(store)),
+          }}
+        />
+      )}
+
+      <StoreDetailsClient slug={slug} />
+    </>
+  );
 }

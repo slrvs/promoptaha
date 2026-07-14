@@ -35,6 +35,18 @@ function isUuid(value: string) {
   );
 }
 
+function isExpired(date: string | null | undefined) {
+  if (!date) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const expires = new Date(date);
+  expires.setHours(0, 0, 0, 0);
+
+  return expires < today;
+}
+
 async function getPromo(param: string) {
   const query = supabase
     .from("promo_code_stats")
@@ -62,6 +74,29 @@ function makeDescription(promo: PromoCode | null) {
   const discount = promo.discount_value || "знижка";
 
   return `Промокод ${promo.code} для ${storeName}: ${discount}. Перевірка, термін дії та голоси користувачів у ПромоПтасі.`;
+}
+
+function makePromoJsonLd(promo: PromoCode) {
+  const pageUrl = `${siteUrl}/codes/${promo.slug || promo.id}`;
+  const expired = isExpired(promo.expires_at);
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Offer",
+    name: `Промокод ${promo.code} для ${promo.store_name || "магазину"}`,
+    description: makeDescription(promo),
+    url: pageUrl,
+    category: "Промокод",
+    availability: expired
+      ? "https://schema.org/OutOfStock"
+      : "https://schema.org/InStock",
+    validThrough: promo.expires_at || undefined,
+    seller: {
+      "@type": "Organization",
+      name: promo.store_name || "Магазин",
+      url: promo.store_slug ? `${siteUrl}/stores/${promo.store_slug}` : siteUrl,
+    },
+  };
 }
 
 export async function generateMetadata({
@@ -117,5 +152,18 @@ export default async function CodeDetailsPage({ params }: PageProps) {
     redirect(`/codes/${promo.slug}`);
   }
 
-  return <CodeDetailsClient codeParam={id} />;
+  return (
+    <>
+      {promo && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(makePromoJsonLd(promo)),
+          }}
+        />
+      )}
+
+      <CodeDetailsClient codeParam={id} />
+    </>
+  );
 }
