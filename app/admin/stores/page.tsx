@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { createClient, User } from "@supabase/supabase-js";
+import { createClient, type User } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
 import {
   aliasesToText,
@@ -24,23 +24,9 @@ type Category = {
   status?: string | null;
 };
 
-type CategoryJoin =
-  | {
-      id?: string | null;
-      name?: string | null;
-      slug?: string | null;
-    }
-  | {
-      id?: string | null;
-      name?: string | null;
-      slug?: string | null;
-    }[]
-  | null
-  | undefined;
-
 type StoreCategoryLink = {
+  store_id: string;
   category_id: string;
-  categories?: CategoryJoin;
 };
 
 type Store = {
@@ -53,7 +39,6 @@ type Store = {
   category_id?: string | null;
   search_aliases?: string[] | null;
   created_at?: string | null;
-  categories?: CategoryJoin;
   store_categories?: StoreCategoryLink[] | null;
 };
 
@@ -66,44 +51,6 @@ const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co",
   supabaseAnonKey || "placeholder"
 );
-
-function getSingleCategoryName(categoryJoin: CategoryJoin) {
-  if (!categoryJoin) return null;
-
-  if (Array.isArray(categoryJoin)) {
-    return categoryJoin[0]?.name || null;
-  }
-
-  return categoryJoin.name || null;
-}
-
-function getStoreCategoryIds(store: Store) {
-  const idsFromLinks =
-    store.store_categories
-      ?.map((link) => link.category_id)
-      .filter(Boolean) || [];
-
-  if (idsFromLinks.length > 0) {
-    return Array.from(new Set(idsFromLinks));
-  }
-
-  return store.category_id ? [store.category_id] : [];
-}
-
-function getStoreCategoryNames(store: Store) {
-  const namesFromLinks =
-    store.store_categories
-      ?.map((link) => getSingleCategoryName(link.categories))
-      .filter(Boolean) || [];
-
-  if (namesFromLinks.length > 0) {
-    return Array.from(new Set(namesFromLinks));
-  }
-
-  const fallbackName = getSingleCategoryName(store.categories);
-
-  return fallbackName ? [fallbackName] : [];
-}
 
 function formatDate(date: string | null | undefined) {
   if (!date) return "Дата невідома";
@@ -149,6 +96,30 @@ function toggleId(list: string[], id: string) {
   return [...list, id];
 }
 
+function getStoreCategoryIds(store: Store) {
+  const idsFromLinks =
+    store.store_categories
+      ?.map((link) => link.category_id)
+      .filter(Boolean) || [];
+
+  if (idsFromLinks.length > 0) {
+    return Array.from(new Set(idsFromLinks));
+  }
+
+  return store.category_id ? [store.category_id] : [];
+}
+
+function getStoreCategoryNames(
+  store: Store,
+  categoryById: Map<string, Category>
+) {
+  const categoryIds = getStoreCategoryIds(store);
+
+  return categoryIds
+    .map((categoryId) => categoryById.get(categoryId)?.name)
+    .filter(Boolean) as string[];
+}
+
 export default function AdminStoresPage() {
   const [user, setUser] = useState<User | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
@@ -190,6 +161,10 @@ export default function AdminStoresPage() {
   const isAdmin = user?.email === ADMIN_EMAIL;
   const isLoading = isLoadingUser || isLoadingStores || isLoadingCategories;
 
+  const categoryById = useMemo(() => {
+    return new Map(categories.map((category) => [category.id, category]));
+  }, [categories]);
+
   async function loadUser() {
     setIsLoadingUser(true);
 
@@ -223,22 +198,60 @@ export default function AdminStoresPage() {
     setIsLoadingStores(true);
     setMessage("");
 
-    const { data, error } = await supabase
+    const { data: storeData, error: storeError } = await supabase
       .from("stores")
       .select(
-        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at, categories(id, name, slug), store_categories(category_id, categories(id, name, slug))"
+        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at"
       )
       .order("created_at", { ascending: false });
 
-    if (error) {
+    if (storeError) {
       setStores([]);
-      setMessage(`Помилка магазинів: ${error.message}`);
+      setMessage(`Помилка магазинів: ${storeError.message}`);
       setMessageType("error");
       setIsLoadingStores(false);
       return;
     }
 
-    setStores((data || []) as unknown as Store[]);
+    const loadedStores = (storeData || []) as unknown as Store[];
+    const storeIds = loadedStores.map((store) => store.id);
+
+    if (storeIds.length === 0) {
+      setStores([]);
+      setIsLoadingStores(false);
+      return;
+    }
+
+    const { data: linkData, error: linkError } = await supabase
+      .from("store_categories")
+      .select("store_id, category_id")
+      .in("store_id", storeIds);
+
+    if (linkError) {
+      setStores(loadedStores);
+      setMessage(
+        `Магазини завантажено, але категорії не підтягнулись: ${linkError.message}`
+      );
+      setMessageType("error");
+      setIsLoadingStores(false);
+      return;
+    }
+
+    const links = (linkData || []) as unknown as StoreCategoryLink[];
+    const linksByStoreId = new Map<string, StoreCategoryLink[]>();
+
+    for (const link of links) {
+      const currentLinks = linksByStoreId.get(link.store_id) || [];
+
+      linksByStoreId.set(link.store_id, [...currentLinks, link]);
+    }
+
+    const storesWithCategories = loadedStores.map((store) => ({
+      ...store,
+      store_categories: linksByStoreId.get(store.id) || [],
+    }));
+
+    setStores(storesWithCategories);
     setIsLoadingStores(false);
   }
 
@@ -274,7 +287,7 @@ export default function AdminStoresPage() {
 
     return stores.filter((store) => {
       const aliasesText = (store.search_aliases || []).join(" ");
-      const categoryNames = getStoreCategoryNames(store);
+      const categoryNames = getStoreCategoryNames(store, categoryById);
       const categoryIds = getStoreCategoryIds(store);
 
       const haystack = normalizeSearchText(
@@ -301,7 +314,7 @@ export default function AdminStoresPage() {
 
       return matchesSearch && matchesStatus && matchesCategory;
     });
-  }, [stores, search, statusFilter, categoryFilter]);
+  }, [stores, search, statusFilter, categoryFilter, categoryById]);
 
   async function getUniqueSlug(baseSlug: string, currentStoreId?: string) {
     let candidate = baseSlug || "store";
@@ -508,7 +521,9 @@ export default function AdminStoresPage() {
     setIsSaving(false);
 
     if (categorySyncError) {
-      setMessage(`Магазин оновлено, але категорії не збереглись: ${categorySyncError.message}`);
+      setMessage(
+        `Магазин оновлено, але категорії не збереглись: ${categorySyncError.message}`
+      );
       setMessageType("error");
       loadStores();
       return;
@@ -603,7 +618,7 @@ export default function AdminStoresPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-400">
-                Тепер один магазин може мати кілька категорій. Перша вибрана
+                Один магазин може мати кілька категорій. Перша вибрана
                 категорія буде головною для старої логіки, а всі вибрані
                 категорії зберігаються окремо.
               </p>
@@ -920,7 +935,7 @@ export default function AdminStoresPage() {
             {filteredStores.map((store) => {
               const isEditing = editingStoreId === store.id;
               const aliases = store.search_aliases || [];
-              const categoryNames = getStoreCategoryNames(store);
+              const categoryNames = getStoreCategoryNames(store, categoryById);
 
               return (
                 <article
