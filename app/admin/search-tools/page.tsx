@@ -19,6 +19,10 @@ type Store = {
   created_at?: string | null;
 };
 
+type StorePreview = Store & {
+  generatedAliases: string[];
+};
+
 const ADMIN_EMAIL = "jchameleonl96@gmail.com";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -98,7 +102,7 @@ export default function AdminSearchToolsPage() {
       return;
     }
 
-    setStores((data || []) as Store[]);
+    setStores((data || []) as unknown as Store[]);
     setIsLoadingStores(false);
   }
 
@@ -117,13 +121,13 @@ export default function AdminSearchToolsPage() {
     }
   }, [isAdmin, isLoadingUser]);
 
-  const previewStores = useMemo(() => {
+  const previewStores = useMemo<StorePreview[]>(() => {
     return stores.slice(0, 8).map((store) => {
       const generatedAliases = generateSearchAliases({
         name: store.name,
         slug: store.slug,
         websiteUrl: store.website_url,
-        customAliases: store.search_aliases || [],
+        customAliases: [],
       });
 
       return {
@@ -143,7 +147,7 @@ export default function AdminSearchToolsPage() {
     setIsRebuilding(true);
     setRebuiltCount(0);
     setFailedCount(0);
-    setMessage("Починаю перебудову пошукових слів...");
+    setMessage("Починаю чисту перебудову пошукових слів...");
     setMessageType("info");
 
     let success = 0;
@@ -154,7 +158,7 @@ export default function AdminSearchToolsPage() {
         name: store.name,
         slug: store.slug,
         websiteUrl: store.website_url,
-        customAliases: store.search_aliases || [],
+        customAliases: [],
       });
 
       const { error } = await supabase
@@ -181,7 +185,9 @@ export default function AdminSearchToolsPage() {
       );
       setMessageType("error");
     } else {
-      setMessage(`Готово: пошук перебудовано для ${success} магазинів.`);
+      setMessage(
+        `Готово: пошук чисто перебудовано для ${success} магазинів. Старі зайві aliases прибрано.`
+      );
       setMessageType("success");
     }
 
@@ -271,9 +277,10 @@ export default function AdminSearchToolsPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-400">
-                Тут можна перебудувати пошукові слова для всіх магазинів. Це
-                потрібно, щоб KFC знаходився як “кфс”, “кркр”, “kfc.ua”, Comfy
-                як “комфі”, “komfi” і так далі.
+                Тут можна чисто перебудувати пошукові слова для всіх магазинів.
+                Сторінка не переносить старі aliases, тому зайві помилкові
+                слова прибираються. Наприклад, якщо “кркр” випадково потрапило
+                до KFC, після перебудови воно зникне.
               </p>
             </div>
 
@@ -365,7 +372,7 @@ export default function AdminSearchToolsPage() {
 
               <p className="mt-3 leading-7 text-slate-400">
                 Показую перші магазини і пошукові слова, які будуть згенеровані
-                для них.
+                для них після чистої перебудови.
               </p>
             </div>
           </div>
@@ -428,7 +435,7 @@ export default function AdminSearchToolsPage() {
 
                   <div className="mt-5">
                     <p className="text-xs font-bold text-slate-500">
-                      Після перебудови
+                      Після чистої перебудови
                     </p>
 
                     <div className="mt-2 flex flex-wrap gap-2">
