@@ -69,6 +69,11 @@ const adminLinks: AdminLink[] = [
     description: "Історія модерації та адмінських змін",
   },
   {
+    href: "/admin/launch-check",
+    label: "Launch check",
+    description: "Чеклист перед публічним запуском",
+  },
+  {
     href: "/admin",
     label: "Модерація промокодів",
     description: "Схвалення, відхилення та перевірка кодів",
