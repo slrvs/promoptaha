@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
@@ -29,6 +35,7 @@ type StoreRequest = {
   requested_by?: string | null;
   user_id?: string | null;
   created_by?: string | null;
+  created_store_id?: string | null;
   created_at?: string | null;
 };
 
@@ -154,22 +161,34 @@ function getRequestHost(request: StoreRequest) {
   return getHostName(normalized || url) || "";
 }
 
+function getLinkedStoreForRequest(request: StoreRequest, stores: Store[]) {
+  if (!request.created_store_id) return null;
+
+  return stores.find((store) => store.id === request.created_store_id) || null;
+}
+
 function getExistingStoreForRequest(request: StoreRequest, stores: Store[]) {
+  const linkedStore = getLinkedStoreForRequest(request, stores);
+
+  if (linkedStore) return linkedStore;
+
   const requestName = normalizeText(getRequestName(request));
   const requestSlug = slugify(getRequestName(request));
   const requestHost = getRequestHost(request);
 
-  return stores.find((store) => {
-    const storeName = normalizeText(store.name);
-    const storeSlug = normalizeText(store.slug);
-    const storeHost = getStoreHost(store);
+  return (
+    stores.find((store) => {
+      const storeName = normalizeText(store.name);
+      const storeSlug = normalizeText(store.slug);
+      const storeHost = getStoreHost(store);
 
-    if (requestName && storeName === requestName) return true;
-    if (requestSlug && storeSlug === normalizeText(requestSlug)) return true;
-    if (requestHost && storeHost && requestHost === storeHost) return true;
+      if (requestName && storeName === requestName) return true;
+      if (requestSlug && storeSlug === normalizeText(requestSlug)) return true;
+      if (requestHost && storeHost && requestHost === storeHost) return true;
 
-    return false;
-  });
+      return false;
+    }) || null
+  );
 }
 
 function requestMatchesSearch(request: StoreRequest, search: string) {
@@ -184,6 +203,7 @@ function requestMatchesSearch(request: StoreRequest, search: string) {
       getRequestUrl(request),
       getRequestDescription(request),
       getRequestUserId(request),
+      request.created_store_id || "",
       request.status || "",
       getStatusLabel(request.status),
     ].join(" ")
@@ -236,6 +256,8 @@ export default function AdminStoreRequestsPage() {
     "info"
   );
 
+  const createStoreFormRef = useRef<HTMLFormElement | null>(null);
+
   const isAdmin = user?.email === adminEmail;
 
   const categoriesById = useMemo(() => {
@@ -280,7 +302,7 @@ export default function AdminStoreRequestsPage() {
   const selectedRequestExistingStore = useMemo(() => {
     if (!selectedRequest) return null;
 
-    return getExistingStoreForRequest(selectedRequest, stores) || null;
+    return getExistingStoreForRequest(selectedRequest, stores);
   }, [selectedRequest, stores]);
 
   const selectedCategoryNames = useMemo(() => {
@@ -346,7 +368,9 @@ export default function AdminStoreRequestsPage() {
 
     if (storesResult.error) {
       setStores([]);
-      setMessage(`Не вдалося завантажити магазини: ${storesResult.error.message}`);
+      setMessage(
+        `Не вдалося завантажити магазини: ${storesResult.error.message}`
+      );
       setMessageType("error");
     } else {
       setStores((storesResult.data || []) as unknown as Store[]);
@@ -416,6 +440,13 @@ export default function AdminStoreRequestsPage() {
     setStoreDescription(getRequestDescription(request));
     setSelectedCategoryIds([]);
     setMessage("");
+
+    window.setTimeout(() => {
+      createStoreFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
   }
 
   function toggleCategory(categoryId: string) {
@@ -537,7 +568,10 @@ export default function AdminStoreRequestsPage() {
 
     const { error: requestUpdateError } = await supabase
       .from("store_requests")
-      .update({ status: "approved" })
+      .update({
+        status: "approved",
+        created_store_id: createdStore.id,
+      })
       .eq("id", selectedRequest.id);
 
     if (requestUpdateError) {
@@ -549,15 +583,14 @@ export default function AdminStoreRequestsPage() {
       return;
     }
 
-    setStores((currentStores) => [
-      ...(currentStores || []),
-      createdStore as unknown as Store,
-    ]);
+    const nextCreatedStore = createdStore as unknown as Store;
+
+    setStores((currentStores) => [...currentStores, nextCreatedStore]);
 
     setStoreCategoryLinks((currentLinks) => [
       ...currentLinks,
       ...selectedCategoryIds.map((categoryId) => ({
-        store_id: createdStore.id,
+        store_id: nextCreatedStore.id,
         category_id: categoryId,
       })),
     ]);
@@ -565,7 +598,11 @@ export default function AdminStoreRequestsPage() {
     setRequests((currentRequests) =>
       currentRequests.map((currentRequest) =>
         currentRequest.id === selectedRequest.id
-          ? { ...currentRequest, status: "approved" }
+          ? {
+              ...currentRequest,
+              status: "approved",
+              created_store_id: nextCreatedStore.id,
+            }
           : currentRequest
       )
     );
@@ -577,7 +614,7 @@ export default function AdminStoreRequestsPage() {
     setStoreDescription("");
     setSelectedCategoryIds([]);
 
-    setMessage("Магазин створено, заявку схвалено.");
+    setMessage("Магазин створено, заявку схвалено і привʼязано до магазину.");
     setMessageType("success");
     setProcessingId(null);
   }
@@ -672,8 +709,8 @@ export default function AdminStoreRequestsPage() {
 
               <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
                 Тут можна переглядати запропоновані магазини, створювати їх у
-                базі, призначати категорії та одразу генерувати пошукові
-                aliases.
+                базі, призначати категорії та привʼязувати схвалену заявку до
+                створеного магазину.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
@@ -735,8 +772,8 @@ export default function AdminStoreRequestsPage() {
               messageType === "success"
                 ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                 : messageType === "error"
-                ? "border-red-400/30 bg-red-400/10 text-red-300"
-                : "border-slate-700 bg-slate-900 text-slate-300"
+                  ? "border-red-400/30 bg-red-400/10 text-red-300"
+                  : "border-slate-700 bg-slate-900 text-slate-300"
             }`}
           >
             {message}
@@ -778,8 +815,9 @@ export default function AdminStoreRequestsPage() {
 
         {selectedRequest && (
           <form
+            ref={createStoreFormRef}
             onSubmit={createStoreFromRequest}
-            className="mt-8 rounded-[2.5rem] border border-emerald-400/30 bg-emerald-400/10 p-6"
+            className="mt-8 scroll-mt-24 rounded-[2.5rem] border border-emerald-400/30 bg-emerald-400/10 p-6"
           >
             <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
               <div>
@@ -794,7 +832,7 @@ export default function AdminStoreRequestsPage() {
                 {selectedRequestExistingStore && (
                   <div className="mt-5 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-4 text-yellow-100">
                     <p className="font-black text-yellow-300">
-                      Схожий магазин уже є в базі
+                      Схожий або вже створений магазин є в базі
                     </p>
 
                     <p className="mt-2">
@@ -875,7 +913,7 @@ export default function AdminStoreRequestsPage() {
 
                 <p className="mt-2 leading-7 text-slate-300">
                   Можна вибрати кілька категорій. Перша категорія також
-                  запишеться в старе поле `category_id` для сумісності.
+                  запишеться в старе поле category_id для сумісності.
                 </p>
 
                 <div className="mt-5 flex flex-wrap gap-2">
@@ -967,6 +1005,7 @@ export default function AdminStoreRequestsPage() {
           <section className="mt-8 grid gap-5">
             {filteredRequests.map((request) => {
               const existingStore = getExistingStoreForRequest(request, stores);
+              const linkedStore = getLinkedStoreForRequest(request, stores);
               const isProcessing = processingId === request.id;
 
               return (
@@ -985,7 +1024,13 @@ export default function AdminStoreRequestsPage() {
                           {getStatusLabel(request.status)}
                         </span>
 
-                        {existingStore && (
+                        {linkedStore && (
+                          <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
+                            Привʼязано до магазину
+                          </span>
+                        )}
+
+                        {!linkedStore && existingStore && (
                           <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-300">
                             Схожий магазин уже існує
                           </span>
@@ -1015,18 +1060,42 @@ export default function AdminStoreRequestsPage() {
                       </p>
 
                       {existingStore && (
-                        <div className="mt-5 rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-4">
-                          <p className="font-black text-yellow-300">
-                            Знайдено можливий дубль
+                        <div
+                          className={`mt-5 rounded-2xl border p-4 ${
+                            linkedStore
+                              ? "border-emerald-400/30 bg-emerald-400/10"
+                              : "border-yellow-400/30 bg-yellow-400/10"
+                          }`}
+                        >
+                          <p
+                            className={`font-black ${
+                              linkedStore
+                                ? "text-emerald-300"
+                                : "text-yellow-300"
+                            }`}
+                          >
+                            {linkedStore
+                              ? "Створений магазин"
+                              : "Знайдено можливий дубль"}
                           </p>
 
-                          <p className="mt-2 text-yellow-100">
+                          <p
+                            className={`mt-2 ${
+                              linkedStore
+                                ? "text-emerald-100"
+                                : "text-yellow-100"
+                            }`}
+                          >
                             {existingStore.name} · /stores/{existingStore.slug}
                           </p>
 
                           <Link
                             href={`/stores/${existingStore.slug}`}
-                            className="mt-3 inline-flex font-black text-yellow-300 underline underline-offset-4"
+                            className={`mt-3 inline-flex font-black underline underline-offset-4 ${
+                              linkedStore
+                                ? "text-emerald-300"
+                                : "text-yellow-300"
+                            }`}
                           >
                             Відкрити магазин
                           </Link>
@@ -1064,14 +1133,25 @@ export default function AdminStoreRequestsPage() {
                     </div>
 
                     <div className="flex flex-col gap-3">
-                      <button
-                        type="button"
-                        onClick={() => startCreateStoreFromRequest(request)}
-                        disabled={isProcessing}
-                        className="rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Створити магазин
-                      </button>
+                      {!linkedStore && (
+                        <button
+                          type="button"
+                          onClick={() => startCreateStoreFromRequest(request)}
+                          disabled={isProcessing}
+                          className="rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Створити магазин
+                        </button>
+                      )}
+
+                      {linkedStore && (
+                        <Link
+                          href={`/stores/${linkedStore.slug}`}
+                          className="rounded-2xl bg-emerald-400 px-5 py-4 text-center font-black text-slate-950 transition hover:bg-emerald-300"
+                        >
+                          Відкрити створений магазин
+                        </Link>
+                      )}
 
                       {getRequestUrl(request) && (
                         <a
@@ -1084,7 +1164,7 @@ export default function AdminStoreRequestsPage() {
                         </a>
                       )}
 
-                      {existingStore && (
+                      {!linkedStore && existingStore && (
                         <Link
                           href={`/stores/${existingStore.slug}`}
                           className="rounded-2xl border border-yellow-400/40 px-5 py-4 text-center font-black text-yellow-300 transition hover:bg-yellow-400/10"

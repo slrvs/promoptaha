@@ -26,6 +26,7 @@ type StoreRequest = {
   comment?: string | null;
   status?: string | null;
   submitted_by?: string | null;
+  created_store_id?: string | null;
   created_at?: string | null;
 };
 
@@ -102,6 +103,12 @@ function getRequestUrl(request: StoreRequest) {
 
 function getRequestDescription(request: StoreRequest) {
   return request.description || request.comment || "";
+}
+
+function getLinkedStore(request: StoreRequest, stores: Store[]) {
+  if (!request.created_store_id) return null;
+
+  return stores.find((store) => store.id === request.created_store_id) || null;
 }
 
 function findSimilarStores(
@@ -199,7 +206,7 @@ export default function RequestStorePage() {
       const requestsResult = await supabase
         .from("store_requests")
         .select(
-          "id, store_name, name, website_url, url, description, comment, status, submitted_by, created_at"
+          "id, store_name, name, website_url, url, description, comment, status, submitted_by, created_store_id, created_at"
         )
         .eq("submitted_by", currentUser.id)
         .order("created_at", { ascending: false })
@@ -273,7 +280,7 @@ export default function RequestStorePage() {
         submitted_by: user.id,
       })
       .select(
-        "id, store_name, name, website_url, url, description, comment, status, submitted_by, created_at"
+        "id, store_name, name, website_url, url, description, comment, status, submitted_by, created_store_id, created_at"
       )
       .single();
 
@@ -545,42 +552,63 @@ export default function RequestStorePage() {
               </div>
             ) : (
               <div className="mt-6 grid gap-3">
-                {myRequests.map((request) => (
-                  <article
-                    key={request.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <span
-                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getStatusClass(
-                            request.status
-                          )}`}
-                        >
-                          {getStatusLabel(request.status)}
-                        </span>
+                {myRequests.map((request) => {
+                  const linkedStore = getLinkedStore(request, stores);
 
-                        <h3 className="mt-3 break-words text-xl font-black text-white">
-                          {getRequestName(request)}
-                        </h3>
+                  return (
+                    <article
+                      key={request.id}
+                      className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="flex flex-wrap gap-2">
+                            <span
+                              className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${getStatusClass(
+                                request.status
+                              )}`}
+                            >
+                              {getStatusLabel(request.status)}
+                            </span>
 
-                        <p className="mt-1 break-all text-sm font-bold text-slate-500">
-                          {getRequestUrl(request) || "URL не вказано"}
+                            {linkedStore && (
+                              <span className="inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
+                                Магазин створено
+                              </span>
+                            )}
+                          </div>
+
+                          <h3 className="mt-3 break-words text-xl font-black text-white">
+                            {getRequestName(request)}
+                          </h3>
+
+                          <p className="mt-1 break-all text-sm font-bold text-slate-500">
+                            {getRequestUrl(request) || "URL не вказано"}
+                          </p>
+                        </div>
+
+                        <p className="text-xs font-bold text-slate-500">
+                          {formatDateTime(request.created_at)}
                         </p>
                       </div>
 
-                      <p className="text-xs font-bold text-slate-500">
-                        {formatDateTime(request.created_at)}
-                      </p>
-                    </div>
+                      {getRequestDescription(request) && (
+                        <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-400">
+                          {getRequestDescription(request)}
+                        </p>
+                      )}
 
-                    {getRequestDescription(request) && (
-                      <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-400">
-                        {getRequestDescription(request)}
-                      </p>
-                    )}
-                  </article>
-                ))}
+                      {linkedStore && (
+                        <Link
+                          href={`/stores/${linkedStore.slug}`}
+                          className="mt-4 inline-flex rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                        >
+                          Відкрити магазин
+                        </Link>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             )}
           </section>

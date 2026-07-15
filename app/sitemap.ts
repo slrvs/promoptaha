@@ -1,154 +1,149 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
 
-type StoreSitemapRow = {
+type StoreRoute = {
   slug: string;
+  updated_at?: string | null;
   created_at?: string | null;
 };
 
-type PromoSitemapRow = {
+type PromoRoute = {
   id: string;
   slug?: string | null;
+  updated_at?: string | null;
   created_at?: string | null;
 };
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-const supabase = createClient(
-  supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "placeholder"
-);
-
-function getSiteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(
-    /\/$/,
-    ""
-  );
-}
-
-function getSafeDate(date: string | null | undefined) {
-  if (!date) return new Date();
-
-  const parsedDate = new Date(date);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return new Date();
+function getSupabaseClient() {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return null;
   }
 
-  return parsedDate;
+  return createClient(supabaseUrl, supabaseAnonKey);
 }
 
 function makeUrl(path: string) {
-  const siteUrl = getSiteUrl();
-
-  if (path === "/") {
-    return siteUrl;
-  }
-
   return `${siteUrl}${path}`;
 }
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date();
+function getLastModified(date: string | null | undefined) {
+  if (!date) return new Date();
 
+  return new Date(date);
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: makeUrl("/"),
-      lastModified: now,
+      lastModified: new Date(),
       changeFrequency: "daily",
       priority: 1,
     },
     {
       url: makeUrl("/codes"),
-      lastModified: now,
+      lastModified: new Date(),
+      changeFrequency: "hourly",
+      priority: 0.95,
+    },
+    {
+      url: makeUrl("/deals"),
+      lastModified: new Date(),
       changeFrequency: "hourly",
       priority: 0.9,
     },
     {
       url: makeUrl("/stores"),
-      lastModified: now,
+      lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
       url: makeUrl("/stats"),
-      lastModified: now,
+      lastModified: new Date(),
       changeFrequency: "daily",
-      priority: 0.7,
+      priority: 0.75,
     },
     {
       url: makeUrl("/add"),
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.6,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.65,
     },
     {
       url: makeUrl("/request-store"),
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.5,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.6,
     },
     {
       url: makeUrl("/about"),
-      lastModified: now,
+      lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 0.5,
     },
     {
       url: makeUrl("/rules"),
-      lastModified: now,
+      lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.4,
+      priority: 0.45,
     },
     {
       url: makeUrl("/privacy"),
-      lastModified: now,
+      lastModified: new Date(),
       changeFrequency: "yearly",
-      priority: 0.3,
+      priority: 0.35,
     },
     {
       url: makeUrl("/contact"),
-      lastModified: now,
+      lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.4,
+      priority: 0.35,
     },
   ];
+
+  const supabase = getSupabaseClient();
+
+  if (!supabase) {
+    return staticRoutes;
+  }
 
   const [storesResult, promosResult] = await Promise.all([
     supabase
       .from("store_category_stats")
       .select("slug, created_at")
-      .order("created_at", { ascending: false })
-      .limit(2000),
+      .eq("status", "active")
+      .limit(5000),
 
     supabase
       .from("promo_code_category_stats")
       .select("id, slug, created_at")
-      .order("created_at", { ascending: false })
+      .eq("status", "approved")
       .limit(5000),
   ]);
 
-  const stores = (storesResult.data || []) as unknown as StoreSitemapRow[];
-  const promos = (promosResult.data || []) as unknown as PromoSitemapRow[];
+  const storeRoutes: MetadataRoute.Sitemap = storesResult.error
+    ? []
+    : ((storesResult.data || []) as StoreRoute[]).map((store) => ({
+        url: makeUrl(`/stores/${store.slug}`),
+        lastModified: getLastModified(store.updated_at || store.created_at),
+        changeFrequency: "daily",
+        priority: 0.8,
+      }));
 
-  const storeRoutes: MetadataRoute.Sitemap = stores
-    .filter((store) => Boolean(store.slug))
-    .map((store) => ({
-      url: makeUrl(`/stores/${store.slug}`),
-      lastModified: getSafeDate(store.created_at),
-      changeFrequency: "daily",
-      priority: 0.8,
-    }));
-
-  const promoRoutes: MetadataRoute.Sitemap = promos
-    .filter((promo) => Boolean(promo.slug || promo.id))
-    .map((promo) => ({
-      url: makeUrl(`/codes/${promo.slug || promo.id}`),
-      lastModified: getSafeDate(promo.created_at),
-      changeFrequency: "daily",
-      priority: 0.7,
-    }));
+  const promoRoutes: MetadataRoute.Sitemap = promosResult.error
+    ? []
+    : ((promosResult.data || []) as PromoRoute[]).map((promo) => ({
+        url: makeUrl(`/codes/${promo.slug || promo.id}`),
+        lastModified: getLastModified(promo.updated_at || promo.created_at),
+        changeFrequency: "daily",
+        priority: 0.75,
+      }));
 
   return [...staticRoutes, ...storeRoutes, ...promoRoutes];
 }

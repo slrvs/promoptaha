@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import SiteNav from "@/components/SiteNav";
 import SiteFooter from "@/components/SiteFooter";
 import "./globals.css";
@@ -23,11 +24,12 @@ export const metadata: Metadata = {
     template: "%s | ПромоПтаха",
   },
   description:
-    "Спільна база промокодів, де користувачі додають, перевіряють і знаходять актуальні знижки.",
+    "Спільна база промокодів, акцій і магазинів, де користувачі додають, перевіряють і знаходять актуальні знижки.",
   applicationName: "ПромоПтаха",
   keywords: [
     "промокоди",
     "знижки",
+    "акції",
     "купони",
     "промокод",
     "магазини",
@@ -51,7 +53,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ПромоПтаха — на крилах знижок",
     description:
-      "Спільна база промокодів, де користувачі додають і перевіряють знижки.",
+      "Спільна база промокодів, акцій і магазинів, де користувачі додають і перевіряють знижки.",
     type: "website",
     locale: "uk_UA",
     siteName: "ПромоПтаха",
@@ -68,7 +70,7 @@ export const metadata: Metadata = {
     card: "summary",
     title: "ПромоПтаха — на крилах знижок",
     description:
-      "Спільна база промокодів, де користувачі додають і перевіряють знижки.",
+      "Спільна база промокодів, акцій і магазинів, де користувачі додають і перевіряють знижки.",
     images: ["/icons/promoptaha-bird.png"],
   },
 };
@@ -80,9 +82,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="uk">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <SiteNav />
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <Suspense fallback={null}>
+          <SiteNav />
+        </Suspense>
+
         {children}
+
         <SiteFooter />
       </body>
     </html>
