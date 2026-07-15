@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import UserLevelBadge from "@/components/UserLevelBadge";
+import LevelProgressCalculator from "@/components/LevelProgressCalculator";
 
 export const metadata: Metadata = {
   title: "Рівні спільноти",
@@ -128,6 +129,10 @@ export default function LevelsPage() {
           </div>
         </section>
 
+        <div className="mt-8">
+          <LevelProgressCalculator />
+        </div>
+
         <section className="mt-8 grid gap-5">
           {levels.map((level) => (
             <article
@@ -166,9 +171,11 @@ export default function LevelsPage() {
           <div className="mt-5 grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
               <p className="text-3xl">🎟️</p>
+
               <h3 className="mt-4 text-xl font-black">
                 Додавай справжні коди
               </h3>
+
               <p className="mt-3 leading-7 text-slate-400">
                 Промокод має бути зрозумілим, актуальним і привʼязаним до
                 правильного магазину.
@@ -177,9 +184,9 @@ export default function LevelsPage() {
 
             <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
               <p className="text-3xl">🔎</p>
-              <h3 className="mt-4 text-xl font-black">
-                Вказуй джерело
-              </h3>
+
+              <h3 className="mt-4 text-xl font-black">Вказуй джерело</h3>
+
               <p className="mt-3 leading-7 text-slate-400">
                 Посилання на YouTube, Telegram, сайт або інше джерело допомагає
                 швидше пройти модерацію.
@@ -188,9 +195,9 @@ export default function LevelsPage() {
 
             <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5">
               <p className="text-3xl">✅</p>
-              <h3 className="mt-4 text-xl font-black">
-                Чекай схвалення
-              </h3>
+
+              <h3 className="mt-4 text-xl font-black">Чекай схвалення</h3>
+
               <p className="mt-3 leading-7 text-slate-400">
                 У рівень зараховуються тільки ті промокоди, які пройшли
                 модерацію та стали видимими на сайті.

@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
 import UserLevelBadge from "@/components/UserLevelBadge";
+import UserLevelProgress from "@/components/UserLevelProgress";
 
 type UserProfile = {
   id: string;
@@ -307,9 +308,7 @@ export default function UserPublicProfilePage() {
         <section className="mx-auto w-full max-w-3xl rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center">
           <div className="text-6xl">👤</div>
 
-          <h1 className="mt-5 text-4xl font-black">
-            Профіль не знайдено
-          </h1>
+          <h1 className="mt-5 text-4xl font-black">Профіль не знайдено</h1>
 
           <p className="mt-4 leading-7 text-slate-400">
             {message ||
@@ -376,10 +375,7 @@ export default function UserPublicProfilePage() {
 
                 <div className="min-w-0">
                   <div className="mb-3 flex flex-wrap gap-2">
-                    <UserLevelBadge
-                      approvedPromos={promos.length}
-                      size="md"
-                    />
+                    <UserLevelBadge approvedPromos={promos.length} size="md" />
 
                     {profile.username && (
                       <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-300">
@@ -458,6 +454,10 @@ export default function UserPublicProfilePage() {
                 <p className="mt-2 text-sm font-bold text-slate-500">
                   середня надійність
                 </p>
+              </div>
+
+              <div className="sm:col-span-2">
+                <UserLevelProgress approvedPromos={promos.length} />
               </div>
             </div>
           </div>
