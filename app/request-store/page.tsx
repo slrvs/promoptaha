@@ -1,5 +1,6 @@
 "use client";
 
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
@@ -195,7 +196,7 @@ export default function RequestStorePage() {
     if (storesResult.error) {
       setStores([]);
       setMessage(
-        `Не вдалося завантажити магазини: ${storesResult.error.message}`
+        `Не вдалося завантажити магазини: ${getFriendlyErrorMessage(storesResult.error)}`
       );
       setMessageType("error");
     } else {
@@ -287,7 +288,7 @@ export default function RequestStorePage() {
     setIsSubmitting(false);
 
     if (error) {
-      setMessage(`Не вдалося відправити заявку: ${error.message}`);
+      setMessage(`Не вдалося відправити заявку: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }

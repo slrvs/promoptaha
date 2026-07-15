@@ -1,377 +1,397 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { createClient, User } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+
+type AuthMode = "login" | "signup";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co",
   supabaseAnonKey || "placeholder"
 );
 
-function friendlyAuthError(errorMessage: string) {
-  if (errorMessage.includes("Invalid login credentials")) {
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function getAuthErrorMessage(message: string) {
+  const lowerMessage = message.toLowerCase();
+
+  if (lowerMessage.includes("invalid login credentials")) {
     return "Неправильний email або пароль.";
   }
 
-  if (errorMessage.includes("Email not confirmed")) {
-    return "Email ще не підтверджено. Перевір пошту.";
+  if (lowerMessage.includes("email not confirmed")) {
+    return "Потрібно підтвердити email. Перевір пошту.";
   }
 
-  if (errorMessage.includes("Password should be at least")) {
-    return "Пароль має бути довшим. Спробуй мінімум 6 символів.";
+  if (lowerMessage.includes("already registered")) {
+    return "Користувач із таким email вже зареєстрований.";
   }
 
-  if (errorMessage.includes("User already registered")) {
-    return "Користувач з таким email вже зареєстрований. Спробуй увійти.";
+  if (lowerMessage.includes("password")) {
+    return "Перевір пароль. Він може бути занадто коротким або неправильним.";
   }
 
-  return errorMessage;
+  if (lowerMessage.includes("captcha")) {
+    return "У Supabase, схоже, увімкнена CAPTCHA. Поки ми її пропускаємо — вимкни CAPTCHA protection у Supabase Dashboard.";
+  }
+
+  return message || "Сталася помилка авторизації.";
 }
 
 export default function LoginPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const router = useRouter();
 
+  const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordRepeat, setPasswordRepeat] = useState("");
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "info">(
     "info"
   );
 
-  async function loadUser() {
-    setIsLoading(true);
+  const isSignup = mode === "signup";
 
-    const { data } = await supabase.auth.getUser();
+  const title = isSignup ? "Створити акаунт" : "Увійти";
+  const subtitle = isSignup
+    ? "Зареєструйся, щоб додавати промокоди, коментувати та зберігати коди."
+    : "Увійди, щоб керувати профілем, додавати промокоди й голосувати.";
 
-    setUser(data.user);
-    setIsLoading(false);
-  }
+  const submitLabel = useMemo(() => {
+    if (isSubmitting) {
+      return isSignup ? "Створюю акаунт..." : "Входжу...";
+    }
 
-  useEffect(() => {
-    loadUser();
+    return isSignup ? "Зареєструватися" : "Увійти";
+  }, [isSubmitting, isSignup]);
 
-    const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      loadUser();
-    });
-
-    return () => {
-      listener.subscription.unsubscribe();
-    };
-  }, []);
-
-  function resetMessage() {
+  function switchMode(nextMode: AuthMode) {
+    setMode(nextMode);
     setMessage("");
     setMessageType("info");
+    setPassword("");
+    setPasswordRepeat("");
   }
 
-  async function signIn(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    resetMessage();
+  function validateForm() {
+    const finalEmail = normalizeEmail(email);
 
-    if (!email.trim()) {
-      setMessage("Вкажи email.");
-      setMessageType("error");
-      return;
-    }
-
-    if (!password.trim()) {
-      setMessage("Вкажи пароль.");
-      setMessageType("error");
-      return;
-    }
-
-    setIsSending(true);
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-
-    setIsSending(false);
-
-    if (error) {
-      setMessage(`Помилка входу: ${friendlyAuthError(error.message)}`);
-      setMessageType("error");
-      return;
-    }
-
-    setUser(data.user);
-    setMessage("Ти увійшов в акаунт 🐦");
-    setMessageType("success");
-  }
-
-  async function signUp(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    resetMessage();
-
-    if (!email.trim()) {
-      setMessage("Вкажи email.");
-      setMessageType("error");
-      return;
-    }
-
-    if (!password.trim()) {
-      setMessage("Вкажи пароль.");
-      setMessageType("error");
-      return;
+    if (!finalEmail || !finalEmail.includes("@")) {
+      return "Введи коректний email.";
     }
 
     if (password.length < 6) {
-      setMessage("Пароль має бути мінімум 6 символів.");
-      setMessageType("error");
-      return;
+      return "Пароль має містити хоча б 6 символів.";
     }
 
-    setIsSending(true);
+    if (isSignup && password !== passwordRepeat) {
+      return "Паролі не збігаються.";
+    }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+    return "";
+  }
+
+  async function createProfileIfNeeded(userId: string, userEmail: string) {
+    await supabase.from("profiles").upsert(
+      {
+        id: userId,
+        email: userEmail,
+      },
+      {
+        onConflict: "id",
+      }
+    );
+  }
+
+  async function handleLogin(finalEmail: string) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: finalEmail,
       password,
     });
 
-    setIsSending(false);
+    if (error) {
+      throw error;
+    }
+
+    if (data.user?.id) {
+      await createProfileIfNeeded(data.user.id, finalEmail);
+    }
+
+    setMessage("Вхід виконано. Перенаправляю в профіль...");
+    setMessageType("success");
+
+    window.setTimeout(() => {
+      router.push("/profile");
+      router.refresh();
+    }, 500);
+  }
+
+  async function handleSignup(finalEmail: string) {
+    const { data, error } = await supabase.auth.signUp({
+      email: finalEmail,
+      password,
+      options: {
+        emailRedirectTo: `${siteUrl}/profile`,
+      },
+    });
 
     if (error) {
-      setMessage(`Помилка реєстрації: ${friendlyAuthError(error.message)}`);
+      throw error;
+    }
+
+    if (data.user?.id) {
+      await createProfileIfNeeded(data.user.id, finalEmail);
+    }
+
+    if (data.session) {
+      setMessage("Акаунт створено. Перенаправляю в профіль...");
+      setMessageType("success");
+
+      window.setTimeout(() => {
+        router.push("/profile");
+        router.refresh();
+      }, 500);
+
+      return;
+    }
+
+    setMessage(
+      "Акаунт створено. Перевір пошту та підтвердь email, якщо Supabase вимагає підтвердження."
+    );
+    setMessageType("success");
+    setPassword("");
+    setPasswordRepeat("");
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const validationError = validateForm();
+
+    if (validationError) {
+      setMessage(validationError);
       setMessageType("error");
       return;
     }
 
-    setUser(data.user);
+    setIsSubmitting(true);
+    setMessage("");
 
-    setMessage(
-      data.user
-        ? "Акаунт створено. Ти увійшов в систему 🐦"
-        : "Акаунт створено. Перевір пошту для підтвердження реєстрації."
-    );
-    setMessageType("success");
-  }
+    const finalEmail = normalizeEmail(email);
 
-  async function signOut() {
-    await supabase.auth.signOut();
+    try {
+      if (isSignup) {
+        await handleSignup(finalEmail);
+      } else {
+        await handleLogin(finalEmail);
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Сталася помилка.";
 
-    setUser(null);
-    setEmail("");
-    setPassword("");
-    setMessage("Ти вийшов з акаунта.");
-    setMessageType("info");
+      setMessage(getAuthErrorMessage(errorMessage));
+      setMessageType("error");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
-      <section className="mx-auto w-full max-w-6xl">
-        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
-          <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
-            <aside>
-              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
-                Акаунт
+      <section className="mx-auto grid w-full max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+        <section className="overflow-hidden rounded-[2.5rem] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.18),_transparent_38%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(2,6,23,0.98))] p-6 shadow-2xl shadow-emerald-950/30 lg:p-10">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900">
+              <img
+                src="/icons/promoptaha-bird.png"
+                alt="ПромоПтаха"
+                className="h-full w-full object-contain p-1"
+              />
+            </div>
+
+            <div>
+              <p className="text-2xl font-black">ПромоПтаха</p>
+              <p className="text-sm font-bold text-emerald-300">
+                На крилах знижок
               </p>
+            </div>
+          </Link>
 
-              <h1 className="text-5xl font-black tracking-tight">
-                Увійди в ПромоПтаху
-              </h1>
+          <p className="mt-8 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+            Кабінет автора
+          </p>
 
-              <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-400">
-                Акаунт потрібен, щоб додавати промокоди, пропонувати магазини,
-                голосувати за коди та повідомляти про проблеми.
+          <h1 className="mt-5 max-w-3xl text-5xl font-black tracking-tight md:text-7xl">
+            Твій кабінет знижок
+          </h1>
+
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-400">
+            Увійди або створи акаунт, щоб додавати промокоди, отримувати рівні
+            автора, зберігати корисні коди та допомагати спільноті.
+          </p>
+
+          <div className="mt-8 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-5">
+              <p className="text-3xl">🎟️</p>
+              <p className="mt-3 font-black">Додавай коди</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Публікуй промокоди після модерації.
               </p>
+            </div>
 
-              <div className="mt-8 grid gap-4">
-                <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="text-2xl">🎟️</p>
-                  <h2 className="mt-3 text-xl font-black">
-                    Додавай промокоди
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Нові коди потрапляють на перевірку, а після схвалення
-                    зʼявляються на сайті.
-                  </p>
-                </div>
+            <div className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-5">
+              <p className="text-3xl">⭐</p>
+              <p className="mt-3 font-black">Зберігай</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Тримай потрібні промокоди в кабінеті.
+              </p>
+            </div>
 
-                <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="text-2xl">✅</p>
-                  <h2 className="mt-3 text-xl font-black">
-                    Перевіряй роботу кодів
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Голоси “працює” або “не працює”, щоб база була корисною.
-                  </p>
-                </div>
+            <div className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-5">
+              <p className="text-3xl">🏆</p>
+              <p className="mt-3 font-black">Прокачуй рівень</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                Більше схвалених кодів — вищий рівень автора.
+              </p>
+            </div>
+          </div>
+        </section>
 
-                <div className="rounded-3xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="text-2xl">🐦</p>
-                  <h2 className="mt-3 text-xl font-black">
-                    Допомагай спільноті
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">
-                    Повідомляй про проблемні промокоди і пропонуй нові магазини.
-                  </p>
-                </div>
-              </div>
-            </aside>
+        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/50 lg:p-8">
+          <div className="flex rounded-2xl border border-slate-800 bg-slate-950 p-1">
+            <button
+              type="button"
+              onClick={() => switchMode("login")}
+              className={`flex-1 rounded-xl px-4 py-3 text-sm font-black transition ${
+                mode === "login"
+                  ? "bg-emerald-400 text-slate-950"
+                  : "text-slate-400 hover:text-emerald-300"
+              }`}
+            >
+              Вхід
+            </button>
 
-            <section className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5">
-              {isLoading ? (
-                <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 text-slate-400">
-                  Перевіряю акаунт...
-                </div>
-              ) : user ? (
-                <div>
-                  <div className="rounded-3xl border border-emerald-400/30 bg-emerald-400/10 p-6">
-                    <p className="text-sm font-bold text-emerald-300">
-                      Ти вже увійшов
-                    </p>
+            <button
+              type="button"
+              onClick={() => switchMode("signup")}
+              className={`flex-1 rounded-xl px-4 py-3 text-sm font-black transition ${
+                mode === "signup"
+                  ? "bg-emerald-400 text-slate-950"
+                  : "text-slate-400 hover:text-emerald-300"
+              }`}
+            >
+              Реєстрація
+            </button>
+          </div>
 
-                    <h2 className="mt-3 break-all text-3xl font-black text-white">
-                      {user.email}
-                    </h2>
+          <div className="mt-7">
+            <h2 className="text-4xl font-black">{title}</h2>
+            <p className="mt-3 leading-7 text-slate-400">{subtitle}</p>
+          </div>
 
-                    <p className="mt-3 text-slate-400">
-                      Можеш перейти в профіль, додати промокод або вийти з
-                      акаунта.
-                    </p>
-                  </div>
+          {message && (
+            <div
+              className={`mt-6 rounded-2xl border p-4 font-bold ${
+                messageType === "success"
+                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                  : messageType === "error"
+                    ? "border-red-400/30 bg-red-400/10 text-red-300"
+                    : "border-slate-700 bg-slate-950 text-slate-300"
+              }`}
+            >
+              {message}
+            </div>
+          )}
 
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <Link
-                      href="/profile"
-                      className="rounded-2xl bg-emerald-400 px-5 py-4 text-center font-black text-slate-950 transition hover:bg-emerald-300"
-                    >
-                      Перейти в профіль
-                    </Link>
+          <form onSubmit={handleSubmit} className="mt-6 grid gap-4">
+            <label className="grid gap-2">
+              <span className="text-sm font-black text-slate-300">Email</span>
 
-                    <Link
-                      href="/add"
-                      className="rounded-2xl border border-slate-700 px-5 py-4 text-center font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                    >
-                      Додати промокод
-                    </Link>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+            </label>
 
-                    <Link
-                      href="/request-store"
-                      className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-5 py-4 text-center font-black text-yellow-300 transition hover:bg-yellow-400 hover:text-slate-950"
-                    >
-                      Запропонувати магазин
-                    </Link>
+            <label className="grid gap-2">
+              <span className="text-sm font-black text-slate-300">
+                Пароль
+              </span>
 
-                    <button
-                      onClick={signOut}
-                      className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-4 font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
-                    >
-                      Вийти
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <button
-                      onClick={() => {
-                        setMode("login");
-                        resetMessage();
-                      }}
-                      className={`rounded-2xl border px-5 py-3 font-black transition ${
-                        mode === "login"
-                          ? "border-emerald-400 bg-emerald-400 text-slate-950"
-                          : "border-slate-800 bg-slate-900 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
-                      }`}
-                    >
-                      Увійти
-                    </button>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Мінімум 6 символів"
+                autoComplete={isSignup ? "new-password" : "current-password"}
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+            </label>
 
-                    <button
-                      onClick={() => {
-                        setMode("register");
-                        resetMessage();
-                      }}
-                      className={`rounded-2xl border px-5 py-3 font-black transition ${
-                        mode === "register"
-                          ? "border-emerald-400 bg-emerald-400 text-slate-950"
-                          : "border-slate-800 bg-slate-900 text-slate-300 hover:border-emerald-400 hover:text-emerald-300"
-                      }`}
-                    >
-                      Зареєструватись
-                    </button>
-                  </div>
+            {isSignup && (
+              <label className="grid gap-2">
+                <span className="text-sm font-black text-slate-300">
+                  Повтори пароль
+                </span>
 
-                  <form
-                    onSubmit={mode === "login" ? signIn : signUp}
-                    className="mt-6 space-y-5"
-                  >
-                    <div>
-                      <label className="mb-2 block text-sm font-bold text-slate-300">
-                        Email
-                      </label>
+                <input
+                  type="password"
+                  value={passwordRepeat}
+                  onChange={(event) => setPasswordRepeat(event.target.value)}
+                  placeholder="Ще раз пароль"
+                  autoComplete="new-password"
+                  className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                />
+              </label>
+            )}
 
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        placeholder="you@example.com"
-                        className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
-                      />
-                    </div>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-full bg-emerald-400 px-7 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitLabel}
+            </button>
+          </form>
 
-                    <div>
-                      <label className="mb-2 block text-sm font-bold text-slate-300">
-                        Пароль
-                      </label>
-
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(event) => setPassword(event.target.value)}
-                        placeholder="Мінімум 6 символів"
-                        className="w-full rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
-                      />
-                    </div>
-
-                    {message && (
-                      <div
-                        className={`rounded-2xl border px-4 py-3 text-sm ${
-                          messageType === "success"
-                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-                            : messageType === "error"
-                            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-                            : "border-slate-700 bg-slate-900 text-slate-300"
-                        }`}
-                      >
-                        {message}
-                      </div>
-                    )}
-
-                    <button
-                      type="submit"
-                      disabled={isSending}
-                      className="w-full rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isSending
-                        ? mode === "login"
-                          ? "Входжу..."
-                          : "Створюю акаунт..."
-                        : mode === "login"
-                        ? "Увійти"
-                        : "Створити акаунт"}
-                    </button>
-                  </form>
-
-                  <div className="mt-5 rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-4">
-                    <p className="text-sm leading-6 text-yellow-300">
-                      Якщо в Supabase увімкнене підтвердження email, після
-                      реєстрації треба буде відкрити лист на пошті.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </section>
+          <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
+            {isSignup ? (
+              <p className="text-sm leading-6 text-slate-400">
+                Вже маєш акаунт?{" "}
+                <button
+                  type="button"
+                  onClick={() => switchMode("login")}
+                  className="font-black text-emerald-300 transition hover:text-emerald-200"
+                >
+                  Увійти
+                </button>
+              </p>
+            ) : (
+              <p className="text-sm leading-6 text-slate-400">
+                Ще немає акаунта?{" "}
+                <button
+                  type="button"
+                  onClick={() => switchMode("signup")}
+                  className="font-black text-emerald-300 transition hover:text-emerald-200"
+                >
+                  Зареєструватися
+                </button>
+              </p>
+            )}
           </div>
         </section>
       </section>

@@ -1,5 +1,6 @@
 "use client";
 
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import {
   useEffect,
   useMemo,
@@ -351,7 +352,7 @@ export default function ProfilePage() {
       .maybeSingle();
 
     if (error) {
-      setMessage(`Не вдалося завантажити профіль: ${error.message}`);
+      setMessage(`Не вдалося завантажити профіль: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }
@@ -545,7 +546,7 @@ export default function ProfilePage() {
     setIsSavingProfile(false);
 
     if (error) {
-      setMessage(`Не вдалося зберегти профіль: ${error.message}`);
+      setMessage(`Не вдалося зберегти профіль: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return false;
     }
@@ -608,7 +609,7 @@ export default function ProfilePage() {
 
     if (error) {
       setIsUploadingAvatar(false);
-      setMessage(`Не вдалося завантажити аватар: ${error.message}`);
+      setMessage(`Не вдалося завантажити аватар: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }
@@ -723,7 +724,7 @@ export default function ProfilePage() {
     setSavingPromoId(null);
 
     if (error) {
-      setMessage(`Не вдалося зберегти промокод: ${error.message}`);
+      setMessage(`Не вдалося зберегти промокод: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }
@@ -760,7 +761,7 @@ export default function ProfilePage() {
     setDeletingPromoId(null);
 
     if (error) {
-      setMessage(`Не вдалося видалити промокод: ${error.message}`);
+      setMessage(`Не вдалося видалити промокод: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }
@@ -792,7 +793,7 @@ export default function ProfilePage() {
     setRemovingFavoriteId(null);
 
     if (error) {
-      setMessage(`Не вдалося прибрати зі збережених: ${error.message}`);
+      setMessage(`Не вдалося прибрати зі збережених: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }

@@ -1,5 +1,6 @@
 "use client";
 
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -431,7 +432,7 @@ export default function AdminUserDetailsPage() {
         .maybeSingle();
 
       if (error) {
-        setMessage(`Не вдалося завантажити профіль: ${error.message}`);
+        setMessage(`Не вдалося завантажити профіль: ${getFriendlyErrorMessage(error)}`);
         setMessageType("error");
         return null;
       }
@@ -446,7 +447,7 @@ export default function AdminUserDetailsPage() {
       .maybeSingle();
 
     if (error) {
-      setMessage(`Не вдалося завантажити профіль: ${error.message}`);
+      setMessage(`Не вдалося завантажити профіль: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return null;
     }
@@ -654,7 +655,7 @@ export default function AdminUserDetailsPage() {
     setIsUpdatingCommentId(null);
 
     if (error) {
-      setMessage(`Не вдалося оновити коментар: ${error.message}`);
+      setMessage(`Не вдалося оновити коментар: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }
@@ -683,7 +684,7 @@ export default function AdminUserDetailsPage() {
     setIsDeletingCommentId(null);
 
     if (error) {
-      setMessage(`Не вдалося видалити коментар: ${error.message}`);
+      setMessage(`Не вдалося видалити коментар: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }

@@ -1,5 +1,6 @@
 "use client";
 
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import {
   useEffect,
   useMemo,
@@ -570,7 +571,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       setIsVoting(false);
 
       if (error) {
-        setMessage(`Не вдалося прибрати голос: ${error.message}`);
+        setMessage(`Не вдалося прибрати голос: ${getFriendlyErrorMessage(error)}`);
         setMessageType("error");
         return;
       }
@@ -603,7 +604,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setIsVoting(false);
 
     if (error) {
-      setMessage(`Не вдалося проголосувати: ${error.message}`);
+      setMessage(`Не вдалося проголосувати: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }
@@ -649,7 +650,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       setIsTogglingFavorite(false);
 
       if (error) {
-        setMessage(`Не вдалося прибрати зі збережених: ${error.message}`);
+        setMessage(`Не вдалося прибрати зі збережених: ${getFriendlyErrorMessage(error)}`);
         setMessageType("error");
         return;
       }
@@ -672,7 +673,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setIsTogglingFavorite(false);
 
     if (error) {
-      setMessage(`Не вдалося зберегти промокод: ${error.message}`);
+      setMessage(`Не вдалося зберегти промокод: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }
@@ -706,7 +707,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setIsReporting(false);
 
     if (error) {
-      setMessage(`Не вдалося надіслати репорт: ${error.message}`);
+      setMessage(`Не вдалося надіслати репорт: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }
@@ -746,7 +747,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setIsAddingComment(false);
 
     if (error) {
-      setMessage(`Не вдалося додати коментар: ${error.message}`);
+      setMessage(`Не вдалося додати коментар: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }
@@ -796,7 +797,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setIsUpdatingComment(false);
 
     if (error) {
-      setMessage(`Не вдалося оновити коментар: ${error.message}`);
+      setMessage(`Не вдалося оновити коментар: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }
@@ -827,7 +828,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setDeletingCommentId(null);
 
     if (error) {
-      setMessage(`Не вдалося видалити коментар: ${error.message}`);
+      setMessage(`Не вдалося видалити коментар: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }

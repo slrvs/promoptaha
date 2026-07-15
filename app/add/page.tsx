@@ -1,5 +1,6 @@
 "use client";
 
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -304,7 +305,7 @@ function AddPromoContent() {
 
     if (error) {
       setCategories([]);
-      setMessage(`Не вдалося завантажити категорії: ${error.message}`);
+      setMessage(`Не вдалося завантажити категорії: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       setIsLoadingCategories(false);
       return;
@@ -328,7 +329,7 @@ function AddPromoContent() {
     if (storeError) {
       setStores([]);
       setStoreCategoryLinks([]);
-      setMessage(`Не вдалося завантажити магазини: ${storeError.message}`);
+      setMessage(`Не вдалося завантажити магазини: ${getFriendlyErrorMessage(storeError)}`);
       setMessageType("error");
       setIsLoadingStores(false);
       return;
@@ -353,7 +354,7 @@ function AddPromoContent() {
     if (linkError) {
       setStoreCategoryLinks([]);
       setMessage(
-        `Магазини завантажено, але категорії магазинів не підтягнулись: ${linkError.message}`
+        `Магазини завантажено, але категорії магазинів не підтягнулись: ${getFriendlyErrorMessage(linkError)}`
       );
       setMessageType("error");
       setIsLoadingStores(false);
@@ -577,7 +578,7 @@ function AddPromoContent() {
     setIsSubmitting(false);
 
     if (error) {
-      setMessage(`Не вдалося додати промокод: ${error.message}`);
+      setMessage(`Не вдалося додати промокод: ${getFriendlyErrorMessage(error)}`);
       setMessageType("error");
       return;
     }
