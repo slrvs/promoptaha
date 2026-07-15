@@ -10,6 +10,8 @@ import {
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
+import UserLevelBadge from "@/components/UserLevelBadge";
+import UserLevelProgress from "@/components/UserLevelProgress";
 
 type Profile = {
   id: string;
@@ -39,8 +41,15 @@ type MyPromo = {
   source_type?: string | null;
   source_url?: string | null;
   description?: string | null;
-  search_aliases?: string[] | null;
+  submitted_by?: string | null;
   rejection_reason?: string | null;
+  created_at?: string | null;
+};
+
+type FavoriteRecord = {
+  id: string;
+  promo_code_id: string;
+  user_id: string;
   created_at?: string | null;
 };
 
@@ -57,12 +66,6 @@ type FavoritePromo = {
   description?: string | null;
   works_count?: number | null;
   not_works_count?: number | null;
-};
-
-type FavoriteRecord = {
-  id: string;
-  promo_code_id: string;
-  user_id: string;
   created_at?: string | null;
 };
 
@@ -92,7 +95,6 @@ type StoreRequest = {
   description?: string | null;
   comment?: string | null;
   status?: string | null;
-  submitted_by?: string | null;
   created_store_id?: string | null;
   created_at?: string | null;
 };
@@ -107,18 +109,16 @@ const supabase = createClient(
 
 function normalizeUsername(value: string) {
   return value
-    .toLowerCase()
     .trim()
-    .replace(/^@/, "")
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9а-яіїєґ_-]/gi, "")
-    .slice(0, 32);
+    .toLowerCase()
+    .replace(/^@+/, "")
+    .replace(/[^a-z0-9_]/g, "");
 }
 
 function normalizeOptionalUrl(value: string) {
   const trimmedValue = value.trim();
 
-  if (!trimmedValue) return null;
+  if (!trimmedValue) return "";
 
   if (
     trimmedValue.startsWith("http://") ||
@@ -128,31 +128,6 @@ function normalizeOptionalUrl(value: string) {
   }
 
   return `https://${trimmedValue}`;
-}
-
-function normalizeSocialUrl(
-  value: string,
-  platform: "instagram" | "telegram" | "tiktok" | "youtube"
-) {
-  const trimmedValue = value.trim();
-
-  if (!trimmedValue) return null;
-
-  if (
-    trimmedValue.startsWith("http://") ||
-    trimmedValue.startsWith("https://")
-  ) {
-    return trimmedValue;
-  }
-
-  const handle = trimmedValue.replace(/^@/, "");
-
-  if (platform === "instagram") return `https://instagram.com/${handle}`;
-  if (platform === "telegram") return `https://t.me/${handle}`;
-  if (platform === "tiktok") return `https://www.tiktok.com/@${handle}`;
-  if (platform === "youtube") return `https://www.youtube.com/@${handle}`;
-
-  return trimmedValue;
 }
 
 function formatDate(date: string | null | undefined) {
@@ -168,7 +143,7 @@ function formatDate(date: string | null | undefined) {
 function getDateInputValue(date: string | null | undefined) {
   if (!date) return "";
 
-  return date.slice(0, 10);
+  return new Date(date).toISOString().slice(0, 10);
 }
 
 function getPromoStatusLabel(status: string | null | undefined) {
@@ -192,7 +167,7 @@ function getPromoStatusClass(status: string | null | undefined) {
     return "border-red-400/30 bg-red-400/10 text-red-300";
   }
 
-  return "border-slate-700 bg-slate-950 text-slate-300";
+  return "border-slate-700 bg-slate-900 text-slate-300";
 }
 
 function getRequestStatusLabel(status: string | null | undefined) {
@@ -204,7 +179,7 @@ function getRequestStatusLabel(status: string | null | undefined) {
 }
 
 function getRequestName(request: StoreRequest) {
-  return request.store_name || request.name || "Магазин без назви";
+  return request.store_name || request.name || "Магазин";
 }
 
 function getRequestUrl(request: StoreRequest) {
@@ -219,6 +194,7 @@ function getProfileName(profile: Profile | null, user: User | null) {
   return (
     profile?.display_name ||
     profile?.username ||
+    profile?.email?.split("@")[0] ||
     user?.email?.split("@")[0] ||
     "Користувач"
   );
@@ -233,18 +209,15 @@ function getAvatarFallback(profile: Profile | null, user: User | null) {
 }
 
 function getFileExtension(file: File) {
-  const fromName = file.name.split(".").pop()?.toLowerCase();
+  const extension = file.name.split(".").pop()?.toLowerCase();
 
-  if (fromName && ["jpg", "jpeg", "png", "webp", "gif"].includes(fromName)) {
-    return fromName === "jpeg" ? "jpg" : fromName;
-  }
+  if (extension) return extension;
 
-  if (file.type === "image/jpeg") return "jpg";
   if (file.type === "image/png") return "png";
   if (file.type === "image/webp") return "webp";
   if (file.type === "image/gif") return "gif";
 
-  return "png";
+  return "jpg";
 }
 
 function getWorksPercent(promo: FavoritePromo) {
@@ -255,6 +228,24 @@ function getWorksPercent(promo: FavoritePromo) {
   if (total === 0) return null;
 
   return Math.round((worksCount / total) * 100);
+}
+
+function getStoreName(stores: Store[], storeId: string | null | undefined) {
+  if (!storeId) return "Магазин";
+
+  return stores.find((store) => store.id === storeId)?.name || "Магазин";
+}
+
+function getStoreSlug(stores: Store[], storeId: string | null | undefined) {
+  if (!storeId) return null;
+
+  return stores.find((store) => store.id === storeId)?.slug || null;
+}
+
+function getStoreWebsite(stores: Store[], storeId: string | null | undefined) {
+  if (!storeId) return null;
+
+  return stores.find((store) => store.id === storeId)?.website_url || null;
 }
 
 export default function ProfilePage() {
@@ -281,9 +272,9 @@ export default function ProfilePage() {
   const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
 
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
-  const [editCode, setEditCode] = useState("");
   const [editStoreId, setEditStoreId] = useState("");
   const [editCategoryId, setEditCategoryId] = useState("");
+  const [editCode, setEditCode] = useState("");
   const [editDiscountValue, setEditDiscountValue] = useState("");
   const [editExpiresAt, setEditExpiresAt] = useState("");
   const [editSourceType, setEditSourceType] = useState("other");
@@ -293,53 +284,58 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [isSavingPromo, setIsSavingPromo] = useState(false);
-  const [isDeletingPromoId, setIsDeletingPromoId] = useState<string | null>(
+  const [savingPromoId, setSavingPromoId] = useState<string | null>(null);
+  const [deletingPromoId, setDeletingPromoId] = useState<string | null>(null);
+  const [removingFavoriteId, setRemovingFavoriteId] = useState<string | null>(
     null
   );
-  const [isRemovingFavoriteId, setIsRemovingFavoriteId] = useState<
-    string | null
-  >(null);
-  const [copyingPromoId, setCopyingPromoId] = useState<string | null>(null);
+  const [copiedFavoriteId, setCopiedFavoriteId] = useState<string | null>(null);
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "info">(
     "info"
   );
 
-  const storesMap = useMemo(() => {
-    return new Map(stores.map((store) => [store.id, store]));
-  }, [stores]);
-
-  const promoStats = useMemo(() => {
-    return {
-      total: myPromos.length,
-      pending: myPromos.filter((promo) => promo.status === "pending").length,
-      approved: myPromos.filter((promo) => promo.status === "approved").length,
-      rejected: myPromos.filter((promo) => promo.status === "rejected").length,
-    };
+  const approvedPromosCount = useMemo(() => {
+    return myPromos.filter((promo) => promo.status === "approved").length;
   }, [myPromos]);
+
+  const pendingPromosCount = useMemo(() => {
+    return myPromos.filter((promo) => promo.status === "pending").length;
+  }, [myPromos]);
+
+  const rejectedPromosCount = useMemo(() => {
+    return myPromos.filter((promo) => promo.status === "rejected").length;
+  }, [myPromos]);
+
+  const profileName = getProfileName(profile, user);
+  const publicProfileUrl = profile?.username ? `/u/${profile.username}` : "";
 
   async function loadProfilePage() {
     setIsLoading(true);
     setMessage("");
 
     const { data: userData } = await supabase.auth.getUser();
+    const currentUser = userData.user;
 
-    if (!userData.user) {
-      setUser(null);
+    setUser(currentUser);
+
+    if (!currentUser) {
+      setProfile(null);
+      setMyPromos([]);
+      setFavoriteRecords([]);
+      setFavoritePromos([]);
+      setStoreRequests([]);
       setIsLoading(false);
       return;
     }
 
-    setUser(userData.user);
-
     await Promise.all([
-      loadProfile(userData.user),
+      loadProfile(currentUser),
       loadReferenceData(),
-      loadMyPromos(userData.user.id),
-      loadFavorites(userData.user.id),
-      loadStoreRequests(userData.user.id),
+      loadMyPromos(currentUser.id),
+      loadFavorites(currentUser.id),
+      loadStoreRequests(currentUser.id),
     ]);
 
     setIsLoading(false);
@@ -360,19 +356,18 @@ export default function ProfilePage() {
       return;
     }
 
-    const nextProfile = (data as Profile | null) || null;
+    const loadedProfile = (data as Profile | null) || null;
 
-    setProfile(nextProfile);
-
-    setUsername(nextProfile?.username || "");
-    setDisplayName(nextProfile?.display_name || "");
-    setAvatarUrl(nextProfile?.avatar_url || "");
-    setBio(nextProfile?.bio || "");
-    setWebsiteUrl(nextProfile?.website_url || "");
-    setInstagramUrl(nextProfile?.instagram_url || "");
-    setTelegramUrl(nextProfile?.telegram_url || "");
-    setTiktokUrl(nextProfile?.tiktok_url || "");
-    setYoutubeUrl(nextProfile?.youtube_url || "");
+    setProfile(loadedProfile);
+    setUsername(loadedProfile?.username || "");
+    setDisplayName(loadedProfile?.display_name || "");
+    setAvatarUrl(loadedProfile?.avatar_url || "");
+    setBio(loadedProfile?.bio || "");
+    setWebsiteUrl(loadedProfile?.website_url || "");
+    setInstagramUrl(loadedProfile?.instagram_url || "");
+    setTelegramUrl(loadedProfile?.telegram_url || "");
+    setTiktokUrl(loadedProfile?.tiktok_url || "");
+    setYoutubeUrl(loadedProfile?.youtube_url || "");
   }
 
   async function loadReferenceData() {
@@ -394,20 +389,17 @@ export default function ProfilePage() {
         .limit(300),
     ]);
 
-    if (!storesResult.error) {
-      setStores((storesResult.data || []) as Store[]);
-    }
-
-    if (!categoriesResult.error) {
-      setCategories((categoriesResult.data || []) as Category[]);
-    }
+    setStores(storesResult.error ? [] : ((storesResult.data || []) as Store[]));
+    setCategories(
+      categoriesResult.error ? [] : ((categoriesResult.data || []) as Category[])
+    );
   }
 
   async function loadMyPromos(userId: string) {
     const { data, error } = await supabase
       .from("promo_codes")
       .select(
-        "id, slug, code, store_id, category_id, discount_value, expires_at, status, source_type, source_url, description, search_aliases, rejection_reason, created_at"
+        "id, slug, code, store_id, category_id, discount_value, expires_at, status, source_type, source_url, description, submitted_by, rejection_reason, created_at"
       )
       .eq("submitted_by", userId)
       .order("created_at", { ascending: false })
@@ -415,8 +407,6 @@ export default function ProfilePage() {
 
     if (error) {
       setMyPromos([]);
-      setMessage(`Не вдалося завантажити твої промокоди: ${error.message}`);
-      setMessageType("error");
       return;
     }
 
@@ -424,26 +414,24 @@ export default function ProfilePage() {
   }
 
   async function loadFavorites(userId: string) {
-    const { data: favoritesData, error: favoritesError } = await supabase
+    const { data, error } = await supabase
       .from("promo_favorites")
       .select("id, promo_code_id, user_id, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(500);
 
-    if (favoritesError) {
+    if (error) {
       setFavoriteRecords([]);
       setFavoritePromos([]);
       return;
     }
 
-    const nextFavoriteRecords = (favoritesData || []) as FavoriteRecord[];
+    const records = (data || []) as FavoriteRecord[];
 
-    setFavoriteRecords(nextFavoriteRecords);
+    setFavoriteRecords(records);
 
-    const promoIds = nextFavoriteRecords.map(
-      (favorite) => favorite.promo_code_id
-    );
+    const promoIds = records.map((record) => record.promo_code_id);
 
     if (promoIds.length === 0) {
       setFavoritePromos([]);
@@ -453,7 +441,7 @@ export default function ProfilePage() {
     const { data: promosData, error: promosError } = await supabase
       .from("promo_code_category_stats")
       .select(
-        "id, slug, code, store_id, store_name, store_slug, category_name, discount_value, expires_at, description, works_count, not_works_count"
+        "id, slug, code, store_id, store_name, store_slug, category_name, discount_value, expires_at, description, works_count, not_works_count, created_at"
       )
       .in("id", promoIds);
 
@@ -465,11 +453,11 @@ export default function ProfilePage() {
     const promos = (promosData || []) as FavoritePromo[];
     const promosMap = new Map(promos.map((promo) => [promo.id, promo]));
 
-    setFavoritePromos(
-      nextFavoriteRecords
-        .map((favorite) => promosMap.get(favorite.promo_code_id))
-        .filter((promo): promo is FavoritePromo => Boolean(promo))
-    );
+    const orderedPromos = records
+      .map((record) => promosMap.get(record.promo_code_id))
+      .filter((promo): promo is FavoritePromo => Boolean(promo));
+
+    setFavoritePromos(orderedPromos);
   }
 
   async function loadStoreRequests(userId: string) {
@@ -502,9 +490,9 @@ export default function ProfilePage() {
         setFavoriteRecords([]);
         setFavoritePromos([]);
         setStoreRequests([]);
-        setStores([]);
-        setCategories([]);
         setIsProfileEditorOpen(false);
+      } else {
+        loadProfilePage();
       }
     });
 
@@ -513,17 +501,13 @@ export default function ProfilePage() {
     };
   }, []);
 
-  async function saveProfile(nextAvatarUrl?: string | null) {
-    if (!user) {
-      setMessage("Щоб редагувати профіль, потрібно увійти.");
-      setMessageType("error");
-      return false;
-    }
+  async function saveProfile(nextAvatarUrl?: string) {
+    if (!user) return false;
 
     const finalUsername = normalizeUsername(username);
 
-    if (!finalUsername) {
-      setMessage("Вкажи публічний нікнейм для профілю.");
+    if (username.trim() && finalUsername.length < 3) {
+      setMessage("Username має містити хоча б 3 символи.");
       setMessageType("error");
       return false;
     }
@@ -533,19 +517,19 @@ export default function ProfilePage() {
 
     const payload = {
       id: user.id,
-      email: user.email || null,
-      username: finalUsername,
+      email: user.email || profile?.email || null,
+      username: finalUsername || null,
       display_name: displayName.trim() || null,
       avatar_url:
-        typeof nextAvatarUrl === "string"
-          ? nextAvatarUrl
-          : avatarUrl.trim() || null,
+        nextAvatarUrl === undefined
+          ? avatarUrl.trim() || null
+          : nextAvatarUrl || null,
       bio: bio.trim() || null,
-      website_url: normalizeOptionalUrl(websiteUrl),
-      instagram_url: normalizeSocialUrl(instagramUrl, "instagram"),
-      telegram_url: normalizeSocialUrl(telegramUrl, "telegram"),
-      tiktok_url: normalizeSocialUrl(tiktokUrl, "tiktok"),
-      youtube_url: normalizeSocialUrl(youtubeUrl, "youtube"),
+      website_url: normalizeOptionalUrl(websiteUrl) || null,
+      instagram_url: normalizeOptionalUrl(instagramUrl) || null,
+      telegram_url: normalizeOptionalUrl(telegramUrl) || null,
+      tiktok_url: normalizeOptionalUrl(tiktokUrl) || null,
+      youtube_url: normalizeOptionalUrl(youtubeUrl) || null,
     };
 
     const { data, error } = await supabase
@@ -578,37 +562,34 @@ export default function ProfilePage() {
     setTelegramUrl(savedProfile.telegram_url || "");
     setTiktokUrl(savedProfile.tiktok_url || "");
     setYoutubeUrl(savedProfile.youtube_url || "");
-
     setIsProfileEditorOpen(false);
+
     setMessage("Профіль збережено.");
     setMessageType("success");
 
     return true;
   }
 
+  async function handleSaveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await saveProfile();
+  }
+
   async function uploadAvatar(event: ChangeEvent<HTMLInputElement>) {
-    if (!user) {
-      setMessage("Щоб завантажити аватарку, потрібно увійти.");
-      setMessageType("error");
-      return;
-    }
+    if (!user) return;
 
     const file = event.target.files?.[0];
 
-    event.target.value = "";
-
     if (!file) return;
 
-    if (
-      !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)
-    ) {
-      setMessage("Підтримуються тільки JPG, PNG, WEBP або GIF.");
+    if (!file.type.startsWith("image/")) {
+      setMessage("Потрібно обрати файл зображення.");
       setMessageType("error");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setMessage("Файл завеликий. Максимум — 5 МБ.");
+      setMessage("Зображення завелике. Максимум — 5 МБ.");
       setMessageType("error");
       return;
     }
@@ -617,38 +598,29 @@ export default function ProfilePage() {
     setMessage("");
 
     const extension = getFileExtension(file);
-    const filePath = `${user.id}/avatar-${Date.now()}.${extension}`;
+    const path = `${user.id}/avatar-${Date.now()}.${extension}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("avatars")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
+    const { error } = await supabase.storage.from("avatars").upload(path, file, {
+      cacheControl: "3600",
+      upsert: true,
+      contentType: file.type,
+    });
 
-    if (uploadError) {
+    if (error) {
       setIsUploadingAvatar(false);
-      setMessage(`Не вдалося завантажити аватарку: ${uploadError.message}`);
+      setMessage(`Не вдалося завантажити аватар: ${error.message}`);
       setMessageType("error");
       return;
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from("avatars")
-      .getPublicUrl(filePath);
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    const publicUrl = data.publicUrl;
 
-    const nextAvatarUrl = publicUrlData.publicUrl;
+    setAvatarUrl(publicUrl);
 
-    setAvatarUrl(nextAvatarUrl);
-
-    const saved = await saveProfile(nextAvatarUrl);
+    await saveProfile(publicUrl);
 
     setIsUploadingAvatar(false);
-
-    if (saved) {
-      setMessage("Аватарку завантажено і збережено в профілі.");
-      setMessageType("success");
-    }
   }
 
   async function removeAvatar() {
@@ -682,17 +654,22 @@ export default function ProfilePage() {
     setIsProfileEditorOpen(false);
   }
 
+  async function signOut() {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  }
+
   function startEditPromo(promo: MyPromo) {
     if (promo.status === "approved") {
-      setMessage("Схвалений промокод не можна редагувати з профілю.");
+      setMessage("Схвалені промокоди не можна редагувати напряму.");
       setMessageType("error");
       return;
     }
 
     setEditingPromoId(promo.id);
-    setEditCode(promo.code || "");
     setEditStoreId(promo.store_id || "");
     setEditCategoryId(promo.category_id || "");
+    setEditCode(promo.code || "");
     setEditDiscountValue(promo.discount_value || "");
     setEditExpiresAt(getDateInputValue(promo.expires_at));
     setEditSourceType(promo.source_type || "other");
@@ -702,9 +679,9 @@ export default function ProfilePage() {
 
   function cancelEditPromo() {
     setEditingPromoId(null);
-    setEditCode("");
     setEditStoreId("");
     setEditCategoryId("");
+    setEditCode("");
     setEditDiscountValue("");
     setEditExpiresAt("");
     setEditSourceType("other");
@@ -717,34 +694,25 @@ export default function ProfilePage() {
 
     if (!user || !editingPromoId) return;
 
-    const finalCode = editCode.trim();
-    const finalStoreId = editStoreId.trim();
-
-    if (!finalCode) {
-      setMessage("Вкажи промокод.");
+    if (editCode.trim().length < 2) {
+      setMessage("Промокод має містити хоча б 2 символи.");
       setMessageType("error");
       return;
     }
 
-    if (!finalStoreId) {
-      setMessage("Обери магазин.");
-      setMessageType("error");
-      return;
-    }
-
-    setIsSavingPromo(true);
+    setSavingPromoId(editingPromoId);
     setMessage("");
 
     const { error } = await supabase
       .from("promo_codes")
       .update({
-        code: finalCode,
-        store_id: finalStoreId,
+        store_id: editStoreId || null,
         category_id: editCategoryId || null,
+        code: editCode.trim(),
         discount_value: editDiscountValue.trim() || null,
         expires_at: editExpiresAt || null,
         source_type: editSourceType || "other",
-        source_url: normalizeOptionalUrl(editSourceUrl),
+        source_url: normalizeOptionalUrl(editSourceUrl) || null,
         description: editDescription.trim() || null,
         status: "pending",
         rejection_reason: null,
@@ -752,10 +720,10 @@ export default function ProfilePage() {
       .eq("id", editingPromoId)
       .eq("submitted_by", user.id);
 
-    setIsSavingPromo(false);
+    setSavingPromoId(null);
 
     if (error) {
-      setMessage(`Не вдалося оновити промокод: ${error.message}`);
+      setMessage(`Не вдалося зберегти промокод: ${error.message}`);
       setMessageType("error");
       return;
     }
@@ -767,35 +735,29 @@ export default function ProfilePage() {
     setMessageType("success");
   }
 
-  async function deletePromo(promoId: string) {
+  async function deletePromo(promo: MyPromo) {
     if (!user) return;
 
-    const promo = myPromos.find((item) => item.id === promoId);
-
-    if (!promo) return;
-
     if (promo.status === "approved") {
-      setMessage("Схвалений промокод не можна видалити з профілю.");
+      setMessage("Схвалені промокоди не можна видалити з профілю.");
       setMessageType("error");
       return;
     }
 
-    const confirmed = window.confirm(
-      `Видалити промокод ${promo.code}? Цю дію не можна скасувати.`
-    );
+    const confirmed = window.confirm("Видалити цей промокод?");
 
     if (!confirmed) return;
 
-    setIsDeletingPromoId(promoId);
+    setDeletingPromoId(promo.id);
     setMessage("");
 
     const { error } = await supabase
       .from("promo_codes")
       .delete()
-      .eq("id", promoId)
+      .eq("id", promo.id)
       .eq("submitted_by", user.id);
 
-    setIsDeletingPromoId(null);
+    setDeletingPromoId(null);
 
     if (error) {
       setMessage(`Не вдалося видалити промокод: ${error.message}`);
@@ -803,27 +765,31 @@ export default function ProfilePage() {
       return;
     }
 
-    setMyPromos((currentPromos) =>
-      currentPromos.filter((currentPromo) => currentPromo.id !== promoId)
-    );
+    await loadMyPromos(user.id);
 
     setMessage("Промокод видалено.");
     setMessageType("success");
   }
 
-  async function removeFavorite(promoId: string) {
+  async function removeFavorite(favoritePromoId: string) {
     if (!user) return;
 
-    setIsRemovingFavoriteId(promoId);
+    const favorite = favoriteRecords.find(
+      (record) => record.promo_code_id === favoritePromoId
+    );
+
+    if (!favorite) return;
+
+    setRemovingFavoriteId(favorite.id);
     setMessage("");
 
     const { error } = await supabase
       .from("promo_favorites")
       .delete()
-      .eq("promo_code_id", promoId)
+      .eq("id", favorite.id)
       .eq("user_id", user.id);
 
-    setIsRemovingFavoriteId(null);
+    setRemovingFavoriteId(null);
 
     if (error) {
       setMessage(`Не вдалося прибрати зі збережених: ${error.message}`);
@@ -831,38 +797,24 @@ export default function ProfilePage() {
       return;
     }
 
-    setFavoriteRecords((currentRecords) =>
-      currentRecords.filter((record) => record.promo_code_id !== promoId)
-    );
-
-    setFavoritePromos((currentPromos) =>
-      currentPromos.filter((promo) => promo.id !== promoId)
-    );
+    await loadFavorites(user.id);
 
     setMessage("Промокод прибрано зі збережених.");
     setMessageType("success");
   }
 
   async function copyFavoriteCode(promo: FavoritePromo) {
-    setCopyingPromoId(promo.id);
-
     try {
       await navigator.clipboard.writeText(promo.code);
-      setMessage(`Промокод ${promo.code} скопійовано.`);
-      setMessageType("success");
+      setCopiedFavoriteId(promo.id);
+
+      window.setTimeout(() => {
+        setCopiedFavoriteId(null);
+      }, 900);
     } catch {
-      setMessage("Не вдалося скопіювати промокод.");
+      setMessage("Не вдалося скопіювати код.");
       setMessageType("error");
     }
-
-    window.setTimeout(() => {
-      setCopyingPromoId(null);
-    }, 600);
-  }
-
-  async function signOut() {
-    await supabase.auth.signOut();
-    window.location.href = "/";
   }
 
   if (isLoading) {
@@ -879,19 +831,18 @@ export default function ProfilePage() {
   if (!user) {
     return (
       <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
-        <section className="mx-auto w-full max-w-3xl rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center">
-          <div className="text-6xl">🐦</div>
+        <section className="mx-auto max-w-3xl rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center">
+          <div className="text-6xl">🔐</div>
 
-          <h1 className="mt-5 text-4xl font-black">Потрібен вхід</h1>
+          <h1 className="mt-5 text-4xl font-black">Потрібно увійти</h1>
 
           <p className="mt-4 leading-7 text-slate-400">
-            Щоб переглянути профіль, свої промокоди та збережені коди, потрібно
-            увійти в акаунт.
+            Кабінет доступний тільки для авторизованих користувачів.
           </p>
 
           <Link
             href="/login"
-            className="mt-8 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+            className="mt-8 inline-flex rounded-full bg-emerald-400 px-7 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
           >
             Увійти
           </Link>
@@ -908,11 +859,11 @@ export default function ProfilePage() {
             Головна
           </Link>
           <span>/</span>
-          <span className="text-slate-300">Профіль</span>
+          <span className="text-slate-300">Мій профіль</span>
         </div>
 
         <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
+          <div className="grid gap-8 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
             <div>
               <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Особистий кабінет
@@ -923,7 +874,7 @@ export default function ProfilePage() {
                   {profile?.avatar_url ? (
                     <img
                       src={profile.avatar_url}
-                      alt={getProfileName(profile, user)}
+                      alt={profileName}
                       className="h-full w-full object-cover"
                       referrerPolicy="no-referrer"
                     />
@@ -933,15 +884,24 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="min-w-0">
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <UserLevelBadge
+                      approvedPromos={approvedPromosCount}
+                      size="md"
+                    />
+
+                    {profile?.username && (
+                      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-300">
+                        @{profile.username}
+                      </span>
+                    )}
+                  </div>
+
                   <h1 className="break-words text-5xl font-black tracking-tight md:text-7xl">
-                    {getProfileName(profile, user)}
+                    {profileName}
                   </h1>
 
-                  <p className="mt-3 text-lg font-black text-emerald-300">
-                    {profile?.username ? `@${profile.username}` : user.email}
-                  </p>
-
-                  <p className="mt-2 text-sm font-bold text-slate-500">
+                  <p className="mt-3 text-sm font-bold text-slate-500">
                     {user.email}
                   </p>
                 </div>
@@ -966,12 +926,12 @@ export default function ProfilePage() {
                     : "Редагувати профіль"}
                 </button>
 
-                {profile?.username && (
+                {publicProfileUrl && (
                   <Link
-                    href={`/u/${profile.username}`}
+                    href={publicProfileUrl}
                     className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                   >
-                    Мій публічний профіль
+                    Публічний профіль
                   </Link>
                 )}
 
@@ -999,42 +959,46 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">
-                  {promoStats.total}
-                </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
-                  моїх промокодів
-                </p>
+            <div className="grid gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                  <p className="text-4xl font-black text-emerald-300">
+                    {approvedPromosCount}
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    схвалених кодів
+                  </p>
+                </div>
+
+                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                  <p className="text-4xl font-black text-yellow-300">
+                    {pendingPromosCount}
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    на модерації
+                  </p>
+                </div>
+
+                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                  <p className="text-4xl font-black text-red-300">
+                    {rejectedPromosCount}
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    відхилено
+                  </p>
+                </div>
+
+                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                  <p className="text-4xl font-black text-white">
+                    {favoritePromos.length}
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    збережено
+                  </p>
+                </div>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-emerald-300">
-                  {promoStats.approved}
-                </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
-                  схвалено
-                </p>
-              </div>
-
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-yellow-300">
-                  {favoritePromos.length}
-                </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
-                  збережено
-                </p>
-              </div>
-
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-red-300">
-                  {promoStats.rejected}
-                </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
-                  відхилено
-                </p>
-              </div>
+              <UserLevelProgress approvedPromos={approvedPromosCount} />
             </div>
           </div>
         </section>
@@ -1054,36 +1018,38 @@ export default function ProfilePage() {
         )}
 
         {isProfileEditorOpen && (
-          <section className="mt-8 rounded-[2.5rem] border border-emerald-400/30 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/20">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+          <section className="mt-8 rounded-[2.5rem] border border-emerald-400/30 bg-slate-900/80 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-3xl font-black">Редагування профілю</h2>
 
                 <p className="mt-2 leading-7 text-slate-400">
-                  Зміни аватарку, нікнейм, опис і соцмережі. Після збереження
-                  це меню сховається, а профіль оновиться.
+                  Заповни публічні дані, які бачитимуть інші користувачі.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={cancelEditProfile}
-                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-red-400 hover:text-red-300"
+                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
               >
                 Скасувати
               </button>
             </div>
 
-            <div className="mt-6 grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-              <section className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <h3 className="text-2xl font-black">Аватарка</h3>
+            <form
+              onSubmit={handleSaveProfile}
+              className="mt-6 grid gap-6 lg:grid-cols-[0.75fr_1.25fr]"
+            >
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5">
+                <h3 className="text-2xl font-black">Аватар</h3>
 
-                <div className="mt-6 flex flex-wrap items-center gap-5">
-                  <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-[2rem] border border-emerald-400/30 bg-slate-900 text-5xl font-black text-emerald-300">
+                <div className="mt-5 flex items-center gap-4">
+                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-[2rem] border border-emerald-400/30 bg-slate-900 text-4xl font-black text-emerald-300">
                     {avatarUrl ? (
                       <img
                         src={avatarUrl}
-                        alt={getProfileName(profile, user)}
+                        alt="Аватар"
                         className="h-full w-full object-cover"
                         referrerPolicy="no-referrer"
                       />
@@ -1093,13 +1059,13 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="grid gap-3">
-                    <label className="inline-flex cursor-pointer rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300">
-                      {isUploadingAvatar ? "Завантажую..." : "Завантажити файл"}
+                    <label className="cursor-pointer rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300">
+                      {isUploadingAvatar ? "Завантажую..." : "Завантажити"}
                       <input
                         type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        accept="image/*"
                         onChange={uploadAvatar}
-                        disabled={isUploadingAvatar || isSavingProfile}
+                        disabled={isUploadingAvatar}
                         className="hidden"
                       />
                     </label>
@@ -1108,116 +1074,99 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={removeAvatar}
-                        disabled={isSavingProfile || isUploadingAvatar}
-                        className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-red-400 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-full border border-red-400/40 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-400/10"
                       >
-                        Прибрати аватарку
+                        Прибрати
                       </button>
                     )}
                   </div>
                 </div>
+              </div>
 
-                <label className="mt-6 grid gap-2">
-                  <span className="text-sm font-black text-slate-300">
-                    URL аватарки
-                  </span>
-
-                  <input
-                    value={avatarUrl}
-                    onChange={(event) => setAvatarUrl(event.target.value)}
-                    placeholder="https://..."
-                    className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
-                  />
-                </label>
-              </section>
-
-              <section className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <h3 className="text-2xl font-black">Дані профілю</h3>
-
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
                   <label className="grid gap-2">
                     <span className="text-sm font-black text-slate-300">
-                      Публічний нікнейм
+                      Username
                     </span>
 
                     <input
                       value={username}
-                      onChange={(event) =>
-                        setUsername(normalizeUsername(event.target.value))
-                      }
-                      placeholder="admin"
-                      className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                      onChange={(event) => setUsername(event.target.value)}
+                      placeholder="admin_ptaha"
+                      className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                     />
                   </label>
 
                   <label className="grid gap-2">
                     <span className="text-sm font-black text-slate-300">
-                      Імʼя / назва
+                      Імʼя
                     </span>
 
                     <input
                       value={displayName}
                       onChange={(event) => setDisplayName(event.target.value)}
-                      placeholder="D00DOSER"
-                      className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                      placeholder="ПромоПтаха"
+                      className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                     />
                   </label>
                 </div>
 
-                <label className="mt-4 grid gap-2">
-                  <span className="text-sm font-black text-slate-300">Опис</span>
+                <label className="grid gap-2">
+                  <span className="text-sm font-black text-slate-300">
+                    Біо
+                  </span>
 
                   <textarea
                     value={bio}
                     onChange={(event) => setBio(event.target.value)}
-                    rows={5}
+                    rows={4}
                     placeholder="Коротко про себе..."
-                    className="resize-none rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                    className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
                 </label>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2">
                   <input
                     value={websiteUrl}
                     onChange={(event) => setWebsiteUrl(event.target.value)}
                     placeholder="Сайт"
-                    className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                    className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
 
                   <input
                     value={instagramUrl}
                     onChange={(event) => setInstagramUrl(event.target.value)}
                     placeholder="Instagram"
-                    className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                    className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
 
                   <input
                     value={telegramUrl}
                     onChange={(event) => setTelegramUrl(event.target.value)}
                     placeholder="Telegram"
-                    className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                    className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
 
                   <input
                     value={tiktokUrl}
                     onChange={(event) => setTiktokUrl(event.target.value)}
                     placeholder="TikTok"
-                    className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                    className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                   />
 
                   <input
                     value={youtubeUrl}
                     onChange={(event) => setYoutubeUrl(event.target.value)}
                     placeholder="YouTube"
-                    className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 md:col-span-2"
+                    className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 md:col-span-2"
                   />
                 </div>
 
-                <div className="mt-6 flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-3">
                   <button
-                    type="button"
-                    onClick={() => saveProfile()}
-                    disabled={isSavingProfile || isUploadingAvatar}
+                    type="submit"
+                    disabled={isSavingProfile}
                     className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSavingProfile ? "Зберігаю..." : "Зберегти профіль"}
@@ -1226,14 +1175,13 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={cancelEditProfile}
-                    disabled={isSavingProfile || isUploadingAvatar}
-                    className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-300 transition hover:border-red-400 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
                   >
                     Скасувати
                   </button>
                 </div>
-              </section>
-            </div>
+              </div>
+            </form>
           </section>
         )}
 
@@ -1243,7 +1191,8 @@ export default function ProfilePage() {
               <h2 className="text-3xl font-black">Мої промокоди</h2>
 
               <p className="mt-2 leading-7 text-slate-400">
-                Якщо промокод відхилено, тут буде видно причину від адміна.
+                Тут можна переглянути свої коди, відредагувати відхилені або ті,
+                що ще на модерації.
               </p>
             </div>
 
@@ -1251,14 +1200,13 @@ export default function ProfilePage() {
               href="/add"
               className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
             >
-              Додати промокод
+              Додати код
             </Link>
           </div>
 
           {myPromos.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
               <div className="text-5xl">🎟️</div>
-
               <h3 className="mt-4 text-2xl font-black">
                 Ти ще не додавав промокоди
               </h3>
@@ -1266,170 +1214,19 @@ export default function ProfilePage() {
           ) : (
             <div className="mt-6 grid gap-5">
               {myPromos.map((promo) => {
-                const store = promo.store_id
-                  ? storesMap.get(promo.store_id)
-                  : null;
                 const isEditing = editingPromoId === promo.id;
+                const storeName = getStoreName(stores, promo.store_id);
+                const storeSlug = getStoreSlug(stores, promo.store_id);
+                const storeWebsite = getStoreWebsite(stores, promo.store_id);
 
                 return (
                   <article
                     key={promo.id}
                     className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <div className="flex flex-wrap gap-2">
-                          <span
-                            className={`rounded-full border px-3 py-1 text-xs font-black ${getPromoStatusClass(
-                              promo.status
-                            )}`}
-                          >
-                            {getPromoStatusLabel(promo.status)}
-                          </span>
-
-                          {store && (
-                            <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
-                              {store.name}
-                            </span>
-                          )}
-                        </div>
-
-                        <h3 className="mt-5 break-all text-3xl font-black text-white">
-                          {promo.code}
-                        </h3>
-
-                        <p className="mt-3 text-xl font-black text-emerald-300">
-                          {promo.discount_value || "Знижка не вказана"}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-3">
-                        {promo.status === "approved" ? (
-                          <Link
-                            href={`/codes/${promo.slug || promo.id}`}
-                            className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-                          >
-                            Відкрити
-                          </Link>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              isEditing
-                                ? cancelEditPromo()
-                                : startEditPromo(promo)
-                            }
-                            className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-                          >
-                            {isEditing ? "Закрити редактор" : "Редагувати"}
-                          </button>
-                        )}
-
-                        {promo.status !== "approved" && (
-                          <button
-                            type="button"
-                            onClick={() => deletePromo(promo.id)}
-                            disabled={isDeletingPromoId === promo.id}
-                            className="rounded-full border border-red-400/40 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isDeletingPromoId === promo.id
-                              ? "Видаляю..."
-                              : "Видалити"}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {promo.status === "rejected" &&
-                      promo.rejection_reason?.trim() &&
-                      !isEditing && (
-                        <div className="mt-5 rounded-2xl border border-red-400/30 bg-red-400/10 p-5">
-                          <p className="text-sm font-black text-red-300">
-                            Причина відхилення
-                          </p>
-
-                          <p className="mt-2 whitespace-pre-wrap leading-7 text-red-100">
-                            {promo.rejection_reason}
-                          </p>
-
-                          <p className="mt-3 text-sm font-bold text-red-200/80">
-                            Виправ промокод і натисни “Редагувати” — після
-                            збереження він знову піде на модерацію.
-                          </p>
-                        </div>
-                      )}
-
-                    {promo.description && !isEditing && (
-                      <p className="mt-4 line-clamp-3 leading-7 text-slate-400">
-                        {promo.description}
-                      </p>
-                    )}
-
-                    {!isEditing && (
-                      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                          <p className="text-xs font-bold text-slate-500">
-                            Діє до
-                          </p>
-                          <p className="mt-1 font-black text-slate-200">
-                            {formatDate(promo.expires_at)}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                          <p className="text-xs font-bold text-slate-500">
-                            Джерело
-                          </p>
-                          <p className="mt-1 font-black text-slate-200">
-                            {promo.source_type || "Не вказано"}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                          <p className="text-xs font-bold text-slate-500">
-                            Додано
-                          </p>
-                          <p className="mt-1 font-black text-slate-200">
-                            {formatDate(promo.created_at)}
-                          </p>
-                        </div>
-
-                        {store && (
-                          <Link
-                            href={`/stores/${store.slug}`}
-                            className="rounded-2xl border border-slate-800 bg-slate-900 p-4 transition hover:border-emerald-400/50"
-                          >
-                            <p className="text-xs font-bold text-slate-500">
-                              Магазин
-                            </p>
-                            <p className="mt-1 font-black text-emerald-300">
-                              {store.name}
-                            </p>
-                          </Link>
-                        )}
-                      </div>
-                    )}
-
-                    {isEditing && (
-                      <form
-                        onSubmit={saveEditedPromo}
-                        className="mt-6 grid gap-4"
-                      >
+                    {isEditing ? (
+                      <form onSubmit={saveEditedPromo} className="grid gap-4">
                         <div className="grid gap-4 md:grid-cols-2">
-                          <label className="grid gap-2">
-                            <span className="text-sm font-black text-slate-300">
-                              Промокод
-                            </span>
-
-                            <input
-                              value={editCode}
-                              onChange={(event) =>
-                                setEditCode(event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-                            />
-                          </label>
-
                           <label className="grid gap-2">
                             <span className="text-sm font-black text-slate-300">
                               Магазин
@@ -1442,11 +1239,11 @@ export default function ProfilePage() {
                               }
                               className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
                             >
-                              <option value="">Обери магазин</option>
+                              <option value="">Не вибрано</option>
 
-                              {stores.map((storeItem) => (
-                                <option key={storeItem.id} value={storeItem.id}>
-                                  {storeItem.name}
+                              {stores.map((store) => (
+                                <option key={store.id} value={store.id}>
+                                  {store.name}
                                 </option>
                               ))}
                             </select>
@@ -1464,9 +1261,7 @@ export default function ProfilePage() {
                               }
                               className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
                             >
-                              <option value="">
-                                Автоматично / без категорії
-                              </option>
+                              <option value="">Не вибрано</option>
 
                               {categories.map((category) => (
                                 <option key={category.id} value={category.id}>
@@ -1475,96 +1270,78 @@ export default function ProfilePage() {
                               ))}
                             </select>
                           </label>
-
-                          <label className="grid gap-2">
-                            <span className="text-sm font-black text-slate-300">
-                              Знижка
-                            </span>
-
-                            <input
-                              value={editDiscountValue}
-                              onChange={(event) =>
-                                setEditDiscountValue(event.target.value)
-                              }
-                              placeholder="Наприклад: -10%"
-                              className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-                            />
-                          </label>
-
-                          <label className="grid gap-2">
-                            <span className="text-sm font-black text-slate-300">
-                              Діє до
-                            </span>
-
-                            <input
-                              type="date"
-                              value={editExpiresAt}
-                              onChange={(event) =>
-                                setEditExpiresAt(event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-                            />
-                          </label>
-
-                          <label className="grid gap-2">
-                            <span className="text-sm font-black text-slate-300">
-                              Джерело
-                            </span>
-
-                            <select
-                              value={editSourceType}
-                              onChange={(event) =>
-                                setEditSourceType(event.target.value)
-                              }
-                              className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-                            >
-                              <option value="youtube">YouTube</option>
-                              <option value="telegram">Telegram</option>
-                              <option value="instagram">Instagram</option>
-                              <option value="tiktok">TikTok</option>
-                              <option value="website">Сайт</option>
-                              <option value="other">Інше</option>
-                            </select>
-                          </label>
-
-                          <label className="grid gap-2 md:col-span-2">
-                            <span className="text-sm font-black text-slate-300">
-                              Посилання на джерело
-                            </span>
-
-                            <input
-                              value={editSourceUrl}
-                              onChange={(event) =>
-                                setEditSourceUrl(event.target.value)
-                              }
-                              placeholder="https://..."
-                              className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-                            />
-                          </label>
                         </div>
 
-                        <label className="grid gap-2">
-                          <span className="text-sm font-black text-slate-300">
-                            Опис
-                          </span>
-
-                          <textarea
-                            value={editDescription}
-                            onChange={(event) =>
-                              setEditDescription(event.target.value)
-                            }
-                            rows={5}
-                            className="resize-none rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <input
+                            value={editCode}
+                            onChange={(event) => setEditCode(event.target.value)}
+                            placeholder="Промокод"
+                            className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
                           />
-                        </label>
+
+                          <input
+                            value={editDiscountValue}
+                            onChange={(event) =>
+                              setEditDiscountValue(event.target.value)
+                            }
+                            placeholder="Знижка, наприклад -10%"
+                            className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                          />
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <input
+                            type="date"
+                            value={editExpiresAt}
+                            onChange={(event) =>
+                              setEditExpiresAt(event.target.value)
+                            }
+                            className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
+                          />
+
+                          <select
+                            value={editSourceType}
+                            onChange={(event) =>
+                              setEditSourceType(event.target.value)
+                            }
+                            className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
+                          >
+                            <option value="youtube">YouTube</option>
+                            <option value="telegram">Telegram</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="tiktok">TikTok</option>
+                            <option value="website">Сайт</option>
+                            <option value="other">Інше</option>
+                          </select>
+
+                          <input
+                            value={editSourceUrl}
+                            onChange={(event) =>
+                              setEditSourceUrl(event.target.value)
+                            }
+                            placeholder="Посилання на джерело"
+                            className="rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                          />
+                        </div>
+
+                        <textarea
+                          value={editDescription}
+                          onChange={(event) =>
+                            setEditDescription(event.target.value)
+                          }
+                          rows={4}
+                          placeholder="Опис або умови використання"
+                          className="resize-none rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                        />
 
                         <div className="flex flex-wrap gap-3">
                           <button
                             type="submit"
-                            disabled={isSavingPromo}
-                            className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                            disabled={savingPromoId === promo.id}
+                            className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {isSavingPromo
+                            {savingPromoId === promo.id
                               ? "Зберігаю..."
                               : "Зберегти і на модерацію"}
                           </button>
@@ -1572,12 +1349,117 @@ export default function ProfilePage() {
                           <button
                             type="button"
                             onClick={cancelEditPromo}
-                            className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                            className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
                           >
                             Скасувати
                           </button>
                         </div>
                       </form>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap items-start justify-between gap-5">
+                          <div className="flex min-w-0 items-start gap-4">
+                            <StoreLogo
+                              name={storeName}
+                              websiteUrl={storeWebsite}
+                              size="sm"
+                            />
+
+                            <div className="min-w-0">
+                              <p className="break-all text-4xl font-black text-white">
+                                {promo.code}
+                              </p>
+
+                              <p className="mt-2 text-xl font-black text-emerald-300">
+                                {promo.discount_value || "Знижка не вказана"}
+                              </p>
+
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <span
+                                  className={`rounded-full border px-3 py-1 text-xs font-black ${getPromoStatusClass(
+                                    promo.status
+                                  )}`}
+                                >
+                                  {getPromoStatusLabel(promo.status)}
+                                </span>
+
+                                {storeSlug ? (
+                                  <Link
+                                    href={`/stores/${storeSlug}`}
+                                    className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                                  >
+                                    {storeName}
+                                  </Link>
+                                ) : (
+                                  <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                                    {storeName}
+                                  </span>
+                                )}
+
+                                <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                                  {formatDate(promo.created_at)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-3">
+                            {promo.status === "approved" ? (
+                              <Link
+                                href={`/codes/${promo.slug || promo.id}`}
+                                className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                              >
+                                Відкрити
+                              </Link>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => startEditPromo(promo)}
+                                  className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                                >
+                                  Редагувати
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => deletePromo(promo)}
+                                  disabled={deletingPromoId === promo.id}
+                                  className="rounded-full border border-red-400/40 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {deletingPromoId === promo.id
+                                    ? "Видаляю..."
+                                    : "Видалити"}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {promo.description && (
+                          <p className="mt-4 leading-7 text-slate-400">
+                            {promo.description}
+                          </p>
+                        )}
+
+                        {promo.status === "rejected" &&
+                          promo.rejection_reason && (
+                            <div className="mt-4 rounded-2xl border border-red-400/30 bg-red-400/10 p-4">
+                              <p className="font-black text-red-300">
+                                Причина відхилення
+                              </p>
+
+                              <p className="mt-2 leading-7 text-red-100">
+                                {promo.rejection_reason}
+                              </p>
+
+                              <p className="mt-3 text-sm font-bold text-red-200/80">
+                                Відредагуй промокод і він знову піде на
+                                модерацію.
+                              </p>
+                            </div>
+                          )}
+                      </>
                     )}
                   </article>
                 );
@@ -1592,38 +1474,25 @@ export default function ProfilePage() {
               <h2 className="text-3xl font-black">Збережені промокоди</h2>
 
               <p className="mt-2 leading-7 text-slate-400">
-                Промокоди, які ти зберіг кнопкою “Зберегти” на сторінці коду.
+                Промокоди, які ти зберіг для себе.
               </p>
             </div>
-
-            <Link
-              href="/codes"
-              className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-            >
-              Знайти промокоди
-            </Link>
           </div>
 
           {favoritePromos.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
               <div className="text-5xl">⭐</div>
-
               <h3 className="mt-4 text-2xl font-black">
                 Збережених промокодів поки немає
               </h3>
-
-              <p className="mx-auto mt-3 max-w-md leading-7 text-slate-400">
-                Відкрий будь-який промокод і натисни “Зберегти”, щоб він
-                зʼявився тут.
-              </p>
             </div>
           ) : (
             <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {favoritePromos.map((promo) => {
-                const store = promo.store_id
-                  ? storesMap.get(promo.store_id)
-                  : null;
                 const worksPercent = getWorksPercent(promo);
+                const favorite = favoriteRecords.find(
+                  (record) => record.promo_code_id === promo.id
+                );
 
                 return (
                   <article
@@ -1632,8 +1501,8 @@ export default function ProfilePage() {
                   >
                     <div className="flex items-start gap-4">
                       <StoreLogo
-                        name={promo.store_name || store?.name || "Магазин"}
-                        websiteUrl={store?.website_url}
+                        name={promo.store_name || "Магазин"}
+                        websiteUrl={null}
                         size="sm"
                       />
 
@@ -1645,8 +1514,8 @@ export default function ProfilePage() {
                           {promo.code}
                         </Link>
 
-                        <p className="mt-2 truncate text-sm font-black text-emerald-300">
-                          {promo.store_name || store?.name || "Магазин"}
+                        <p className="mt-2 text-sm font-black text-emerald-300">
+                          {promo.store_name || "Магазин"}
                         </p>
                       </div>
                     </div>
@@ -1666,6 +1535,7 @@ export default function ProfilePage() {
                         <p className="text-xs font-bold text-slate-500">
                           Діє до
                         </p>
+
                         <p className="mt-1 font-black text-slate-200">
                           {formatDate(promo.expires_at)}
                         </p>
@@ -1675,6 +1545,7 @@ export default function ProfilePage() {
                         <p className="text-xs font-bold text-slate-500">
                           Надійність
                         </p>
+
                         <p className="mt-1 font-black text-slate-200">
                           {worksPercent === null ? "Немає" : `${worksPercent}%`}
                         </p>
@@ -1685,17 +1556,16 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => copyFavoriteCode(promo)}
-                        disabled={copyingPromoId === promo.id}
-                        className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
                       >
-                        {copyingPromoId === promo.id
+                        {copiedFavoriteId === promo.id
                           ? "Скопійовано"
                           : "Копіювати"}
                       </button>
 
                       <Link
                         href={`/codes/${promo.slug || promo.id}`}
-                        className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                        className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
                       >
                         Деталі
                       </Link>
@@ -1703,12 +1573,12 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => removeFavorite(promo.id)}
-                        disabled={isRemovingFavoriteId === promo.id}
+                        disabled={
+                          favorite ? removingFavoriteId === favorite.id : false
+                        }
                         className="rounded-full border border-red-400/40 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {isRemovingFavoriteId === promo.id
-                          ? "Прибираю..."
-                          : "Прибрати"}
+                        Прибрати
                       </button>
                     </div>
                   </article>
@@ -1724,13 +1594,13 @@ export default function ProfilePage() {
               <h2 className="text-3xl font-black">Мої заявки магазинів</h2>
 
               <p className="mt-2 leading-7 text-slate-400">
-                Тут видно магазини, які ти запропонував додати на сайт.
+                Магазини, які ти пропонував додати на сайт.
               </p>
             </div>
 
             <Link
               href="/request-store"
-              className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
             >
               Запропонувати магазин
             </Link>
@@ -1739,74 +1609,70 @@ export default function ProfilePage() {
           {storeRequests.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
               <div className="text-5xl">🏪</div>
-
               <h3 className="mt-4 text-2xl font-black">
                 Заявок магазинів поки немає
               </h3>
             </div>
           ) : (
-            <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {storeRequests.map((request) => {
-                const linkedStore = request.created_store_id
-                  ? storesMap.get(request.created_store_id)
-                  : null;
+            <div className="mt-6 grid gap-4">
+              {storeRequests.map((request) => (
+                <article
+                  key={request.id}
+                  className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="flex flex-wrap gap-2">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-black ${getPromoStatusClass(
+                            request.status
+                          )}`}
+                        >
+                          {getRequestStatusLabel(request.status)}
+                        </span>
 
-                return (
-                  <article
-                    key={request.id}
-                    className="flex flex-col rounded-[2rem] border border-slate-800 bg-slate-950 p-5"
-                  >
-                    <div className="flex flex-wrap gap-2">
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-black ${getPromoStatusClass(
-                          request.status
-                        )}`}
+                        <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                          {formatDate(request.created_at)}
+                        </span>
+                      </div>
+
+                      <h3 className="mt-4 text-2xl font-black">
+                        {getRequestName(request)}
+                      </h3>
+
+                      {getRequestUrl(request) && (
+                        <a
+                          href={normalizeOptionalUrl(getRequestUrl(request))}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex text-sm font-black text-emerald-300 transition hover:text-emerald-200"
+                        >
+                          {getRequestUrl(request)}
+                        </a>
+                      )}
+
+                      {getRequestDescription(request) && (
+                        <p className="mt-3 leading-7 text-slate-400">
+                          {getRequestDescription(request)}
+                        </p>
+                      )}
+                    </div>
+
+                    {request.created_store_id && (
+                      <Link
+                        href={`/stores/${
+                          stores.find(
+                            (store) => store.id === request.created_store_id
+                          )?.slug || ""
+                        }`}
+                        className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
                       >
-                        {getRequestStatusLabel(request.status)}
-                      </span>
-                    </div>
-
-                    <h3 className="mt-5 text-2xl font-black text-white">
-                      {getRequestName(request)}
-                    </h3>
-
-                    {getRequestUrl(request) && (
-                      <p className="mt-2 break-all text-sm font-black text-emerald-300">
-                        {getRequestUrl(request)}
-                      </p>
+                        Відкрити магазин
+                      </Link>
                     )}
-
-                    {getRequestDescription(request) && (
-                      <p className="mt-4 line-clamp-3 leading-7 text-slate-400">
-                        {getRequestDescription(request)}
-                      </p>
-                    )}
-
-                    <p className="mt-4 text-sm font-bold text-slate-500">
-                      Створено: {formatDate(request.created_at)}
-                    </p>
-
-                    <div className="mt-auto flex flex-wrap gap-3 pt-5">
-                      {linkedStore ? (
-                        <Link
-                          href={`/stores/${linkedStore.slug}`}
-                          className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-                        >
-                          Відкрити магазин
-                        </Link>
-                      ) : request.status === "approved" &&
-                        request.created_store_id ? (
-                        <Link
-                          href="/stores"
-                          className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-                        >
-                          Переглянути магазини
-                        </Link>
-                      ) : null}
-                    </div>
-                  </article>
-                );
-              })}
+                  </div>
+                </article>
+              ))}
             </div>
           )}
         </section>
