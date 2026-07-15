@@ -2,73 +2,88 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { createClient, User } from "@supabase/supabase-js";
+import { createClient, type User } from "@supabase/supabase-js";
 
-type PromoStatus = "active" | "pending" | "rejected" | string;
-type StoreStatus = "active" | "pending" | "rejected" | string;
-type RequestStatus = "pending" | "approved" | "rejected" | string;
-
-type StoreJoin =
-  | {
-      name?: string | null;
-      slug?: string | null;
-    }
-  | {
-      name?: string | null;
-      slug?: string | null;
-    }[]
-  | null
-  | undefined;
-
-type PromoCode = {
+type Category = {
   id: string;
-  slug?: string | null;
-  code: string;
-  status?: PromoStatus | null;
-  discount_value?: string | null;
-  expires_at?: string | null;
+  name: string;
+  slug: string;
+  status?: string | null;
   created_at?: string | null;
-  stores?: StoreJoin;
 };
 
 type Store = {
   id: string;
   name: string;
   slug: string;
-  status?: StoreStatus | null;
+  status?: string | null;
   created_at?: string | null;
+  category_ids?: string[] | null;
+  category_names?: string[] | null;
+  category_slugs?: string[] | null;
+  promo_count?: number | string | null;
+  active_promo_count?: number | string | null;
+  expired_promo_count?: number | string | null;
+  verified_promo_count?: number | string | null;
+  works_count?: number | string | null;
+  not_works_count?: number | string | null;
+};
+
+type PromoCode = {
+  id: string;
+  slug?: string | null;
+  code: string;
+  store_id: string;
+  store_name?: string | null;
+  store_slug?: string | null;
+  category_id?: string | null;
+  category_name?: string | null;
+  category_slug?: string | null;
+  all_category_ids?: string[] | null;
+  all_category_names?: string[] | null;
+  all_category_slugs?: string[] | null;
+  status?: string | null;
+  source_type?: string | null;
+  expires_at?: string | null;
+  created_at?: string | null;
+  works_count?: number | string | null;
+  not_works_count?: number | string | null;
 };
 
 type StoreRequest = {
   id: string;
-  name: string;
+  store_name?: string | null;
+  name?: string | null;
+  title?: string | null;
   website_url?: string | null;
-  comment?: string | null;
-  status?: RequestStatus | null;
+  url?: string | null;
+  status?: string | null;
   created_at?: string | null;
 };
 
-type ReportPromoCode =
-  | {
-      id?: string | null;
-      slug?: string | null;
-      code?: string | null;
-    }
-  | {
-      id?: string | null;
-      slug?: string | null;
-      code?: string | null;
-    }[]
-  | null
-  | undefined;
-
 type PromoReport = {
   id: string;
-  promo_code_id: string;
+  promo_code_id?: string | null;
   reason?: string | null;
   status?: string | null;
   created_at?: string | null;
-  promo_codes?: ReportPromoCode;
+};
+
+type CategoryStats = {
+  name: string;
+  slug: string;
+  stores: number;
+  promos: number;
+  activePromos: number;
+  verifiedPromos: number;
+  works: number;
+  notWorks: number;
+};
+
+type SourceStats = {
+  source: string;
+  label: string;
+  count: number;
 };
 
 const ADMIN_EMAIL = "jchameleonl96@gmail.com";
@@ -81,281 +96,419 @@ const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
-function getStoreName(storeJoin: StoreJoin) {
-  if (!storeJoin) return "Магазин";
+function toNumber(value: number | string | null | undefined) {
+  if (typeof value === "number") return value;
 
-  if (Array.isArray(storeJoin)) {
-    return storeJoin[0]?.name || "Магазин";
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
-  return storeJoin.name || "Магазин";
+  return 0;
 }
 
-function getStoreSlug(storeJoin: StoreJoin) {
-  if (!storeJoin) return null;
-
-  if (Array.isArray(storeJoin)) {
-    return storeJoin[0]?.slug || null;
-  }
-
-  return storeJoin.slug || null;
+function toArray(value: string[] | null | undefined) {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [];
 }
 
-function getReportPromoCode(promoCode: ReportPromoCode) {
-  if (!promoCode) return null;
+function isExpired(date: string | null | undefined) {
+  if (!date) return false;
 
-  if (Array.isArray(promoCode)) {
-    return promoCode[0] || null;
-  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  return promoCode;
+  const expires = new Date(date);
+  expires.setHours(0, 0, 0, 0);
+
+  return expires < today;
+}
+
+function isVerified(promo: PromoCode) {
+  const works = toNumber(promo.works_count);
+  const notWorks = toNumber(promo.not_works_count);
+
+  return works > 0 && works > notWorks;
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("uk-UA").format(value);
 }
 
 function formatDate(date: string | null | undefined) {
-  if (!date) return "Дата невідома";
+  if (!date) return "Невідомо";
 
   return new Intl.DateTimeFormat("uk-UA", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
   }).format(new Date(date));
 }
 
-function getPromoStatusLabel(status: string | null | undefined) {
-  if (status === "active") return "Активний";
-  if (status === "pending") return "На модерації";
-  if (status === "rejected") return "Відхилений";
+function getSourceLabel(sourceType: string | null | undefined) {
+  if (sourceType === "youtube") return "YouTube";
+  if (sourceType === "telegram") return "Telegram";
+  if (sourceType === "instagram") return "Instagram";
+  if (sourceType === "tiktok") return "TikTok";
+  if (sourceType === "website") return "Сайт";
+  if (sourceType === "other") return "Інше";
 
-  return status || "Невідомо";
+  return "Не вказано";
 }
 
-function getRequestStatusLabel(status: string | null | undefined) {
-  if (status === "pending") return "Очікує";
+function getStatusLabel(status: string | null | undefined) {
   if (status === "approved") return "Схвалено";
+  if (status === "pending") return "Очікує";
   if (status === "rejected") return "Відхилено";
+  if (status === "active") return "Активний";
+  if (status === "open") return "Відкрито";
+  if (status === "resolved") return "Вирішено";
+  if (status === "dismissed") return "Відхилено";
 
   return status || "Невідомо";
 }
 
-function getStatusClass(status: string | null | undefined) {
-  if (status === "active" || status === "approved" || status === "resolved") {
-    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
+function getPromoCategoryIds(promo: PromoCode) {
+  const ids = toArray(promo.all_category_ids);
+
+  if (ids.length > 0) {
+    return ids;
   }
 
-  if (status === "pending") {
-    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
-  }
-
-  if (status === "rejected") {
-    return "border-red-400/30 bg-red-400/10 text-red-300";
-  }
-
-  return "border-slate-700 bg-slate-800 text-slate-300";
+  return promo.category_id ? [promo.category_id] : [];
 }
 
-function StatCard({
-  label,
-  value,
-  hint,
-  tone = "default",
-}: {
-  label: string;
-  value: number;
-  hint: string;
-  tone?: "default" | "green" | "yellow" | "red" | "orange";
-}) {
-  const valueClass =
-    tone === "green"
-      ? "text-emerald-300"
-      : tone === "yellow"
-      ? "text-yellow-300"
-      : tone === "red"
-      ? "text-red-300"
-      : tone === "orange"
-      ? "text-orange-300"
-      : "text-white";
+function getStoreCategoryIds(store: Store) {
+  return toArray(store.category_ids);
+}
 
+function getStoreCategoryNames(store: Store) {
+  return toArray(store.category_names);
+}
+
+function getStoreRequestName(request: StoreRequest) {
   return (
-    <article className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5 shadow-xl shadow-black/20">
-      <p className={`text-4xl font-black ${valueClass}`}>{value}</p>
-      <h3 className="mt-3 text-lg font-black text-white">{label}</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{hint}</p>
-    </article>
+    request.store_name ||
+    request.name ||
+    request.title ||
+    request.website_url ||
+    request.url ||
+    "Заявка магазину"
   );
 }
 
 export default function AdminStatsPage() {
   const [user, setUser] = useState<User | null>(null);
-
-  const [promos, setPromos] = useState<PromoCode[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
+  const [promos, setPromos] = useState<PromoCode[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [storeRequests, setStoreRequests] = useState<StoreRequest[]>([]);
   const [reports, setReports] = useState<PromoReport[]>([]);
 
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
-  const [isLoadingData, setIsLoadingData] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [isCheckingUser, setIsCheckingUser] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error" | "info">(
+    "info"
+  );
 
   const isAdmin = user?.email === ADMIN_EMAIL;
 
-  async function loadUser() {
-    setIsLoadingUser(true);
+  async function checkUser() {
+    setIsCheckingUser(true);
 
     const { data } = await supabase.auth.getUser();
 
     setUser(data.user);
-    setIsLoadingUser(false);
+    setIsCheckingUser(false);
+
+    return data.user;
   }
 
-  async function loadData() {
-    setIsLoadingData(true);
-    setErrorMessage("");
+  async function loadDashboard() {
+    setIsLoading(true);
+    setMessage("");
 
     const [
-      promoResponse,
-      storeResponse,
-      storeRequestResponse,
-      reportResponse,
+      categoriesResult,
+      storesResult,
+      promosResult,
+      storeRequestsResult,
+      reportsResult,
     ] = await Promise.all([
       supabase
-        .from("promo_codes")
-        .select(
-          "id, slug, code, status, discount_value, expires_at, created_at, stores(name, slug)"
-        )
-        .order("created_at", { ascending: false })
-        .limit(500),
+        .from("categories")
+        .select("id, name, slug, status, created_at")
+        .order("name", { ascending: true }),
 
       supabase
-        .from("stores")
-        .select("id, name, slug, status, created_at")
+        .from("store_category_stats")
+        .select(
+          "id, name, slug, status, created_at, category_ids, category_names, category_slugs, promo_count, active_promo_count, expired_promo_count, verified_promo_count, works_count, not_works_count"
+        )
         .order("created_at", { ascending: false })
-        .limit(500),
+        .limit(5000),
+
+      supabase
+        .from("promo_code_category_stats")
+        .select(
+          "id, slug, code, store_id, store_name, store_slug, category_id, category_name, category_slug, all_category_ids, all_category_names, all_category_slugs, status, source_type, expires_at, created_at, works_count, not_works_count"
+        )
+        .order("created_at", { ascending: false })
+        .limit(10000),
 
       supabase
         .from("store_requests")
-        .select("id, name, website_url, comment, status, created_at")
+        .select("*")
         .order("created_at", { ascending: false })
-        .limit(300),
+        .limit(1000),
 
       supabase
         .from("promo_reports")
-        .select(
-          "id, promo_code_id, reason, status, created_at, promo_codes(id, slug, code)"
-        )
+        .select("id, promo_code_id, reason, status, created_at")
         .order("created_at", { ascending: false })
-        .limit(300),
+        .limit(1000),
     ]);
 
-    if (promoResponse.error) {
-      setErrorMessage(`Промокоди: ${promoResponse.error.message}`);
+    if (categoriesResult.error) {
+      setMessage(
+        `Не вдалося завантажити категорії: ${categoriesResult.error.message}`
+      );
+      setMessageType("error");
     }
 
-    if (storeResponse.error) {
-      setErrorMessage(`Магазини: ${storeResponse.error.message}`);
+    if (storesResult.error) {
+      setMessage(`Не вдалося завантажити магазини: ${storesResult.error.message}`);
+      setMessageType("error");
     }
 
-    if (storeRequestResponse.error) {
-      setErrorMessage(`Заявки магазинів: ${storeRequestResponse.error.message}`);
+    if (promosResult.error) {
+      setMessage(`Не вдалося завантажити промокоди: ${promosResult.error.message}`);
+      setMessageType("error");
     }
 
-    if (reportResponse.error) {
-      setErrorMessage(`Скарги: ${reportResponse.error.message}`);
+    if (storeRequestsResult.error) {
+      setMessage(
+        `Не вдалося завантажити заявки магазинів: ${storeRequestsResult.error.message}`
+      );
+      setMessageType("error");
     }
 
-    setPromos((promoResponse.data || []) as PromoCode[]);
-    setStores((storeResponse.data || []) as Store[]);
-    setStoreRequests((storeRequestResponse.data || []) as StoreRequest[]);
-    setReports((reportResponse.data || []) as PromoReport[]);
+    if (reportsResult.error) {
+      setMessage(`Не вдалося завантажити репорти: ${reportsResult.error.message}`);
+      setMessageType("error");
+    }
 
-    setIsLoadingData(false);
+    setCategories((categoriesResult.data || []) as unknown as Category[]);
+    setStores((storesResult.data || []) as unknown as Store[]);
+    setPromos((promosResult.data || []) as unknown as PromoCode[]);
+    setStoreRequests(
+      (storeRequestsResult.data || []) as unknown as StoreRequest[]
+    );
+    setReports((reportsResult.data || []) as unknown as PromoReport[]);
+
+    setIsLoading(false);
   }
 
   useEffect(() => {
-    loadUser();
+    async function start() {
+      const currentUser = await checkUser();
+
+      if (currentUser?.email === ADMIN_EMAIL) {
+        await loadDashboard();
+      } else {
+        setIsLoading(false);
+      }
+    }
+
+    start();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  useEffect(() => {
-    if (isAdmin) {
-      loadData();
-    }
-  }, [isAdmin]);
+  const totals = useMemo(() => {
+    const approvedPromos = promos.filter((promo) => promo.status === "approved");
+    const pendingPromos = promos.filter((promo) => promo.status === "pending");
+    const rejectedPromos = promos.filter((promo) => promo.status === "rejected");
 
-  const promoStats = useMemo(() => {
+    const activePromos = approvedPromos.filter(
+      (promo) => !isExpired(promo.expires_at)
+    );
+
+    const expiredPromos = approvedPromos.filter((promo) =>
+      isExpired(promo.expires_at)
+    );
+
+    const verifiedPromos = approvedPromos.filter((promo) => isVerified(promo));
+
+    const worksCount = approvedPromos.reduce((sum, promo) => {
+      return sum + toNumber(promo.works_count);
+    }, 0);
+
+    const notWorksCount = approvedPromos.reduce((sum, promo) => {
+      return sum + toNumber(promo.not_works_count);
+    }, 0);
+
+    const totalVotes = worksCount + notWorksCount;
+
+    const activeCategories = categories.filter(
+      (category) => category.status === "active"
+    );
+
+    const pendingStoreRequests = storeRequests.filter(
+      (request) => request.status === "pending"
+    );
+
+    const openReports = reports.filter((report) => report.status === "open");
+
     return {
-      total: promos.length,
-      active: promos.filter((promo) => promo.status === "active").length,
-      pending: promos.filter((promo) => promo.status === "pending").length,
-      rejected: promos.filter((promo) => promo.status === "rejected").length,
+      stores: stores.length,
+      storesWithPromos: stores.filter((store) => toNumber(store.promo_count) > 0)
+        .length,
+      categories: categories.length,
+      activeCategories: activeCategories.length,
+      promos: promos.length,
+      approvedPromos: approvedPromos.length,
+      pendingPromos: pendingPromos.length,
+      rejectedPromos: rejectedPromos.length,
+      activePromos: activePromos.length,
+      expiredPromos: expiredPromos.length,
+      verifiedPromos: verifiedPromos.length,
+      worksCount,
+      notWorksCount,
+      totalVotes,
+      trustPercent:
+        totalVotes === 0 ? 0 : Math.round((worksCount / totalVotes) * 100),
+      storeRequests: storeRequests.length,
+      pendingStoreRequests: pendingStoreRequests.length,
+      reports: reports.length,
+      openReports: openReports.length,
     };
+  }, [stores, promos, categories, storeRequests, reports]);
+
+  const categoryStats = useMemo(() => {
+    const statsByCategoryId = new Map<string, CategoryStats>();
+
+    for (const category of categories) {
+      statsByCategoryId.set(category.id, {
+        name: category.name,
+        slug: category.slug,
+        stores: 0,
+        promos: 0,
+        activePromos: 0,
+        verifiedPromos: 0,
+        works: 0,
+        notWorks: 0,
+      });
+    }
+
+    for (const store of stores) {
+      const categoryIds = getStoreCategoryIds(store);
+
+      for (const categoryId of categoryIds) {
+        const stats = statsByCategoryId.get(categoryId);
+
+        if (!stats) continue;
+
+        stats.stores += 1;
+      }
+    }
+
+    for (const promo of promos) {
+      const categoryIds = getPromoCategoryIds(promo);
+
+      for (const categoryId of categoryIds) {
+        const stats = statsByCategoryId.get(categoryId);
+
+        if (!stats) continue;
+
+        stats.promos += 1;
+        stats.works += toNumber(promo.works_count);
+        stats.notWorks += toNumber(promo.not_works_count);
+
+        if (!isExpired(promo.expires_at)) {
+          stats.activePromos += 1;
+        }
+
+        if (isVerified(promo)) {
+          stats.verifiedPromos += 1;
+        }
+      }
+    }
+
+    return [...statsByCategoryId.values()]
+      .filter((stats) => stats.stores > 0 || stats.promos > 0)
+      .sort((firstStats, secondStats) => {
+        return (
+          secondStats.promos - firstStats.promos ||
+          secondStats.stores - firstStats.stores ||
+          firstStats.name.localeCompare(secondStats.name, "uk")
+        );
+      });
+  }, [categories, stores, promos]);
+
+  const sourceStats = useMemo(() => {
+    const statsBySource = new Map<string, SourceStats>();
+
+    for (const promo of promos) {
+      const source = promo.source_type || "unknown";
+      const currentStats = statsBySource.get(source) || {
+        source,
+        label: getSourceLabel(source),
+        count: 0,
+      };
+
+      currentStats.count += 1;
+
+      statsBySource.set(source, currentStats);
+    }
+
+    return [...statsBySource.values()].sort((firstStats, secondStats) => {
+      return (
+        secondStats.count - firstStats.count ||
+        firstStats.label.localeCompare(secondStats.label, "uk")
+      );
+    });
   }, [promos]);
 
-  const storeStats = useMemo(() => {
-    return {
-      total: stores.length,
-      active: stores.filter((store) => store.status === "active").length,
-      pending: stores.filter((store) => store.status === "pending").length,
-      rejected: stores.filter((store) => store.status === "rejected").length,
-    };
+  const topStores = useMemo(() => {
+    return [...stores]
+      .sort((firstStore, secondStore) => {
+        return (
+          toNumber(secondStore.promo_count) - toNumber(firstStore.promo_count) ||
+          toNumber(secondStore.works_count) - toNumber(firstStore.works_count) ||
+          firstStore.name.localeCompare(secondStore.name, "uk")
+        );
+      })
+      .slice(0, 10);
   }, [stores]);
 
-  const requestStats = useMemo(() => {
-    return {
-      total: storeRequests.length,
-      pending: storeRequests.filter((request) => request.status === "pending")
-        .length,
-      approved: storeRequests.filter((request) => request.status === "approved")
-        .length,
-      rejected: storeRequests.filter((request) => request.status === "rejected")
-        .length,
-    };
+  const latestPromos = useMemo(() => {
+    return promos.slice(0, 10);
+  }, [promos]);
+
+  const latestStoreRequests = useMemo(() => {
+    return storeRequests.slice(0, 8);
   }, [storeRequests]);
 
-  const reportStats = useMemo(() => {
-    return {
-      total: reports.length,
-      pending: reports.filter((report) => report.status === "pending").length,
-      resolved: reports.filter((report) => report.status === "resolved").length,
-    };
+  const latestReports = useMemo(() => {
+    return reports.slice(0, 8);
   }, [reports]);
 
-  const latestPendingPromos = promos
-    .filter((promo) => promo.status === "pending")
-    .slice(0, 6);
-
-  const latestReports = reports.slice(0, 6);
-  const latestStoreRequests = storeRequests.slice(0, 6);
-
-  if (isLoadingUser) {
+  if (isCheckingUser) {
     return (
       <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
         <section className="mx-auto w-full max-w-7xl">
-          <div className="h-[520px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
-        </section>
-      </main>
-    );
-  }
-
-  if (!user) {
-    return (
-      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
-        <section className="mx-auto w-full max-w-5xl">
-          <div className="rounded-[2.5rem] border border-red-400/30 bg-red-400/10 p-8 text-center">
-            <h1 className="text-4xl font-black text-red-300">Потрібен вхід</h1>
-
-            <p className="mx-auto mt-4 max-w-xl leading-7 text-red-100">
-              Щоб відкрити адмін-аналітику, потрібно увійти в акаунт
-              адміністратора.
-            </p>
-
-            <Link
-              href="/login"
-              className="mt-8 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
-            >
-              Увійти
-            </Link>
-          </div>
+          <div className="h-[420px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
         </section>
       </main>
     );
@@ -366,10 +519,14 @@ export default function AdminStatsPage() {
       <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
         <section className="mx-auto w-full max-w-5xl">
           <div className="rounded-[2.5rem] border border-red-400/30 bg-red-400/10 p-8 text-center">
-            <h1 className="text-4xl font-black text-red-300">Доступ закрито</h1>
+            <div className="text-6xl">🔒</div>
+
+            <h1 className="mt-5 text-4xl font-black text-red-300">
+              Немає доступу
+            </h1>
 
             <p className="mx-auto mt-4 max-w-xl leading-7 text-red-100">
-              Ця сторінка доступна тільки адміністратору ПромоПтахи.
+              Ця сторінка доступна тільки адміністратору.
             </p>
 
             <Link
@@ -399,409 +556,445 @@ export default function AdminStatsPage() {
           <span className="text-slate-300">Аналітика</span>
         </div>
 
-        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
-          <div className="flex flex-wrap items-start justify-between gap-6">
+        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
+          <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
             <div>
-              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+              <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Адмін-аналітика
               </p>
 
-              <h1 className="text-5xl font-black tracking-tight md:text-6xl">
-                Стан ПромоПтахи
+              <h1 className="text-5xl font-black tracking-tight md:text-7xl">
+                Панель статистики
               </h1>
 
-              <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-400">
-                Швидкий огляд промокодів, магазинів, заявок і скарг. Дані
-                показуються тільки для адміна.
+              <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+                Огляд магазинів, промокодів, категорій, голосів, заявок і
+                репортів. Магазини та промокоди читаються з нових SQL view.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link
+                  href="/admin"
+                  className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+                >
+                  Модерація
+                </Link>
+
+                <Link
+                  href="/admin/stores"
+                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                >
+                  Магазини
+                </Link>
+
+                <Link
+                  href="/admin/categories"
+                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                >
+                  Категорії
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                <p className="text-4xl font-black text-white">
+                  {formatNumber(totals.promos)}
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-500">
+                  промокодів
+                </p>
+              </div>
+
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                <p className="text-4xl font-black text-emerald-300">
+                  {formatNumber(totals.activePromos)}
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-500">
+                  активні
+                </p>
+              </div>
+
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                <p className="text-4xl font-black text-yellow-300">
+                  {formatNumber(totals.stores)}
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-500">
+                  магазинів
+                </p>
+              </div>
+
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                <p className="text-4xl font-black text-red-300">
+                  {formatNumber(totals.openReports)}
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-500">
+                  відкритих репортів
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {message && (
+          <div
+            className={`mt-6 rounded-2xl border p-4 ${
+              messageType === "success"
+                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                : messageType === "error"
+                ? "border-red-400/30 bg-red-400/10 text-red-300"
+                : "border-slate-700 bg-slate-900 text-slate-300"
+            }`}
+          >
+            {message}
+          </div>
+        )}
+
+        <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6">
+            <p className="text-sm font-bold text-slate-500">
+              Очікують модерації
+            </p>
+            <p className="mt-3 text-4xl font-black text-yellow-300">
+              {formatNumber(totals.pendingPromos)}
+            </p>
+            <p className="mt-3 leading-7 text-slate-400">
+              Промокоди зі статусом pending.
+            </p>
+          </div>
+
+          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6">
+            <p className="text-sm font-bold text-slate-500">Заявки магазинів</p>
+            <p className="mt-3 text-4xl font-black text-orange-300">
+              {formatNumber(totals.pendingStoreRequests)}
+            </p>
+            <p className="mt-3 leading-7 text-slate-400">
+              Нові заявки, які треба переглянути.
+            </p>
+          </div>
+
+          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6">
+            <p className="text-sm font-bold text-slate-500">Довіра</p>
+            <p className="mt-3 text-4xl font-black text-emerald-300">
+              {totals.totalVotes === 0 ? "—" : `${totals.trustPercent}%`}
+            </p>
+            <p className="mt-3 leading-7 text-slate-400">
+              Частка голосів “працює”.
+            </p>
+          </div>
+
+          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6">
+            <p className="text-sm font-bold text-slate-500">Голосів</p>
+            <p className="mt-3 text-4xl font-black text-white">
+              {formatNumber(totals.totalVotes)}
+            </p>
+            <p className="mt-3 leading-7 text-slate-400">
+              Усі голоси користувачів.
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-8 grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
+            <h2 className="text-4xl font-black tracking-tight">
+              Категорії за активністю
+            </h2>
+
+            {isLoading ? (
+              <div className="mt-6 grid gap-4">
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-24 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950"
+                  />
+                ))}
+              </div>
+            ) : categoryStats.length === 0 ? (
+              <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
+                Даних по категоріях поки немає.
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-4">
+                {categoryStats.slice(0, 10).map((stats, index) => (
+                  <div
+                    key={stats.slug}
+                    className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-5"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-black text-emerald-300">
+                          #{index + 1}
+                        </p>
+
+                        <h3 className="mt-1 text-2xl font-black text-white">
+                          {stats.name}
+                        </h3>
+
+                        <p className="mt-1 text-sm font-bold text-slate-500">
+                          {stats.slug}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
+                          {formatNumber(stats.promos)} кодів
+                        </span>
+
+                        <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                          {formatNumber(stats.stores)} магазинів
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
+            <h2 className="text-4xl font-black tracking-tight">
+              Джерела промокодів
+            </h2>
+
+            {isLoading ? (
+              <div className="mt-6 grid gap-4">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-20 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950"
+                  />
+                ))}
+              </div>
+            ) : sourceStats.length === 0 ? (
+              <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
+                Джерел поки немає.
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-4">
+                {sourceStats.map((stats) => {
+                  const percent =
+                    totals.promos === 0
+                      ? 0
+                      : Math.round((stats.count / totals.promos) * 100);
+
+                  return (
+                    <div
+                      key={stats.source}
+                      className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-5"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-xl font-black text-white">
+                            {stats.label}
+                          </h3>
+
+                          <p className="mt-1 text-sm font-bold text-slate-500">
+                            {formatNumber(stats.count)} промокодів
+                          </p>
+                        </div>
+
+                        <p className="text-2xl font-black text-emerald-300">
+                          {percent}%
+                        </p>
+                      </div>
+
+                      <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-900">
+                        <div
+                          className="h-full rounded-full bg-emerald-400"
+                          style={{ width: `${Math.max(percent, 3)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </section>
+
+        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-4xl font-black tracking-tight">
+                Топ магазинів
+              </h2>
+
+              <p className="mt-3 leading-7 text-slate-400">
+                Магазини з найбільшою кількістю промокодів.
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={loadData}
-                disabled={isLoadingData}
-                className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isLoadingData ? "Оновлюю..." : "Оновити"}
-              </button>
-
-              <Link
-                href="/admin"
-                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Модерація
-              </Link>
-
-              <Link
-                href="/admin/stores"
-                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Магазини
-              </Link>
-            </div>
+            <Link
+              href="/admin/stores"
+              className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+            >
+              Керувати магазинами
+            </Link>
           </div>
 
-          {errorMessage && (
-            <div className="mt-8 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-red-300">
-              Помилка: {errorMessage}
-            </div>
-          )}
-
-          {isLoadingData ? (
-            <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {isLoading ? (
+            <div className="mt-6 grid gap-4">
               {Array.from({ length: 8 }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-40 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-950"
+                  className="h-24 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950"
                 />
               ))}
             </div>
+          ) : topStores.length === 0 ? (
+            <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
+              Магазинів поки немає.
+            </div>
           ) : (
-            <>
-              <section className="mt-8">
-                <h2 className="text-3xl font-black">Промокоди</h2>
+            <div className="mt-6 grid gap-4">
+              {topStores.map((store, index) => {
+                const categoryNames = getStoreCategoryNames(store);
 
-                <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-                  <StatCard
-                    label="Усього кодів"
-                    value={promoStats.total}
-                    hint="Усі промокоди в базі."
-                  />
-
-                  <StatCard
-                    label="Активні"
-                    value={promoStats.active}
-                    hint="Видимі користувачам."
-                    tone="green"
-                  />
-
-                  <StatCard
-                    label="На модерації"
-                    value={promoStats.pending}
-                    hint="Чекають рішення адміна."
-                    tone="yellow"
-                  />
-
-                  <StatCard
-                    label="Відхилені"
-                    value={promoStats.rejected}
-                    hint="Не показуються в публічній базі."
-                    tone="red"
-                  />
-                </div>
-              </section>
-
-              <section className="mt-10">
-                <h2 className="text-3xl font-black">Магазини та заявки</h2>
-
-                <div className="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-                  <StatCard
-                    label="Магазинів"
-                    value={storeStats.total}
-                    hint="Усі магазини в базі."
-                  />
-
-                  <StatCard
-                    label="Активні магазини"
-                    value={storeStats.active}
-                    hint="Видимі на сайті."
-                    tone="green"
-                  />
-
-                  <StatCard
-                    label="Заявки очікують"
-                    value={requestStats.pending}
-                    hint="Потрібно розглянути."
-                    tone="yellow"
-                  />
-
-                  <StatCard
-                    label="Скарги"
-                    value={reportStats.total}
-                    hint="Усі репорти на промокоди."
-                    tone="orange"
-                  />
-                </div>
-              </section>
-
-              <section className="mt-10 grid gap-6 xl:grid-cols-3">
-                <article className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-2xl font-black">
-                      Очікують модерації
-                    </h2>
-
-                    <Link
-                      href="/admin"
-                      className="rounded-full border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-                    >
-                      Відкрити
-                    </Link>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    {latestPendingPromos.length === 0 ? (
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-slate-400">
-                        Немає промокодів на модерації.
-                      </div>
-                    ) : (
-                      latestPendingPromos.map((promo) => {
-                        const storeSlug = getStoreSlug(promo.stores);
-                        const promoUrl = promo.slug
-                          ? `/codes/${promo.slug}`
-                          : `/codes/${promo.id}`;
-
-                        return (
-                          <div
-                            key={promo.id}
-                            className="rounded-2xl border border-slate-800 bg-slate-900 p-4"
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <p className="break-all text-xl font-black text-white">
-                                  {promo.code}
-                                </p>
-
-                                {storeSlug ? (
-                                  <Link
-                                    href={`/stores/${storeSlug}`}
-                                    className="mt-1 inline-flex text-sm font-bold text-slate-500 transition hover:text-emerald-300"
-                                  >
-                                    {getStoreName(promo.stores)}
-                                  </Link>
-                                ) : (
-                                  <p className="mt-1 text-sm font-bold text-slate-500">
-                                    {getStoreName(promo.stores)}
-                                  </p>
-                                )}
-                              </div>
-
-                              <span
-                                className={`rounded-full border px-3 py-1 text-xs font-black ${getStatusClass(
-                                  promo.status
-                                )}`}
-                              >
-                                {getPromoStatusLabel(promo.status)}
-                              </span>
-                            </div>
-
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <Link
-                                href="/admin"
-                                className="rounded-full bg-emerald-400 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-                              >
-                                Модерувати
-                              </Link>
-
-                              <Link
-                                href={promoUrl}
-                                className="rounded-full border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-                              >
-                                Відкрити
-                              </Link>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </article>
-
-                <article className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-2xl font-black">Останні скарги</h2>
-
-                    <Link
-                      href="/admin/reports"
-                      className="rounded-full border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-                    >
-                      Відкрити
-                    </Link>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    {latestReports.length === 0 ? (
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-slate-400">
-                        Скарг поки немає.
-                      </div>
-                    ) : (
-                      latestReports.map((report) => {
-                        const reportPromo = getReportPromoCode(
-                          report.promo_codes
-                        );
-
-                        const promoUrl = reportPromo?.slug
-                          ? `/codes/${reportPromo.slug}`
-                          : reportPromo?.id
-                          ? `/codes/${reportPromo.id}`
-                          : "/admin/reports";
-
-                        return (
-                          <div
-                            key={report.id}
-                            className="rounded-2xl border border-slate-800 bg-slate-900 p-4"
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <p className="break-all text-lg font-black text-white">
-                                  {reportPromo?.code || "Промокод"}
-                                </p>
-
-                                <p className="mt-1 text-sm text-slate-500">
-                                  {formatDate(report.created_at)}
-                                </p>
-                              </div>
-
-                              <span
-                                className={`rounded-full border px-3 py-1 text-xs font-black ${getStatusClass(
-                                  report.status
-                                )}`}
-                              >
-                                {report.status || "Новий"}
-                              </span>
-                            </div>
-
-                            {report.reason && (
-                              <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">
-                                {report.reason}
-                              </p>
-                            )}
-
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <Link
-                                href="/admin/reports"
-                                className="rounded-full bg-emerald-400 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-                              >
-                                Репорти
-                              </Link>
-
-                              <Link
-                                href={promoUrl}
-                                className="rounded-full border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-                              >
-                                Код
-                              </Link>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </article>
-
-                <article className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-2xl font-black">Заявки магазинів</h2>
-
-                    <Link
-                      href="/admin/store-requests"
-                      className="rounded-full border border-slate-700 px-4 py-2 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-                    >
-                      Відкрити
-                    </Link>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    {latestStoreRequests.length === 0 ? (
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-slate-400">
-                        Заявок магазинів поки немає.
-                      </div>
-                    ) : (
-                      latestStoreRequests.map((request) => (
-                        <div
-                          key={request.id}
-                          className="rounded-2xl border border-slate-800 bg-slate-900 p-4"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="break-words text-lg font-black text-white">
-                                {request.name}
-                              </p>
-
-                              <p className="mt-1 text-sm text-slate-500">
-                                {formatDate(request.created_at)}
-                              </p>
-                            </div>
-
-                            <span
-                              className={`rounded-full border px-3 py-1 text-xs font-black ${getStatusClass(
-                                request.status
-                              )}`}
-                            >
-                              {getRequestStatusLabel(request.status)}
-                            </span>
-                          </div>
-
-                          {request.website_url && (
-                            <p className="mt-3 break-all text-sm font-bold text-slate-500">
-                              {request.website_url}
-                            </p>
-                          )}
-
-                          {request.comment && (
-                            <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">
-                              {request.comment}
-                            </p>
-                          )}
-
-                          <div className="mt-3">
-                            <Link
-                              href="/admin/store-requests"
-                              className="inline-flex rounded-full bg-emerald-400 px-4 py-2 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-                            >
-                              Переглянути
-                            </Link>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </article>
-              </section>
-
-              <section className="mt-10 rounded-[2rem] border border-slate-800 bg-slate-950 p-5">
-                <h2 className="text-2xl font-black">Швидкі переходи</h2>
-
-                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                return (
                   <Link
-                    href="/admin"
-                    className="rounded-2xl border border-slate-800 bg-slate-900 p-5 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                    key={store.id}
+                    href={`/stores/${store.slug}`}
+                    className="grid gap-4 rounded-[1.5rem] border border-slate-800 bg-slate-950 p-5 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:bg-slate-900 md:grid-cols-[auto_1fr_auto]"
                   >
-                    Модерація кодів
-                  </Link>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-400/10 text-lg font-black text-emerald-300">
+                      #{index + 1}
+                    </div>
 
-                  <Link
-                    href="/admin/stores"
-                    className="rounded-2xl border border-slate-800 bg-slate-900 p-5 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                  >
-                    Магазини
-                  </Link>
+                    <div>
+                      <h3 className="text-2xl font-black text-white">
+                        {store.name}
+                      </h3>
 
-                  <Link
-                    href="/admin/store-requests"
-                    className="rounded-2xl border border-slate-800 bg-slate-900 p-5 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                  >
-                    Заявки
-                  </Link>
+                      <p className="mt-1 text-sm font-bold text-slate-500">
+                        {categoryNames.length > 0
+                          ? categoryNames.join(", ")
+                          : "Без категорії"}
+                      </p>
+                    </div>
 
-                  <Link
-                    href="/admin/reports"
-                    className="rounded-2xl border border-slate-800 bg-slate-900 p-5 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                  >
-                    Репорти
-                  </Link>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
+                        {formatNumber(toNumber(store.promo_count))} кодів
+                      </span>
 
-                  <Link
-                    href="/add"
-                    className="rounded-2xl border border-slate-800 bg-slate-900 p-5 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                  >
-                    Додати код
+                      <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-300">
+                        {formatNumber(toNumber(store.verified_promo_count))}{" "}
+                        робочих
+                      </span>
+                    </div>
                   </Link>
-                </div>
-              </section>
-            </>
+                );
+              })}
+            </div>
           )}
+        </section>
+
+        <section className="mt-8 grid gap-8 xl:grid-cols-3">
+          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
+            <h2 className="text-3xl font-black">Останні заявки</h2>
+
+            <div className="mt-6 grid gap-4">
+              {latestStoreRequests.length === 0 ? (
+                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6 text-center text-slate-400">
+                  Заявок поки немає.
+                </div>
+              ) : (
+                latestStoreRequests.map((request) => (
+                  <Link
+                    key={request.id}
+                    href="/admin/store-requests"
+                    className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-5 transition hover:border-emerald-400/40 hover:bg-slate-900"
+                  >
+                    <h3 className="break-words text-xl font-black text-white">
+                      {getStoreRequestName(request)}
+                    </h3>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                        {getStatusLabel(request.status)}
+                      </span>
+
+                      <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                        {formatDate(request.created_at)}
+                      </span>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
+            <h2 className="text-3xl font-black">Останні репорти</h2>
+
+            <div className="mt-6 grid gap-4">
+              {latestReports.length === 0 ? (
+                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6 text-center text-slate-400">
+                  Репортів поки немає.
+                </div>
+              ) : (
+                latestReports.map((report) => (
+                  <Link
+                    key={report.id}
+                    href="/admin/reports"
+                    className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-5 transition hover:border-red-400/40 hover:bg-slate-900"
+                  >
+                    <h3 className="text-xl font-black text-white">
+                      {report.reason || "Репорт"}
+                    </h3>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-full border border-red-400/30 bg-red-400/10 px-3 py-1 text-xs font-black text-red-300">
+                        {getStatusLabel(report.status)}
+                      </span>
+
+                      <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                        {formatDate(report.created_at)}
+                      </span>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
+            <h2 className="text-3xl font-black">Останні промокоди</h2>
+
+            <div className="mt-6 grid gap-4">
+              {latestPromos.length === 0 ? (
+                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6 text-center text-slate-400">
+                  Промокодів поки немає.
+                </div>
+              ) : (
+                latestPromos.map((promo) => (
+                  <Link
+                    key={promo.id}
+                    href={`/codes/${promo.slug || promo.id}`}
+                    className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-5 transition hover:border-emerald-400/40 hover:bg-slate-900"
+                  >
+                    <p className="text-sm font-bold text-slate-500">
+                      {promo.store_name || "Магазин"}
+                    </p>
+
+                    <h3 className="mt-1 break-all text-xl font-black text-white">
+                      {promo.code}
+                    </h3>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                        {getStatusLabel(promo.status)}
+                      </span>
+
+                      <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                        {formatDate(promo.created_at)}
+                      </span>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+          </section>
         </section>
       </section>
     </main>
