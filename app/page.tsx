@@ -14,11 +14,6 @@ type Category = {
   status?: string | null;
 };
 
-type StoreCategoryLink = {
-  store_id: string;
-  category_id: string;
-};
-
 type Store = {
   id: string;
   name: string;
@@ -29,7 +24,17 @@ type Store = {
   category_id?: string | null;
   search_aliases?: string[] | null;
   created_at?: string | null;
-  store_categories?: StoreCategoryLink[] | null;
+
+  category_ids?: string[] | null;
+  category_names?: string[] | null;
+  category_slugs?: string[] | null;
+
+  promo_count?: number | string | null;
+  active_promo_count?: number | string | null;
+  expired_promo_count?: number | string | null;
+  verified_promo_count?: number | string | null;
+  works_count?: number | string | null;
+  not_works_count?: number | string | null;
 };
 
 type PromoCode = {
@@ -37,29 +42,29 @@ type PromoCode = {
   slug?: string | null;
   code: string;
   normalized_code?: string | null;
+
   store_id: string;
   store_name?: string | null;
   store_slug?: string | null;
+  store_search_aliases?: string[] | null;
+
   category_id?: string | null;
   category_name?: string | null;
   category_slug?: string | null;
+
+  all_category_ids?: string[] | null;
+  all_category_names?: string[] | null;
+  all_category_slugs?: string[] | null;
+
+  search_aliases?: string[] | null;
   discount_value?: string | null;
   expires_at?: string | null;
   status?: string | null;
   source_type?: string | null;
   description?: string | null;
   created_at?: string | null;
-  works_count?: number | null;
-  not_works_count?: number | null;
-};
-
-type StoreStats = {
-  total: number;
-  active: number;
-  expired: number;
-  verified: number;
-  works: number;
-  notWorks: number;
+  works_count?: number | string | null;
+  not_works_count?: number | string | null;
 };
 
 type CategoryStats = {
@@ -75,6 +80,24 @@ const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
+function toNumber(value: number | string | null | undefined) {
+  if (typeof value === "number") return value;
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function toArray(value: string[] | null | undefined) {
+  if (!value) return [];
+
+  return Array.isArray(value) ? value : [];
+}
+
 function isExpired(date: string | null | undefined) {
   if (!date) return false;
 
@@ -88,8 +111,8 @@ function isExpired(date: string | null | undefined) {
 }
 
 function isVerified(promo: PromoCode) {
-  const works = promo.works_count || 0;
-  const notWorks = promo.not_works_count || 0;
+  const works = toNumber(promo.works_count);
+  const notWorks = toNumber(promo.not_works_count);
 
   return works > 0 && works > notWorks;
 }
@@ -136,17 +159,6 @@ function getStatusClass(promo: PromoCode) {
   return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
 }
 
-function makeEmptyStoreStats(): StoreStats {
-  return {
-    total: 0,
-    active: 0,
-    expired: 0,
-    verified: 0,
-    works: 0,
-    notWorks: 0,
-  };
-}
-
 function makeEmptyCategoryStats(): CategoryStats {
   return {
     stores: 0,
@@ -154,71 +166,37 @@ function makeEmptyCategoryStats(): CategoryStats {
   };
 }
 
-function makeStoreCategoryMap(links: StoreCategoryLink[]) {
-  const map = new Map<string, StoreCategoryLink[]>();
-
-  for (const link of links) {
-    const currentLinks = map.get(link.store_id) || [];
-
-    map.set(link.store_id, [...currentLinks, link]);
-  }
-
-  return map;
+function getStoreCategoryIds(store: Store) {
+  return toArray(store.category_ids);
 }
 
-function getStoreCategoryIds(
-  store: Store,
-  storeCategoriesByStoreId: Map<string, StoreCategoryLink[]>
-) {
-  const idsFromLinks =
-    storeCategoriesByStoreId
-      .get(store.id)
-      ?.map((link) => link.category_id)
-      .filter(Boolean) || [];
-
-  if (idsFromLinks.length > 0) {
-    return Array.from(new Set(idsFromLinks));
-  }
-
-  return store.category_id ? [store.category_id] : [];
+function getStoreCategoryNames(store: Store) {
+  return toArray(store.category_names);
 }
 
-function getPromoCategoryIds(
-  promo: PromoCode,
-  storeCategoriesByStoreId: Map<string, StoreCategoryLink[]>
-) {
-  const ids = new Set<string>();
+function getPromoCategoryIds(promo: PromoCode) {
+  const ids = toArray(promo.all_category_ids);
 
-  if (promo.category_id) {
-    ids.add(promo.category_id);
+  if (ids.length > 0) {
+    return ids;
   }
 
-  const storeLinks = storeCategoriesByStoreId.get(promo.store_id) || [];
-
-  for (const link of storeLinks) {
-    if (link.category_id) {
-      ids.add(link.category_id);
-    }
-  }
-
-  return Array.from(ids);
+  return promo.category_id ? [promo.category_id] : [];
 }
 
-function getCategoryNamesByIds(
-  categoryIds: string[],
-  categoryById: Map<string, Category>
-) {
-  return categoryIds
-    .map((categoryId) => categoryById.get(categoryId)?.name)
-    .filter(Boolean) as string[];
+function getPromoCategoryNames(promo: PromoCode) {
+  const names = toArray(promo.all_category_names);
+
+  if (names.length > 0) {
+    return names;
+  }
+
+  return promo.category_name ? [promo.category_name] : [];
 }
 
 export default function HomePage() {
   const [stores, setStores] = useState<Store[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [storeCategoryLinks, setStoreCategoryLinks] = useState<
-    StoreCategoryLink[]
-  >([]);
   const [promos, setPromos] = useState<PromoCode[]>([]);
 
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
@@ -233,14 +211,6 @@ export default function HomePage() {
   );
 
   const isLoading = isLoadingStores || isLoadingCategories || isLoadingPromos;
-
-  const categoryById = useMemo(() => {
-    return new Map(categories.map((category) => [category.id, category]));
-  }, [categories]);
-
-  const storeCategoriesByStoreId = useMemo(() => {
-    return makeStoreCategoryMap(storeCategoryLinks);
-  }, [storeCategoryLinks]);
 
   async function loadCategories() {
     setIsLoadingCategories(true);
@@ -265,52 +235,25 @@ export default function HomePage() {
 
   async function loadStores() {
     setIsLoadingStores(true);
+    setMessage("");
 
-    const { data: storeData, error: storeError } = await supabase
-      .from("stores")
+    const { data, error } = await supabase
+      .from("store_category_stats")
       .select(
-        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at"
+        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at, category_ids, category_names, category_slugs, promo_count, active_promo_count, expired_promo_count, verified_promo_count, works_count, not_works_count"
       )
-      .eq("status", "active")
       .order("created_at", { ascending: false })
       .limit(500);
 
-    if (storeError) {
+    if (error) {
       setStores([]);
-      setStoreCategoryLinks([]);
-      setMessage(`Не вдалося завантажити магазини: ${storeError.message}`);
+      setMessage(`Не вдалося завантажити магазини: ${error.message}`);
       setMessageType("error");
       setIsLoadingStores(false);
       return;
     }
 
-    const loadedStores = (storeData || []) as unknown as Store[];
-    const storeIds = loadedStores.map((store) => store.id);
-
-    setStores(loadedStores);
-
-    if (storeIds.length === 0) {
-      setStoreCategoryLinks([]);
-      setIsLoadingStores(false);
-      return;
-    }
-
-    const { data: linkData, error: linkError } = await supabase
-      .from("store_categories")
-      .select("store_id, category_id")
-      .in("store_id", storeIds);
-
-    if (linkError) {
-      setStoreCategoryLinks([]);
-      setMessage(
-        `Магазини завантажено, але категорії не підтягнулись: ${linkError.message}`
-      );
-      setMessageType("error");
-      setIsLoadingStores(false);
-      return;
-    }
-
-    setStoreCategoryLinks((linkData || []) as unknown as StoreCategoryLink[]);
+    setStores((data || []) as unknown as Store[]);
     setIsLoadingStores(false);
   }
 
@@ -318,9 +261,9 @@ export default function HomePage() {
     setIsLoadingPromos(true);
 
     const { data, error } = await supabase
-      .from("promo_code_stats")
+      .from("promo_code_category_stats")
       .select(
-        "id, slug, code, normalized_code, store_id, store_name, store_slug, category_id, category_name, category_slug, discount_value, expires_at, status, description, created_at, works_count, not_works_count"
+        "id, slug, code, normalized_code, store_id, store_name, store_slug, store_search_aliases, category_id, category_name, category_slug, all_category_ids, all_category_names, all_category_slugs, search_aliases, discount_value, expires_at, status, source_type, description, created_at, works_count, not_works_count"
       )
       .order("created_at", { ascending: false })
       .limit(2000);
@@ -343,40 +286,11 @@ export default function HomePage() {
     loadPromos();
   }, []);
 
-  const statsByStoreId = useMemo(() => {
-    const map = new Map<string, StoreStats>();
-
-    for (const promo of promos) {
-      const currentStats = map.get(promo.store_id) || makeEmptyStoreStats();
-
-      const works = promo.works_count || 0;
-      const notWorks = promo.not_works_count || 0;
-
-      currentStats.total += 1;
-      currentStats.works += works;
-      currentStats.notWorks += notWorks;
-
-      if (isExpired(promo.expires_at)) {
-        currentStats.expired += 1;
-      } else {
-        currentStats.active += 1;
-      }
-
-      if (isVerified(promo)) {
-        currentStats.verified += 1;
-      }
-
-      map.set(promo.store_id, currentStats);
-    }
-
-    return map;
-  }, [promos]);
-
   const categoryStatsById = useMemo(() => {
     const map = new Map<string, CategoryStats>();
 
     for (const store of stores) {
-      const categoryIds = getStoreCategoryIds(store, storeCategoriesByStoreId);
+      const categoryIds = getStoreCategoryIds(store);
 
       for (const categoryId of categoryIds) {
         const currentStats = map.get(categoryId) || makeEmptyCategoryStats();
@@ -388,7 +302,7 @@ export default function HomePage() {
     }
 
     for (const promo of promos) {
-      const categoryIds = getPromoCategoryIds(promo, storeCategoriesByStoreId);
+      const categoryIds = getPromoCategoryIds(promo);
 
       for (const categoryId of categoryIds) {
         const currentStats = map.get(categoryId) || makeEmptyCategoryStats();
@@ -400,13 +314,13 @@ export default function HomePage() {
     }
 
     return map;
-  }, [stores, promos, storeCategoriesByStoreId]);
+  }, [stores, promos]);
 
   const totals = useMemo(() => {
     const activePromos = promos.filter((promo) => !isExpired(promo.expires_at));
     const verifiedPromos = promos.filter((promo) => isVerified(promo));
     const storesWithPromos = stores.filter(
-      (store) => (statsByStoreId.get(store.id)?.total || 0) > 0
+      (store) => toNumber(store.promo_count) > 0
     );
 
     return {
@@ -417,24 +331,21 @@ export default function HomePage() {
       storesWithPromos: storesWithPromos.length,
       categories: categories.length,
     };
-  }, [stores, promos, categories, statsByStoreId]);
+  }, [stores, promos, categories]);
 
   const popularStores = useMemo(() => {
     return [...stores]
       .sort((firstStore, secondStore) => {
-        const firstStats = statsByStoreId.get(firstStore.id) || makeEmptyStoreStats();
-        const secondStats =
-          statsByStoreId.get(secondStore.id) || makeEmptyStoreStats();
-
         return (
-          secondStats.total - firstStats.total ||
-          secondStats.active - firstStats.active ||
-          secondStats.works - firstStats.works ||
+          toNumber(secondStore.promo_count) - toNumber(firstStore.promo_count) ||
+          toNumber(secondStore.active_promo_count) -
+            toNumber(firstStore.active_promo_count) ||
+          toNumber(secondStore.works_count) - toNumber(firstStore.works_count) ||
           firstStore.name.localeCompare(secondStore.name, "uk")
         );
       })
       .slice(0, 6);
-  }, [stores, statsByStoreId]);
+  }, [stores]);
 
   const latestPromos = useMemo(() => {
     return promos.slice(0, 9);
@@ -581,9 +492,8 @@ export default function HomePage() {
               </h2>
 
               <p className="mt-3 max-w-2xl leading-7 text-slate-400">
-                Магазин може бути одразу в кількох категоріях, тому промокоди
-                не губляться між “Доглядом”, “Побутом”, “Красою” чи іншими
-                розділами.
+                Магазин може бути одразу в кількох категоріях, а промокоди
+                підтягуються через готову SQL view.
               </p>
             </div>
 
@@ -684,18 +594,7 @@ export default function HomePage() {
           ) : (
             <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {popularStores.map((store) => {
-                const storeStats =
-                  statsByStoreId.get(store.id) || makeEmptyStoreStats();
-
-                const categoryIds = getStoreCategoryIds(
-                  store,
-                  storeCategoriesByStoreId
-                );
-
-                const categoryNames = getCategoryNamesByIds(
-                  categoryIds,
-                  categoryById
-                );
+                const categoryNames = getStoreCategoryNames(store);
 
                 return (
                   <article
@@ -746,7 +645,7 @@ export default function HomePage() {
                     <div className="mt-5 grid grid-cols-3 gap-3">
                       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center">
                         <p className="text-2xl font-black text-white">
-                          {formatNumber(storeStats.total)}
+                          {formatNumber(toNumber(store.promo_count))}
                         </p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
                           всього
@@ -755,7 +654,7 @@ export default function HomePage() {
 
                       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center">
                         <p className="text-2xl font-black text-emerald-300">
-                          {formatNumber(storeStats.active)}
+                          {formatNumber(toNumber(store.active_promo_count))}
                         </p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
                           активні
@@ -764,7 +663,7 @@ export default function HomePage() {
 
                       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center">
                         <p className="text-2xl font-black text-yellow-300">
-                          {formatNumber(storeStats.verified)}
+                          {formatNumber(toNumber(store.verified_promo_count))}
                         </p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
                           робочі
@@ -825,15 +724,7 @@ export default function HomePage() {
           ) : (
             <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {latestPromos.map((promo) => {
-                const categoryIds = getPromoCategoryIds(
-                  promo,
-                  storeCategoriesByStoreId
-                );
-
-                const categoryNames = getCategoryNamesByIds(
-                  categoryIds,
-                  categoryById
-                );
+                const categoryNames = getPromoCategoryNames(promo);
 
                 return (
                   <article
@@ -898,7 +789,7 @@ export default function HomePage() {
                     <div className="mt-5 grid grid-cols-3 gap-3">
                       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center">
                         <p className="text-2xl font-black text-emerald-300">
-                          {formatNumber(promo.works_count || 0)}
+                          {formatNumber(toNumber(promo.works_count))}
                         </p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
                           працює
@@ -907,7 +798,7 @@ export default function HomePage() {
 
                       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center">
                         <p className="text-2xl font-black text-red-300">
-                          {formatNumber(promo.not_works_count || 0)}
+                          {formatNumber(toNumber(promo.not_works_count))}
                         </p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
                           ні
