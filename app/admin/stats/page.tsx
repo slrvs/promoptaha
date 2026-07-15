@@ -251,7 +251,7 @@ export default function AdminStatsPage() {
         .limit(5000),
 
       supabase
-        .from("promo_code_category_stats")
+        .from("admin_promo_code_category_stats")
         .select(
           "id, slug, code, store_id, store_name, store_slug, category_id, category_name, category_slug, all_category_ids, all_category_names, all_category_slugs, status, source_type, expires_at, created_at, works_count, not_works_count"
         )

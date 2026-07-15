@@ -195,7 +195,7 @@ export default function AdminPage() {
     setMessage("");
 
     const { data, error } = await supabase
-      .from("promo_code_category_stats")
+      .from("admin_promo_code_category_stats")
       .select(
         "id, slug, code, normalized_code, store_id, store_name, store_slug, store_search_aliases, category_id, category_name, category_slug, all_category_ids, all_category_names, all_category_slugs, search_aliases, discount_value, expires_at, status, source_type, source_url, description, created_at, works_count, not_works_count"
       )
@@ -411,13 +411,10 @@ export default function AdminPage() {
               </h1>
 
               <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
-                Тут можна схвалювати, відхиляти або повертати промокоди на
-                повторну перевірку. Дані читаються через{" "}
-                <span className="font-black text-emerald-300">
-                  promo_code_category_stats
-                </span>
-                .
-              </p>
+  Тут можна схвалювати, відхиляти або повертати промокоди на
+  повторну перевірку. Дані підтягуються з оновленої системи
+  категорій і статистики.
+</p>
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
