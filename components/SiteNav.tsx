@@ -64,6 +64,11 @@ const adminLinks: AdminLink[] = [
     description: "Загальна статистика сайту",
   },
   {
+    href: "/admin/activity",
+    label: "Журнал дій",
+    description: "Історія модерації та адмінських змін",
+  },
+  {
     href: "/admin",
     label: "Модерація промокодів",
     description: "Схвалення, відхилення та перевірка кодів",
