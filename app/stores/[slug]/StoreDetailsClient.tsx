@@ -6,19 +6,6 @@ import { createClient } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
 import { getHostName, matchesSearch } from "@/lib/searchAliases";
 
-type Category = {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string | null;
-  status?: string | null;
-};
-
-type StoreCategoryLink = {
-  store_id: string;
-  category_id: string;
-};
-
 type Store = {
   id: string;
   name: string;
@@ -29,7 +16,17 @@ type Store = {
   category_id?: string | null;
   search_aliases?: string[] | null;
   created_at?: string | null;
-  store_categories?: StoreCategoryLink[] | null;
+
+  category_ids?: string[] | null;
+  category_names?: string[] | null;
+  category_slugs?: string[] | null;
+
+  promo_count?: number | string | null;
+  active_promo_count?: number | string | null;
+  expired_promo_count?: number | string | null;
+  verified_promo_count?: number | string | null;
+  works_count?: number | string | null;
+  not_works_count?: number | string | null;
 };
 
 type PromoCode = {
@@ -37,13 +34,20 @@ type PromoCode = {
   slug?: string | null;
   code: string;
   normalized_code?: string | null;
+
   store_id: string;
   store_name?: string | null;
   store_slug?: string | null;
   store_search_aliases?: string[] | null;
+
   category_id?: string | null;
   category_name?: string | null;
   category_slug?: string | null;
+
+  all_category_ids?: string[] | null;
+  all_category_names?: string[] | null;
+  all_category_slugs?: string[] | null;
+
   search_aliases?: string[] | null;
   discount_value?: string | null;
   expires_at?: string | null;
@@ -52,8 +56,8 @@ type PromoCode = {
   source_url?: string | null;
   description?: string | null;
   created_at?: string | null;
-  works_count?: number | null;
-  not_works_count?: number | null;
+  works_count?: number | string | null;
+  not_works_count?: number | string | null;
 };
 
 type StoreStats = {
@@ -81,6 +85,24 @@ const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
+function toNumber(value: number | string | null | undefined) {
+  if (typeof value === "number") return value;
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function toArray(value: string[] | null | undefined) {
+  if (!value) return [];
+
+  return Array.isArray(value) ? value : [];
+}
+
 function isExpired(date: string | null | undefined) {
   if (!date) return false;
 
@@ -94,8 +116,8 @@ function isExpired(date: string | null | undefined) {
 }
 
 function isVerified(promo: PromoCode) {
-  const works = promo.works_count || 0;
-  const notWorks = promo.not_works_count || 0;
+  const works = toNumber(promo.works_count);
+  const notWorks = toNumber(promo.not_works_count);
 
   return works > 0 && works > notWorks;
 }
@@ -165,59 +187,24 @@ function makeEmptyStats(): StoreStats {
   };
 }
 
-function getStoreCategoryIds(store: Store | null) {
+function getStoreCategoryNames(store: Store | null) {
   if (!store) return [];
 
-  const idsFromLinks =
-    store.store_categories
-      ?.map((link) => link.category_id)
-      .filter(Boolean) || [];
-
-  if (idsFromLinks.length > 0) {
-    return Array.from(new Set(idsFromLinks));
-  }
-
-  return store.category_id ? [store.category_id] : [];
+  return toArray(store.category_names);
 }
 
-function getStoreCategoryNames(
-  store: Store | null,
-  categoryById: Map<string, Category>
-) {
-  return getStoreCategoryIds(store)
-    .map((categoryId) => categoryById.get(categoryId)?.name)
-    .filter(Boolean) as string[];
-}
+function getPromoCategoryNames(promo: PromoCode) {
+  const names = toArray(promo.all_category_names);
 
-function getPromoCategoryNames(
-  promo: PromoCode,
-  storeCategoryNames: string[],
-  categoryById: Map<string, Category>
-) {
-  const names = new Set<string>();
-
-  for (const categoryName of storeCategoryNames) {
-    names.add(categoryName);
+  if (names.length > 0) {
+    return names;
   }
 
-  if (promo.category_name) {
-    names.add(promo.category_name);
-  }
-
-  if (promo.category_id) {
-    const categoryName = categoryById.get(promo.category_id)?.name;
-
-    if (categoryName) {
-      names.add(categoryName);
-    }
-  }
-
-  return Array.from(names);
+  return promo.category_name ? [promo.category_name] : [];
 }
 
 export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
   const [store, setStore] = useState<Store | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [promos, setPromos] = useState<PromoCode[]>([]);
 
   const [search, setSearch] = useState("");
@@ -226,7 +213,6 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
   const [isLoadingStore, setIsLoadingStore] = useState(true);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [isLoadingPromos, setIsLoadingPromos] = useState(true);
 
   const [message, setMessage] = useState("");
@@ -234,22 +220,30 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
     "info"
   );
 
-  const isLoading = isLoadingStore || isLoadingCategories || isLoadingPromos;
-
-  const categoryById = useMemo(() => {
-    return new Map(categories.map((category) => [category.id, category]));
-  }, [categories]);
+  const isLoading = isLoadingStore || isLoadingPromos;
 
   const storeCategoryNames = useMemo(() => {
-    return getStoreCategoryNames(store, categoryById);
-  }, [store, categoryById]);
+    return getStoreCategoryNames(store);
+  }, [store]);
 
   const stats = useMemo(() => {
+    if (store) {
+      return {
+        total: toNumber(store.promo_count),
+        active: toNumber(store.active_promo_count),
+        expired: toNumber(store.expired_promo_count),
+        noDate: promos.filter((promo) => !promo.expires_at).length,
+        verified: toNumber(store.verified_promo_count),
+        works: toNumber(store.works_count),
+        notWorks: toNumber(store.not_works_count),
+      };
+    }
+
     const currentStats = makeEmptyStats();
 
     for (const promo of promos) {
-      const works = promo.works_count || 0;
-      const notWorks = promo.not_works_count || 0;
+      const works = toNumber(promo.works_count);
+      const notWorks = toNumber(promo.not_works_count);
 
       currentStats.total += 1;
       currentStats.works += works;
@@ -269,28 +263,7 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
     }
 
     return currentStats;
-  }, [promos]);
-
-  async function loadCategories() {
-    setIsLoadingCategories(true);
-
-    const { data, error } = await supabase
-      .from("categories")
-      .select("id, name, slug, description, status")
-      .eq("status", "active")
-      .order("name", { ascending: true });
-
-    if (error) {
-      setCategories([]);
-      setMessage(`Не вдалося завантажити категорії: ${error.message}`);
-      setMessageType("error");
-      setIsLoadingCategories(false);
-      return;
-    }
-
-    setCategories((data || []) as unknown as Category[]);
-    setIsLoadingCategories(false);
-  }
+  }, [store, promos]);
 
   async function loadStoreAndPromos() {
     setIsLoadingStore(true);
@@ -298,12 +271,11 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
     setMessage("");
 
     const { data: storeData, error: storeError } = await supabase
-      .from("stores")
+      .from("store_category_stats")
       .select(
-        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at"
+        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at, category_ids, category_names, category_slugs, promo_count, active_promo_count, expired_promo_count, verified_promo_count, works_count, not_works_count"
       )
       .eq("slug", slug)
-      .eq("status", "active")
       .maybeSingle();
 
     if (storeError) {
@@ -328,33 +300,13 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
 
     const loadedStore = storeData as unknown as Store;
 
-    const { data: linkData, error: linkError } = await supabase
-      .from("store_categories")
-      .select("store_id, category_id")
-      .eq("store_id", loadedStore.id);
-
-    if (linkError) {
-      setStore({
-        ...loadedStore,
-        store_categories: [],
-      });
-      setMessage(
-        `Магазин завантажено, але категорії не підтягнулись: ${linkError.message}`
-      );
-      setMessageType("error");
-    } else {
-      setStore({
-        ...loadedStore,
-        store_categories: (linkData || []) as unknown as StoreCategoryLink[],
-      });
-    }
-
+    setStore(loadedStore);
     setIsLoadingStore(false);
 
     const { data: promoData, error: promoError } = await supabase
-      .from("promo_code_stats")
+      .from("promo_code_category_stats")
       .select(
-        "id, slug, code, normalized_code, store_id, store_name, store_slug, store_search_aliases, category_id, category_name, category_slug, search_aliases, discount_value, expires_at, status, source_type, source_url, description, created_at, works_count, not_works_count"
+        "id, slug, code, normalized_code, store_id, store_name, store_slug, store_search_aliases, category_id, category_name, category_slug, all_category_ids, all_category_names, all_category_slugs, search_aliases, discount_value, expires_at, status, source_type, source_url, description, created_at, works_count, not_works_count"
       )
       .eq("store_id", loadedStore.id)
       .order("created_at", { ascending: false })
@@ -373,7 +325,6 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
   }
 
   useEffect(() => {
-    loadCategories();
     loadStoreAndPromos();
   }, [slug]);
 
@@ -391,11 +342,7 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
 
   const filteredPromos = useMemo(() => {
     const filtered = promos.filter((promo) => {
-      const promoCategoryNames = getPromoCategoryNames(
-        promo,
-        storeCategoryNames,
-        categoryById
-      );
+      const promoCategoryNames = getPromoCategoryNames(promo);
 
       const matchesSearchQuery = matchesSearch(
         [
@@ -408,6 +355,8 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
           promo.source_type || "",
           promo.category_name || "",
           promo.category_slug || "",
+          toArray(promo.all_category_names).join(" "),
+          toArray(promo.all_category_slugs).join(" "),
           promoCategoryNames.join(" "),
           (promo.search_aliases || []).join(" "),
           (promo.store_search_aliases || []).join(" "),
@@ -428,12 +377,13 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
     });
 
     return [...filtered].sort((firstPromo, secondPromo) => {
-      const firstWorks = firstPromo.works_count || 0;
-      const secondWorks = secondPromo.works_count || 0;
+      const firstWorks = toNumber(firstPromo.works_count);
+      const secondWorks = toNumber(secondPromo.works_count);
       const firstTotalVotes =
-        (firstPromo.works_count || 0) + (firstPromo.not_works_count || 0);
+        toNumber(firstPromo.works_count) + toNumber(firstPromo.not_works_count);
       const secondTotalVotes =
-        (secondPromo.works_count || 0) + (secondPromo.not_works_count || 0);
+        toNumber(secondPromo.works_count) +
+        toNumber(secondPromo.not_works_count);
 
       if (sortMode === "popular") {
         return (
@@ -470,7 +420,7 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
         new Date(firstPromo.created_at || 0).getTime()
       );
     });
-  }, [promos, search, statusFilter, sortMode, storeCategoryNames, categoryById]);
+  }, [promos, search, statusFilter, sortMode]);
 
   async function copyCode(promo: PromoCode) {
     try {
@@ -794,11 +744,7 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
         ) : (
           <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {filteredPromos.map((promo) => {
-              const promoCategoryNames = getPromoCategoryNames(
-                promo,
-                storeCategoryNames,
-                categoryById
-              );
+              const promoCategoryNames = getPromoCategoryNames(promo);
 
               return (
                 <article
@@ -854,7 +800,7 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
                   <div className="mt-5 grid grid-cols-3 gap-3">
                     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 text-center">
                       <p className="text-2xl font-black text-emerald-300">
-                        {formatNumber(promo.works_count || 0)}
+                        {formatNumber(toNumber(promo.works_count))}
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
                         працює
@@ -863,7 +809,7 @@ export default function StoreDetailsClient({ slug }: StoreDetailsClientProps) {
 
                     <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 text-center">
                       <p className="text-2xl font-black text-red-300">
-                        {formatNumber(promo.not_works_count || 0)}
+                        {formatNumber(toNumber(promo.not_works_count))}
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
                         ні
