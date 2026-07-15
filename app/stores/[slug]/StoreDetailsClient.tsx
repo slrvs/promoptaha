@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
+import UserLevelBadge from "@/components/UserLevelBadge";
+
+type SortMode = "newest" | "oldest" | "ending" | "reliable" | "works";
 
 type Store = {
   id: string;
@@ -13,16 +16,17 @@ type Store = {
   website_url?: string | null;
   status?: string | null;
   category_id?: string | null;
+  search_aliases?: string[] | null;
+  created_at?: string | null;
+  category_ids?: string[] | null;
   category_names?: string[] | null;
   category_slugs?: string[] | null;
-  search_aliases?: string[] | null;
   promo_count?: number | null;
   active_promo_count?: number | null;
   expired_promo_count?: number | null;
   verified_promo_count?: number | null;
   works_count?: number | null;
   not_works_count?: number | null;
-  created_at?: string | null;
 };
 
 type Promo = {
@@ -36,6 +40,7 @@ type Promo = {
   category_id?: string | null;
   category_name?: string | null;
   category_slug?: string | null;
+  all_category_ids?: string[] | null;
   all_category_names?: string[] | null;
   all_category_slugs?: string[] | null;
   search_aliases?: string[] | null;
@@ -53,17 +58,23 @@ type Promo = {
 
 type UserProfile = {
   id: string;
+  email?: string | null;
   username?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
+  bio?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type ApprovedPromoForStats = {
+  id: string;
+  submitted_by?: string | null;
 };
 
 type StoreDetailsClientProps = {
   store: Store;
 };
-
-type SortMode = "newest" | "oldest" | "popular" | "ending";
-type StatusFilter = "all" | "active" | "expired";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -95,20 +106,39 @@ function getDaysLeft(date: string | null | undefined) {
   if (!date) return null;
 
   const now = new Date();
-  const end = new Date(date);
-  const diff = end.getTime() - now.getTime();
+  const target = new Date(date);
+  const difference = target.getTime() - now.getTime();
 
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  return Math.ceil(difference / (1000 * 60 * 60 * 24));
 }
 
-function isExpired(date: string | null | undefined) {
-  if (!date) return false;
+function getExpiryLabel(date: string | null | undefined) {
+  const daysLeft = getDaysLeft(date);
 
-  return new Date(date) < new Date();
+  if (daysLeft === null) return "Без терміну";
+  if (daysLeft < 0) return "Закінчився";
+  if (daysLeft === 0) return "Сьогодні";
+  if (daysLeft === 1) return "Завтра";
+
+  return `${daysLeft} дн.`;
 }
 
-function getPromoLink(promo: Promo) {
-  return `/codes/${promo.slug || promo.id}`;
+function getExpiryClass(date: string | null | undefined) {
+  const daysLeft = getDaysLeft(date);
+
+  if (daysLeft === null) {
+    return "border-slate-700 bg-slate-900 text-slate-300";
+  }
+
+  if (daysLeft < 0) {
+    return "border-red-400/30 bg-red-400/10 text-red-300";
+  }
+
+  if (daysLeft <= 7) {
+    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
+  }
+
+  return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
 }
 
 function getWorksPercent(promo: Promo) {
@@ -121,12 +151,27 @@ function getWorksPercent(promo: Promo) {
   return Math.round((worksCount / total) * 100);
 }
 
-function getAuthorName(profile: UserProfile | null | undefined) {
-  return profile?.display_name || profile?.username || "Користувач";
+function getStoreWorksPercent(store: Store) {
+  const worksCount = Number(store.works_count || 0);
+  const notWorksCount = Number(store.not_works_count || 0);
+  const total = worksCount + notWorksCount;
+
+  if (total === 0) return null;
+
+  return Math.round((worksCount / total) * 100);
 }
 
-function getAuthorFallback(profile: UserProfile | null | undefined) {
-  const name = getAuthorName(profile).trim();
+function getUserName(profile: UserProfile | null | undefined) {
+  return (
+    profile?.display_name ||
+    profile?.username ||
+    profile?.email?.split("@")[0] ||
+    "ПромоПтаха"
+  );
+}
+
+function getAvatarFallback(profile: UserProfile | null | undefined) {
+  const name = getUserName(profile).trim();
 
   if (!name) return "🐦";
 
@@ -138,32 +183,25 @@ function promoMatchesSearch(promo: Promo, searchQuery: string) {
 
   if (!query) return true;
 
-  const searchableParts = [
-    promo.code,
-    promo.normalized_code,
-    promo.category_name,
-    promo.discount_value,
-    promo.description,
-    ...(promo.search_aliases || []),
-    ...(promo.all_category_names || []),
-  ];
-
   const searchableText = normalizeText(
-    searchableParts.filter(Boolean).join(" ")
+    [
+      promo.code,
+      promo.normalized_code,
+      promo.discount_value,
+      promo.description,
+      promo.category_name,
+      promo.category_slug,
+      promo.source_type,
+      promo.source_url,
+      ...(promo.search_aliases || []),
+      ...(promo.all_category_names || []),
+      ...(promo.all_category_slugs || []),
+    ]
+      .filter(Boolean)
+      .join(" ")
   );
 
   return searchableText.includes(query);
-}
-
-function promoMatchesStatus(promo: Promo, statusFilter: StatusFilter) {
-  if (statusFilter === "all") return true;
-
-  const expired = isExpired(promo.expires_at);
-
-  if (statusFilter === "active") return !expired;
-  if (statusFilter === "expired") return expired;
-
-  return true;
 }
 
 function sortPromos(promos: Promo[], sortMode: SortMode) {
@@ -175,23 +213,26 @@ function sortPromos(promos: Promo[], sortMode: SortMode) {
       );
     }
 
-    if (sortMode === "popular") {
+    if (sortMode === "ending") {
+      const firstDays = getDaysLeft(firstPromo.expires_at);
+      const secondDays = getDaysLeft(secondPromo.expires_at);
+
+      if (firstDays === null && secondDays === null) return 0;
+      if (firstDays === null) return 1;
+      if (secondDays === null) return -1;
+
+      return firstDays - secondDays;
+    }
+
+    if (sortMode === "reliable") {
       return (
-        Number(secondPromo.works_count || 0) -
-        Number(firstPromo.works_count || 0)
+        Number(getWorksPercent(secondPromo) || 0) -
+        Number(getWorksPercent(firstPromo) || 0)
       );
     }
 
-    if (sortMode === "ending") {
-      const firstTime = firstPromo.expires_at
-        ? new Date(firstPromo.expires_at).getTime()
-        : Number.MAX_SAFE_INTEGER;
-
-      const secondTime = secondPromo.expires_at
-        ? new Date(secondPromo.expires_at).getTime()
-        : Number.MAX_SAFE_INTEGER;
-
-      return firstTime - secondTime;
+    if (sortMode === "works") {
+      return Number(secondPromo.works_count || 0) - Number(firstPromo.works_count || 0);
     }
 
     return (
@@ -201,86 +242,77 @@ function sortPromos(promos: Promo[], sortMode: SortMode) {
   });
 }
 
-function getStoreWebsiteUrl(store: Store) {
-  if (!store.website_url) return null;
-
-  if (store.website_url.startsWith("http")) {
-    return store.website_url;
-  }
-
-  return `https://${store.website_url}`;
-}
-
 export default function StoreDetailsClient({ store }: StoreDetailsClientProps) {
   const [promos, setPromos] = useState<Promo[]>([]);
   const [profilesMap, setProfilesMap] = useState<Map<string, UserProfile>>(
     new Map()
   );
+  const [approvedStatsMap, setApprovedStatsMap] = useState<Map<string, number>>(
+    new Map()
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
-
   const [isLoading, setIsLoading] = useState(true);
-  const [copyingId, setCopyingId] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
+
+  const storeReliability = getStoreWorksPercent(store);
 
   const filteredPromos = useMemo(() => {
     const filtered = promos.filter((promo) => {
-      return (
-        promoMatchesSearch(promo, searchQuery) &&
-        promoMatchesStatus(promo, statusFilter)
-      );
+      return promoMatchesSearch(promo, searchQuery);
     });
 
     return sortPromos(filtered, sortMode);
-  }, [promos, searchQuery, statusFilter, sortMode]);
+  }, [promos, searchQuery, sortMode]);
 
   const stats = useMemo(() => {
     return {
       total: promos.length,
-      active: promos.filter((promo) => !isExpired(promo.expires_at)).length,
-      expired: promos.filter((promo) => isExpired(promo.expires_at)).length,
-      verified: promos.filter(
-        (promo) =>
-          Number(promo.works_count || 0) + Number(promo.not_works_count || 0) >
-          0
-      ).length,
-      works: promos.reduce(
-        (sum, promo) => sum + Number(promo.works_count || 0),
-        0
-      ),
+      active: promos.filter((promo) => {
+        const daysLeft = getDaysLeft(promo.expires_at);
+        return daysLeft === null || daysLeft >= 0;
+      }).length,
+      ending: promos.filter((promo) => {
+        const daysLeft = getDaysLeft(promo.expires_at);
+        return daysLeft !== null && daysLeft >= 0 && daysLeft <= 7;
+      }).length,
+      expired: promos.filter((promo) => {
+        const daysLeft = getDaysLeft(promo.expires_at);
+        return daysLeft !== null && daysLeft < 0;
+      }).length,
+      found: filteredPromos.length,
     };
-  }, [promos]);
+  }, [promos, filteredPromos]);
 
-  const categoryNames = useMemo(() => {
-    return Array.from(new Set((store.category_names || []).filter(Boolean)));
-  }, [store.category_names]);
-
-  async function loadPromos() {
+  async function loadStorePromos() {
     setIsLoading(true);
-    setMessage("");
 
-    const { data, error } = await supabase
-      .from("promo_code_category_stats")
-      .select(
-        "id, slug, code, normalized_code, store_id, store_name, store_slug, category_id, category_name, category_slug, all_category_names, all_category_slugs, search_aliases, discount_value, expires_at, status, source_type, source_url, description, created_at, works_count, not_works_count, submitted_by"
-      )
-      .eq("store_id", store.id)
-      .eq("status", "approved")
-      .order("created_at", { ascending: false })
-      .limit(1000);
+    const [promosResult, approvedStatsResult] = await Promise.all([
+      supabase
+        .from("promo_code_category_stats")
+        .select(
+          "id, slug, code, normalized_code, store_id, store_name, store_slug, category_id, category_name, category_slug, all_category_ids, all_category_names, all_category_slugs, search_aliases, discount_value, expires_at, status, source_type, source_url, description, created_at, works_count, not_works_count, submitted_by"
+        )
+        .eq("status", "approved")
+        .eq("store_id", store.id)
+        .order("created_at", { ascending: false })
+        .limit(1000),
 
-    if (error) {
-      setPromos([]);
-      setMessage(`Не вдалося завантажити промокоди: ${error.message}`);
-      setIsLoading(false);
-      return;
-    }
+      supabase
+        .from("promo_code_category_stats")
+        .select("id, submitted_by")
+        .eq("status", "approved")
+        .not("submitted_by", "is", null)
+        .limit(5000),
+    ]);
 
-    const nextPromos = (data || []) as unknown as Promo[];
+    const nextPromos = promosResult.error
+      ? []
+      : ((promosResult.data || []) as Promo[]);
 
-    setPromos(nextPromos);
+    const approvedPromosForStats = approvedStatsResult.error
+      ? []
+      : ((approvedStatsResult.data || []) as ApprovedPromoForStats[]);
 
     const authorIds = Array.from(
       new Set(
@@ -290,57 +322,58 @@ export default function StoreDetailsClient({ store }: StoreDetailsClientProps) {
       )
     );
 
-    await loadProfiles(authorIds);
+    let nextProfiles: UserProfile[] = [];
 
+    if (authorIds.length > 0) {
+      const { data } = await supabase
+        .from("profiles")
+        .select(
+          "id, email, username, display_name, avatar_url, bio, created_at, updated_at"
+        )
+        .in("id", authorIds);
+
+      nextProfiles = (data || []) as UserProfile[];
+    }
+
+    const nextProfilesMap = new Map(
+      nextProfiles.map((profile) => [profile.id, profile])
+    );
+
+    const nextApprovedStatsMap = new Map<string, number>();
+
+    for (const promo of approvedPromosForStats) {
+      if (!promo.submitted_by) continue;
+
+      nextApprovedStatsMap.set(
+        promo.submitted_by,
+        (nextApprovedStatsMap.get(promo.submitted_by) || 0) + 1
+      );
+    }
+
+    setPromos(nextPromos);
+    setProfilesMap(nextProfilesMap);
+    setApprovedStatsMap(nextApprovedStatsMap);
     setIsLoading(false);
   }
 
-  async function loadProfiles(authorIds: string[]) {
-    if (authorIds.length === 0) {
-      setProfilesMap(new Map());
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, username, display_name, avatar_url")
-      .in("id", authorIds);
-
-    if (error) {
-      setProfilesMap(new Map());
-      return;
-    }
-
-    const nextMap = new Map(
-      ((data || []) as UserProfile[]).map((profile) => [profile.id, profile])
-    );
-
-    setProfilesMap(nextMap);
-  }
-
   useEffect(() => {
-    loadPromos();
+    loadStorePromos();
   }, [store.id]);
-
-  async function copyCode(promo: Promo) {
-    setCopyingId(promo.id);
-
-    try {
-      await navigator.clipboard.writeText(promo.code);
-      setMessage(`Промокод ${promo.code} скопійовано.`);
-    } catch {
-      setMessage("Не вдалося скопіювати промокод.");
-    }
-
-    window.setTimeout(() => {
-      setCopyingId(null);
-    }, 600);
-  }
 
   function resetFilters() {
     setSearchQuery("");
-    setStatusFilter("all");
     setSortMode("newest");
+  }
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+        <section className="mx-auto w-full max-w-7xl">
+          <div className="h-[420px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
+          <div className="mt-8 h-96 animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -351,32 +384,23 @@ export default function StoreDetailsClient({ store }: StoreDetailsClientProps) {
             Головна
           </Link>
           <span>/</span>
+
           <Link href="/stores" className="hover:text-emerald-300">
             Магазини
           </Link>
+
           <span>/</span>
           <span className="text-slate-300">{store.name}</span>
         </div>
 
         <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
+          <div className="grid gap-8 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
             <div>
-              <div className="flex flex-wrap gap-2">
-                <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-300">
-                  Магазин
-                </span>
+              <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+                Магазин
+              </p>
 
-                {categoryNames.map((categoryName) => (
-                  <span
-                    key={categoryName}
-                    className="rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black text-slate-300"
-                  >
-                    {categoryName}
-                  </span>
-                ))}
-              </div>
-
-              <div className="mt-6 flex flex-wrap items-center gap-5">
+              <div className="flex flex-wrap items-center gap-5">
                 <StoreLogo
                   name={store.name}
                   websiteUrl={store.website_url}
@@ -390,12 +414,16 @@ export default function StoreDetailsClient({ store }: StoreDetailsClientProps) {
 
                   {store.website_url && (
                     <a
-                      href={getStoreWebsiteUrl(store) || "#"}
+                      href={
+                        store.website_url.startsWith("http")
+                          ? store.website_url
+                          : `https://${store.website_url}`
+                      }
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-3 inline-flex break-all text-sm font-black text-emerald-300 transition hover:text-emerald-200"
+                      className="mt-3 inline-flex text-sm font-black text-emerald-300 transition hover:text-emerald-200"
                     >
-                      {store.website_url}
+                      Відкрити сайт магазину
                     </a>
                   )}
                 </div>
@@ -407,103 +435,87 @@ export default function StoreDetailsClient({ store }: StoreDetailsClientProps) {
                 </p>
               )}
 
+              {store.category_names && store.category_names.length > 0 && (
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {store.category_names.map((categoryName) => (
+                    <span
+                      key={categoryName}
+                      className="rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black text-slate-300"
+                    >
+                      {categoryName}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  href="/add"
-                  className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
-                >
-                  Додати промокод
-                </Link>
-
-                <Link
                   href="/codes"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
                 >
                   Всі промокоди
                 </Link>
 
-                {store.website_url && (
-                  <a
-                    href={getStoreWebsiteUrl(store) || "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                  >
-                    Перейти на сайт
-                  </a>
-                )}
+                <Link
+                  href="/add"
+                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                >
+                  Додати промокод
+                </Link>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">{stats.total}</p>
+                <p className="text-4xl font-black text-white">
+                  {Number(store.promo_count || stats.total)}
+                </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  промокодів
+                  всього кодів
                 </p>
               </div>
 
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
                 <p className="text-4xl font-black text-emerald-300">
-                  {stats.active}
+                  {Number(store.active_promo_count || stats.active)}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  активні
+                  активних
                 </p>
               </div>
 
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
                 <p className="text-4xl font-black text-yellow-300">
-                  {stats.verified}
+                  {Number(store.works_count || 0)}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  з голосами
+                  підтверджень “працює”
                 </p>
               </div>
 
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">{stats.works}</p>
+                <p className="text-4xl font-black text-white">
+                  {storeReliability === null ? "—" : `${storeReliability}%`}
+                </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  голосів “працює”
+                  надійність
                 </p>
               </div>
             </div>
           </div>
         </section>
 
-        {message && (
-          <div className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 font-bold text-emerald-300">
-            {message}
-          </div>
-        )}
-
         <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-          <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr_0.8fr_auto]">
+          <div className="grid gap-4 lg:grid-cols-[1fr_0.45fr_auto]">
             <label className="grid gap-2">
               <span className="text-sm font-black text-slate-300">Пошук</span>
 
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Промокод, опис, категорія..."
+                placeholder="Пошук по кодах, опису, категорії..."
                 className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
               />
-            </label>
-
-            <label className="grid gap-2">
-              <span className="text-sm font-black text-slate-300">Статус</span>
-
-              <select
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(event.target.value as StatusFilter)
-                }
-                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-              >
-                <option value="all">Всі</option>
-                <option value="active">Активні</option>
-                <option value="expired">Завершені</option>
-              </select>
             </label>
 
             <label className="grid gap-2">
@@ -518,8 +530,9 @@ export default function StoreDetailsClient({ store }: StoreDetailsClientProps) {
               >
                 <option value="newest">Нові спочатку</option>
                 <option value="oldest">Старі спочатку</option>
-                <option value="popular">Популярні</option>
-                <option value="ending">Скоро завершуються</option>
+                <option value="ending">За терміном</option>
+                <option value="reliable">Надійніші</option>
+                <option value="works">Більше “працює”</option>
               </select>
             </label>
 
@@ -533,247 +546,175 @@ export default function StoreDetailsClient({ store }: StoreDetailsClientProps) {
               </button>
             </div>
           </div>
-
-          <p className="mt-5 text-sm font-bold text-slate-500">
-            Знайдено:{" "}
-            <span className="font-black text-slate-300">
-              {filteredPromos.length}
-            </span>
-          </p>
         </section>
 
-        <section className="mt-8">
-          {isLoading ? (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-96 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900"
-                />
-              ))}
-            </div>
-          ) : filteredPromos.length === 0 ? (
-            <div className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-10 text-center">
-              <div className="text-6xl">🐦</div>
+        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-black">Промокоди магазину</h2>
 
-              <h2 className="mt-5 text-3xl font-black">
-                Пташка нічого не знайшла
-              </h2>
-
-              <p className="mx-auto mt-3 max-w-xl leading-7 text-slate-400">
-                Для цього магазину поки немає промокодів за вибраними фільтрами.
+              <p className="mt-2 leading-7 text-slate-400">
+                Показано: {filteredPromos.length} / {promos.length}
               </p>
+            </div>
 
-              <div className="mt-8 flex flex-wrap justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                >
-                  Скинути фільтри
-                </button>
+            <button
+              type="button"
+              onClick={loadStorePromos}
+              className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+            >
+              Оновити
+            </button>
+          </div>
 
-                <Link
-                  href="/add"
-                  className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
-                >
-                  Додати промокод
-                </Link>
-              </div>
+          {filteredPromos.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
+              <div className="text-5xl">🎟️</div>
+
+              <h3 className="mt-4 text-2xl font-black">
+                Промокодів не знайдено
+              </h3>
+
+              <p className="mx-auto mt-3 max-w-md leading-7 text-slate-400">
+                Для цього магазину ще немає схвалених промокодів або вони не
+                підходять під пошук.
+              </p>
             </div>
           ) : (
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-6 grid gap-5">
               {filteredPromos.map((promo) => {
-                const expired = isExpired(promo.expires_at);
-                const daysLeft = getDaysLeft(promo.expires_at);
-                const worksPercent = getWorksPercent(promo);
-                const authorProfile = promo.submitted_by
+                const author = promo.submitted_by
                   ? profilesMap.get(promo.submitted_by)
                   : null;
+                const authorApprovedCount = promo.submitted_by
+                  ? approvedStatsMap.get(promo.submitted_by) || 0
+                  : 0;
+                const worksPercent = getWorksPercent(promo);
 
                 return (
                   <article
                     key={promo.id}
-                    className="flex flex-col rounded-[2rem] border border-slate-800 bg-slate-900/80 p-5 transition hover:border-emerald-400/50"
+                    className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5 transition hover:border-emerald-400/40"
                   >
-                    <div className="flex flex-wrap gap-2">
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-black ${
-                          expired
-                            ? "border-red-400/30 bg-red-400/10 text-red-300"
-                            : "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-                        }`}
-                      >
-                        {expired ? "Термін минув" : "Активний"}
-                      </span>
-
-                      {promo.category_name && (
-                        <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-black text-slate-300">
-                          {promo.category_name}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-5 flex items-start gap-4">
-                      <StoreLogo
-                        name={store.name}
-                        websiteUrl={store.website_url}
-                        size="sm"
-                      />
-
+                    <div className="flex flex-wrap items-start justify-between gap-5">
                       <div className="min-w-0">
                         <Link
-                          href={getPromoLink(promo)}
-                          className="break-all text-3xl font-black text-white transition hover:text-emerald-300"
+                          href={`/codes/${promo.slug || promo.id}`}
+                          className="break-all text-4xl font-black text-white transition hover:text-emerald-300"
                         >
                           {promo.code}
                         </Link>
 
-                        <p className="mt-2 truncate text-sm font-black text-emerald-300">
-                          {store.name}
+                        <p className="mt-2 text-xl font-black text-emerald-300">
+                          {promo.discount_value || "Знижка не вказана"}
                         </p>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {promo.category_name && (
+                            <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                              {promo.category_name}
+                            </span>
+                          )}
+
+                          <span
+                            className={`rounded-full border px-3 py-1 text-xs font-black ${getExpiryClass(
+                              promo.expires_at
+                            )}`}
+                          >
+                            {getExpiryLabel(promo.expires_at)}
+                          </span>
+                        </div>
                       </div>
+
+                      <Link
+                        href={`/codes/${promo.slug || promo.id}`}
+                        className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                      >
+                        Відкрити
+                      </Link>
                     </div>
 
-                    <p className="mt-4 text-xl font-black text-emerald-300">
-                      {promo.discount_value || "Знижка не вказана"}
-                    </p>
-
                     {promo.description && (
-                      <p className="mt-3 line-clamp-3 leading-7 text-slate-400">
+                      <p className="mt-4 line-clamp-3 leading-7 text-slate-400">
                         {promo.description}
                       </p>
                     )}
 
-                    {authorProfile ? (
-                      authorProfile.username ? (
-                        <Link
-                          href={`/u/${authorProfile.username}`}
-                          className="mt-5 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-3 transition hover:border-emerald-400/50"
-                        >
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-400/30 bg-slate-900 text-sm font-black text-emerald-300">
-                            {authorProfile.avatar_url ? (
-                              <img
-                                src={authorProfile.avatar_url}
-                                alt={getAuthorName(authorProfile)}
-                                className="h-full w-full object-cover"
-                                referrerPolicy="no-referrer"
-                              />
-                            ) : (
-                              <span>{getAuthorFallback(authorProfile)}</span>
-                            )}
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="truncate text-xs font-bold text-slate-500">
-                              Додав користувач
-                            </p>
-
-                            <p className="truncate text-sm font-black text-white">
-                              {getAuthorName(authorProfile)}
-                            </p>
-
-                            <p className="truncate text-xs font-black text-emerald-300">
-                              @{authorProfile.username}
-                            </p>
-                          </div>
-                        </Link>
-                      ) : (
-                        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-3">
-                          <p className="text-xs font-bold text-slate-500">
-                            Додав користувач
-                          </p>
-
-                          <p className="mt-1 text-sm font-black text-slate-300">
-                            Профіль ще не має публічного нікнейму
-                          </p>
-                        </div>
-                      )
-                    ) : promo.submitted_by ? (
-                      <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-3">
-                        <p className="text-xs font-bold text-slate-500">
-                          Додав користувач
-                        </p>
-
-                        <p className="mt-1 text-sm font-black text-slate-300">
-                          Профіль ще не налаштовано
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="mt-5 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-3">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-400/30 bg-slate-900">
-                          <img
-                            src="/icons/promoptaha-bird.png"
-                            alt="ПромоПтаха"
-                            className="h-full w-full object-contain p-1"
-                          />
+                    <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_auto]">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 text-sm font-black text-emerald-300">
+                          {author?.avatar_url ? (
+                            <img
+                              src={author.avatar_url}
+                              alt={getUserName(author)}
+                              className="h-full w-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <span>{getAvatarFallback(author)}</span>
+                          )}
                         </div>
 
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-bold text-slate-500">
-                            Додав користувач
+                          {author?.username ? (
+                            <Link
+                              href={`/u/${author.username}`}
+                              className="truncate font-black text-emerald-300 transition hover:text-emerald-200"
+                            >
+                              {getUserName(author)}
+                            </Link>
+                          ) : (
+                            <p className="truncate font-black text-slate-300">
+                              {getUserName(author)}
+                            </p>
+                          )}
+
+                          <div className="mt-1">
+                            {promo.submitted_by ? (
+                              <UserLevelBadge
+                                approvedPromos={authorApprovedCount}
+                                size="sm"
+                              />
+                            ) : (
+                              <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-black text-slate-300">
+                                🐦 ПромоПтаха
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3">
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
+                          <p className="text-xs font-bold text-slate-500">
+                            Надійність
                           </p>
 
-                          <p className="truncate text-sm font-black text-white">
-                            ПромоПтаха
+                          <p className="mt-1 font-black text-slate-200">
+                            {worksPercent === null ? "Немає" : `${worksPercent}%`}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
+                          <p className="text-xs font-bold text-slate-500">
+                            Працює
                           </p>
 
-                          <p className="truncate text-xs font-black text-emerald-300">
-                            службовий автор старих промокодів
+                          <p className="mt-1 font-black text-emerald-300">
+                            {Number(promo.works_count || 0)}
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
+                          <p className="text-xs font-bold text-slate-500">
+                            Додано
+                          </p>
+
+                          <p className="mt-1 font-black text-slate-200">
+                            {formatDate(promo.created_at)}
                           </p>
                         </div>
                       </div>
-                    )}
-
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-                        <p className="text-xs font-bold text-slate-500">
-                          Діє до
-                        </p>
-
-                        <p className="mt-1 font-black text-slate-200">
-                          {formatDate(promo.expires_at)}
-                        </p>
-
-                        {daysLeft !== null && !expired && (
-                          <p className="mt-1 text-xs font-bold text-emerald-300">
-                            {daysLeft} дн.
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-                        <p className="text-xs font-bold text-slate-500">
-                          Надійність
-                        </p>
-
-                        <p className="mt-1 font-black text-slate-200">
-                          {worksPercent === null ? "Немає" : `${worksPercent}%`}
-                        </p>
-
-                        <p className="mt-1 text-xs font-bold text-slate-500">
-                          👍 {Number(promo.works_count || 0)} / 👎{" "}
-                          {Number(promo.not_works_count || 0)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-auto flex flex-wrap gap-3 pt-5">
-                      <button
-                        type="button"
-                        onClick={() => copyCode(promo)}
-                        disabled={copyingId === promo.id}
-                        className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {copyingId === promo.id ? "Скопійовано" : "Копіювати"}
-                      </button>
-
-                      <Link
-                        href={getPromoLink(promo)}
-                        className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                      >
-                        Деталі
-                      </Link>
                     </div>
                   </article>
                 );

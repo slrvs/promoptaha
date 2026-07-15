@@ -1,44 +1,44 @@
 "use client";
 
-import UserLevelBadge from "@/components/UserLevelBadge";
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import UserLevelBadge from "@/components/UserLevelBadge";
 
 export type CommunityUser = {
   id: string;
+  email?: string | null;
   username?: string | null;
-  display_name?: string | null;
-  avatar_url?: string | null;
+  displayName?: string | null;
+  avatarUrl?: string | null;
   bio?: string | null;
-  website_url?: string | null;
-  instagram_url?: string | null;
-  telegram_url?: string | null;
-  tiktok_url?: string | null;
-  youtube_url?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  name: string;
   approvedPromos: number;
-  actualPromos: number;
-  expiredPromos: number;
-  worksVotes: number;
-  notWorksVotes: number;
   storesCount: number;
+  worksCount: number;
 };
 
 type UsersClientProps = {
-  users: CommunityUser[];
+  initialUsers: CommunityUser[];
 };
 
 type SortMode =
-  | "top_promos"
-  | "actual_promos"
-  | "works_votes"
-  | "stores"
+  | "top"
   | "newest"
   | "oldest"
+  | "promos"
+  | "stores"
+  | "works"
   | "name";
 
-type FilterMode = "all" | "authors" | "with_bio" | "with_socials" | "empty";
+type LevelFilter =
+  | "all"
+  | "newbie"
+  | "author"
+  | "hunter"
+  | "top_author"
+  | "legend";
 
 function normalizeText(value: string) {
   return value
@@ -48,20 +48,8 @@ function normalizeText(value: string) {
     .replace(/\s+/g, " ");
 }
 
-function getProfileName(profile: CommunityUser) {
-  return profile.display_name || profile.username || "Користувач";
-}
-
-function getAvatarFallback(profile: CommunityUser) {
-  const name = getProfileName(profile).trim();
-
-  if (!name) return "🐦";
-
-  return name.slice(0, 1).toUpperCase();
-}
-
 function formatDate(date: string | null | undefined) {
-  if (!date) return "Невідомо";
+  if (!date) return "Не вказано";
 
   return new Intl.DateTimeFormat("uk-UA", {
     day: "2-digit",
@@ -70,14 +58,12 @@ function formatDate(date: string | null | undefined) {
   }).format(new Date(date));
 }
 
-function getSocialCount(profile: CommunityUser) {
-  return [
-    profile.website_url,
-    profile.instagram_url,
-    profile.telegram_url,
-    profile.tiktok_url,
-    profile.youtube_url,
-  ].filter(Boolean).length;
+function getAvatarFallback(user: CommunityUser) {
+  const name = user.name.trim();
+
+  if (!name) return "🐦";
+
+  return name.slice(0, 1).toUpperCase();
 }
 
 function userMatchesSearch(user: CommunityUser, searchQuery: string) {
@@ -87,14 +73,13 @@ function userMatchesSearch(user: CommunityUser, searchQuery: string) {
 
   const searchableText = normalizeText(
     [
+      user.name,
       user.username,
-      user.display_name,
+      user.email,
       user.bio,
-      user.website_url,
-      user.instagram_url,
-      user.telegram_url,
-      user.tiktok_url,
-      user.youtube_url,
+      user.approvedPromos,
+      user.storesCount,
+      user.worksCount,
     ]
       .filter(Boolean)
       .join(" ")
@@ -103,23 +88,27 @@ function userMatchesSearch(user: CommunityUser, searchQuery: string) {
   return searchableText.includes(query);
 }
 
-function userMatchesFilter(user: CommunityUser, filterMode: FilterMode) {
-  if (filterMode === "all") return true;
+function userMatchesLevel(user: CommunityUser, levelFilter: LevelFilter) {
+  if (levelFilter === "all") return true;
 
-  if (filterMode === "authors") {
-    return user.approvedPromos > 0;
-  }
-
-  if (filterMode === "with_bio") {
-    return Boolean(user.bio?.trim());
-  }
-
-  if (filterMode === "with_socials") {
-    return getSocialCount(user) > 0;
-  }
-
-  if (filterMode === "empty") {
+  if (levelFilter === "newbie") {
     return user.approvedPromos === 0;
+  }
+
+  if (levelFilter === "author") {
+    return user.approvedPromos >= 1 && user.approvedPromos < 5;
+  }
+
+  if (levelFilter === "hunter") {
+    return user.approvedPromos >= 5 && user.approvedPromos < 15;
+  }
+
+  if (levelFilter === "top_author") {
+    return user.approvedPromos >= 15 && user.approvedPromos < 50;
+  }
+
+  if (levelFilter === "legend") {
+    return user.approvedPromos >= 50;
   }
 
   return true;
@@ -127,112 +116,91 @@ function userMatchesFilter(user: CommunityUser, filterMode: FilterMode) {
 
 function sortUsers(users: CommunityUser[], sortMode: SortMode) {
   return [...users].sort((firstUser, secondUser) => {
-    if (sortMode === "actual_promos") {
-      if (secondUser.actualPromos !== firstUser.actualPromos) {
-        return secondUser.actualPromos - firstUser.actualPromos;
-      }
-
-      return secondUser.approvedPromos - firstUser.approvedPromos;
-    }
-
-    if (sortMode === "works_votes") {
-      if (secondUser.worksVotes !== firstUser.worksVotes) {
-        return secondUser.worksVotes - firstUser.worksVotes;
-      }
-
-      return secondUser.approvedPromos - firstUser.approvedPromos;
-    }
-
-    if (sortMode === "stores") {
-      if (secondUser.storesCount !== firstUser.storesCount) {
-        return secondUser.storesCount - firstUser.storesCount;
-      }
-
-      return secondUser.approvedPromos - firstUser.approvedPromos;
-    }
-
     if (sortMode === "newest") {
       return (
-        new Date(secondUser.created_at || 0).getTime() -
-        new Date(firstUser.created_at || 0).getTime()
+        new Date(secondUser.createdAt || 0).getTime() -
+        new Date(firstUser.createdAt || 0).getTime()
       );
     }
 
     if (sortMode === "oldest") {
       return (
-        new Date(firstUser.created_at || 0).getTime() -
-        new Date(secondUser.created_at || 0).getTime()
+        new Date(firstUser.createdAt || 0).getTime() -
+        new Date(secondUser.createdAt || 0).getTime()
       );
     }
 
+    if (sortMode === "promos") {
+      return secondUser.approvedPromos - firstUser.approvedPromos;
+    }
+
+    if (sortMode === "stores") {
+      return secondUser.storesCount - firstUser.storesCount;
+    }
+
+    if (sortMode === "works") {
+      return secondUser.worksCount - firstUser.worksCount;
+    }
+
     if (sortMode === "name") {
-      return getProfileName(firstUser).localeCompare(getProfileName(secondUser));
+      return firstUser.name.localeCompare(secondUser.name, "uk");
     }
 
     if (secondUser.approvedPromos !== firstUser.approvedPromos) {
       return secondUser.approvedPromos - firstUser.approvedPromos;
     }
 
-    if (secondUser.worksVotes !== firstUser.worksVotes) {
-      return secondUser.worksVotes - firstUser.worksVotes;
-    }
-
-    return getProfileName(firstUser).localeCompare(getProfileName(secondUser));
+    return secondUser.worksCount - firstUser.worksCount;
   });
 }
 
-export default function UsersClient({ users }: UsersClientProps) {
+export default function UsersClient({ initialUsers }: UsersClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortMode, setSortMode] = useState<SortMode>("top_promos");
-  const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>("all");
+  const [sortMode, setSortMode] = useState<SortMode>("top");
 
   const filteredUsers = useMemo(() => {
-    const filtered = users.filter((user) => {
+    const filtered = initialUsers.filter((user) => {
       return (
         userMatchesSearch(user, searchQuery) &&
-        userMatchesFilter(user, filterMode)
+        userMatchesLevel(user, levelFilter)
       );
     });
 
     return sortUsers(filtered, sortMode);
-  }, [users, searchQuery, filterMode, sortMode]);
+  }, [initialUsers, searchQuery, levelFilter, sortMode]);
 
-  const globalStats = useMemo(() => {
-    return {
-      publicProfiles: users.length,
-      activeAuthors: users.filter((user) => user.approvedPromos > 0).length,
-      totalPromos: users.reduce((sum, user) => sum + user.approvedPromos, 0),
-      totalActualPromos: users.reduce(
-        (sum, user) => sum + user.actualPromos,
-        0
-      ),
-      totalExpiredPromos: users.reduce(
-        (sum, user) => sum + user.expiredPromos,
-        0
-      ),
-      totalWorksVotes: users.reduce((sum, user) => sum + user.worksVotes, 0),
-      totalNotWorksVotes: users.reduce(
-        (sum, user) => sum + user.notWorksVotes,
-        0
-      ),
-      usersWithSocials: users.filter((user) => getSocialCount(user) > 0).length,
-    };
-  }, [users]);
+  const stats = useMemo(() => {
+    const totalUsers = initialUsers.length;
+    const usersWithPromos = initialUsers.filter(
+      (user) => user.approvedPromos > 0
+    ).length;
+    const totalPromos = initialUsers.reduce(
+      (sum, user) => sum + user.approvedPromos,
+      0
+    );
+    const totalWorks = initialUsers.reduce(
+      (sum, user) => sum + user.worksCount,
+      0
+    );
+    const legends = initialUsers.filter(
+      (user) => user.approvedPromos >= 50
+    ).length;
 
-  const filteredStats = useMemo(() => {
     return {
-      users: filteredUsers.length,
-      authors: filteredUsers.filter((user) => user.approvedPromos > 0).length,
-      promos: filteredUsers.reduce((sum, user) => sum + user.approvedPromos, 0),
-      actual: filteredUsers.reduce((sum, user) => sum + user.actualPromos, 0),
-      works: filteredUsers.reduce((sum, user) => sum + user.worksVotes, 0),
+      totalUsers,
+      usersWithPromos,
+      totalPromos,
+      totalWorks,
+      legends,
+      found: filteredUsers.length,
     };
-  }, [filteredUsers]);
+  }, [initialUsers, filteredUsers]);
 
   function resetFilters() {
     setSearchQuery("");
-    setFilterMode("all");
-    setSortMode("top_promos");
+    setLevelFilter("all");
+    setSortMode("top");
   }
 
   return (
@@ -246,27 +214,33 @@ export default function UsersClient({ users }: UsersClientProps) {
           <span className="text-slate-300">Спільнота</span>
         </div>
 
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
+        <section className="overflow-hidden rounded-[2.5rem] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.16),_transparent_36%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(2,6,23,0.98))] shadow-2xl shadow-emerald-950/30">
+          <div className="grid gap-8 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
             <div>
               <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Спільнота ПромоПтахи
               </p>
 
-              <h1 className="text-5xl font-black tracking-tight md:text-7xl">
-                Люди, які допомагають знаходити знижки
+              <h1 className="max-w-4xl text-5xl font-black tracking-tight md:text-7xl">
+                Автори, які приносять знижки
               </h1>
 
               <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
-                Тут зібрані користувачі, які налаштували публічний профіль,
-                додають промокоди та допомагають перевіряти актуальність
-                знижок.
+                Тут зібрані користувачі, які додають промокоди, допомагають
+                перевіряти їх і розвивають базу знижок.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
-                  href="/add"
+                  href="/levels"
                   className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+                >
+                  Як працюють рівні
+                </Link>
+
+                <Link
+                  href="/add"
+                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
                   Додати промокод
                 </Link>
@@ -277,50 +251,43 @@ export default function UsersClient({ users }: UsersClientProps) {
                 >
                   Мій профіль
                 </Link>
-
-                <Link
-                  href="/codes"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                >
-                  Всі промокоди
-                </Link>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-6">
                 <p className="text-4xl font-black text-white">
-                  {globalStats.publicProfiles}
+                  {stats.totalUsers}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  публічних профілів
+                  користувачів
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-6">
                 <p className="text-4xl font-black text-emerald-300">
-                  {globalStats.activeAuthors}
+                  {stats.usersWithPromos}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  активних авторів
+                  авторів з кодами
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-6">
                 <p className="text-4xl font-black text-yellow-300">
-                  {globalStats.totalActualPromos}
+                  {stats.totalPromos}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  актуальних промокодів
+                  схвалених кодів
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-6">
                 <p className="text-4xl font-black text-white">
-                  {globalStats.totalWorksVotes}
+                  {stats.legends}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  голосів “працює”
+                  легенд спільноти
                 </p>
               </div>
             </div>
@@ -328,31 +295,34 @@ export default function UsersClient({ users }: UsersClientProps) {
         </section>
 
         <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-          <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr_0.8fr_auto]">
+          <div className="grid gap-4 lg:grid-cols-[1fr_0.55fr_0.55fr_auto]">
             <label className="grid gap-2">
               <span className="text-sm font-black text-slate-300">Пошук</span>
 
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Нікнейм, імʼя, опис, соцмережа..."
+                placeholder="Імʼя, username, опис..."
                 className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
               />
             </label>
 
             <label className="grid gap-2">
-              <span className="text-sm font-black text-slate-300">Фільтр</span>
+              <span className="text-sm font-black text-slate-300">Рівень</span>
 
               <select
-                value={filterMode}
-                onChange={(event) => setFilterMode(event.target.value as FilterMode)}
+                value={levelFilter}
+                onChange={(event) =>
+                  setLevelFilter(event.target.value as LevelFilter)
+                }
                 className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
               >
-                <option value="all">Всі профілі</option>
-                <option value="authors">Тільки автори</option>
-                <option value="with_bio">З описом</option>
-                <option value="with_socials">З посиланнями</option>
-                <option value="empty">Без промокодів</option>
+                <option value="all">Всі рівні</option>
+                <option value="newbie">🐣 Новачки</option>
+                <option value="author">🟢 Автори</option>
+                <option value="hunter">🔥 Мисливці</option>
+                <option value="top_author">🏆 Топ автори</option>
+                <option value="legend">👑 Легенди</option>
               </select>
             </label>
 
@@ -366,12 +336,12 @@ export default function UsersClient({ users }: UsersClientProps) {
                 onChange={(event) => setSortMode(event.target.value as SortMode)}
                 className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
               >
-                <option value="top_promos">Більше промокодів</option>
-                <option value="actual_promos">Більше актуальних</option>
-                <option value="works_votes">Більше голосів “працює”</option>
-                <option value="stores">Більше магазинів</option>
-                <option value="newest">Нові профілі</option>
-                <option value="oldest">Старі профілі</option>
+                <option value="top">Топ спочатку</option>
+                <option value="newest">Новіші</option>
+                <option value="oldest">Старіші</option>
+                <option value="promos">За кодами</option>
+                <option value="stores">За магазинами</option>
+                <option value="works">За підтвердженнями</option>
                 <option value="name">За імʼям</option>
               </select>
             </label>
@@ -386,43 +356,6 @@ export default function UsersClient({ users }: UsersClientProps) {
               </button>
             </div>
           </div>
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-              <p className="text-2xl font-black text-white">
-                {filteredStats.users}
-              </p>
-              <p className="text-xs font-bold text-slate-500">знайдено</p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-              <p className="text-2xl font-black text-emerald-300">
-                {filteredStats.authors}
-              </p>
-              <p className="text-xs font-bold text-slate-500">авторів</p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-              <p className="text-2xl font-black text-white">
-                {filteredStats.promos}
-              </p>
-              <p className="text-xs font-bold text-slate-500">промокодів</p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-              <p className="text-2xl font-black text-yellow-300">
-                {filteredStats.actual}
-              </p>
-              <p className="text-xs font-bold text-slate-500">актуальних</p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-              <p className="text-2xl font-black text-white">
-                {filteredStats.works}
-              </p>
-              <p className="text-xs font-bold text-slate-500">працює</p>
-            </div>
-          </div>
         </section>
 
         <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
@@ -431,49 +364,43 @@ export default function UsersClient({ users }: UsersClientProps) {
               <h2 className="text-3xl font-black">Учасники</h2>
 
               <p className="mt-2 leading-7 text-slate-400">
-                Можна шукати за нікнеймом, імʼям, описом або посиланнями.
+                Показано: {stats.found} / {stats.totalUsers}
               </p>
             </div>
 
-            <p className="rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black text-slate-300">
-              Показано: {filteredUsers.length} / {users.length}
-            </p>
+            <Link
+              href="/levels"
+              className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+            >
+              Рівні спільноти
+            </Link>
           </div>
 
           {filteredUsers.length === 0 ? (
-            <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-10 text-center">
-              <div className="text-6xl">🐦</div>
+            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
+              <div className="text-5xl">👥</div>
 
-              <h3 className="mt-5 text-3xl font-black">
-                Нічого не знайдено
+              <h3 className="mt-4 text-2xl font-black">
+                Користувачів не знайдено
               </h3>
 
-              <p className="mx-auto mt-3 max-w-xl leading-7 text-slate-400">
-                Спробуй змінити пошук, фільтр або сортування.
+              <p className="mx-auto mt-3 max-w-md leading-7 text-slate-400">
+                Спробуй змінити пошук, рівень або сортування.
               </p>
-
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="mt-8 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
-              >
-                Скинути фільтри
-              </button>
             </div>
           ) : (
             <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               {filteredUsers.map((user, index) => (
-                <Link
+                <article
                   key={user.id}
-                  href={`/u/${user.username}`}
-                  className="flex flex-col rounded-[2rem] border border-slate-800 bg-slate-950 p-5 transition hover:border-emerald-400/50"
+                  className="flex flex-col rounded-[2rem] border border-slate-800 bg-slate-950 p-5 transition hover:border-emerald-400/40"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.5rem] border border-emerald-400/30 bg-slate-900 text-3xl font-black text-emerald-300">
-                      {user.avatar_url ? (
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 text-2xl font-black text-emerald-300">
+                      {user.avatarUrl ? (
                         <img
-                          src={user.avatar_url}
-                          alt={getProfileName(user)}
+                          src={user.avatarUrl}
+                          alt={user.name}
                           className="h-full w-full object-cover"
                           referrerPolicy="no-referrer"
                         />
@@ -483,85 +410,92 @@ export default function UsersClient({ users }: UsersClientProps) {
                     </div>
 
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-xs font-black text-slate-400">
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-black text-slate-400">
                           #{index + 1}
                         </span>
 
-                        <UserLevelBadge approvedPromos={user.approvedPromos} size="sm" />
-                     
+                        <UserLevelBadge
+                          approvedPromos={user.approvedPromos}
+                          size="sm"
+                        />
                       </div>
 
-                      <h3 className="mt-2 truncate text-2xl font-black text-white">
-                        {getProfileName(user)}
-                      </h3>
+                      {user.username ? (
+                        <Link
+                          href={`/u/${user.username}`}
+                          className="break-words text-2xl font-black text-white transition hover:text-emerald-300"
+                        >
+                          {user.name}
+                        </Link>
+                      ) : (
+                        <p className="break-words text-2xl font-black text-white">
+                          {user.name}
+                        </p>
+                      )}
 
-                      <p className="mt-1 truncate text-sm font-black text-emerald-300">
-                        @{user.username}
-                      </p>
+                      {user.username && (
+                        <p className="mt-1 text-sm font-bold text-emerald-300">
+                          @{user.username}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {user.bio ? (
-                    <p className="mt-5 line-clamp-3 min-h-[84px] leading-7 text-slate-400">
+                  {user.bio && (
+                    <p className="mt-5 line-clamp-3 leading-7 text-slate-400">
                       {user.bio}
-                    </p>
-                  ) : (
-                    <p className="mt-5 line-clamp-3 min-h-[84px] leading-7 text-slate-500">
-                      Користувач ще не додав опис профілю.
                     </p>
                   )}
 
-                  <div className="mt-5 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                      <p className="text-2xl font-black text-white">
+                  <div className="mt-5 grid grid-cols-3 gap-3">
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                      <p className="text-xl font-black text-emerald-300">
                         {user.approvedPromos}
                       </p>
-                      <p className="text-xs font-bold text-slate-500">
-                        промокодів
+                      <p className="mt-1 text-xs font-bold text-slate-500">
+                        кодів
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                      <p className="text-2xl font-black text-emerald-300">
-                        {user.actualPromos}
-                      </p>
-                      <p className="text-xs font-bold text-slate-500">
-                        актуальні
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                      <p className="text-2xl font-black text-yellow-300">
-                        {user.worksVotes}
-                      </p>
-                      <p className="text-xs font-bold text-slate-500">
-                        працює
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                      <p className="text-2xl font-black text-white">
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                      <p className="text-xl font-black text-white">
                         {user.storesCount}
                       </p>
-                      <p className="text-xs font-bold text-slate-500">
+                      <p className="mt-1 text-xs font-bold text-slate-500">
                         магазинів
                       </p>
                     </div>
+
+                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                      <p className="text-xl font-black text-yellow-300">
+                        {user.worksCount}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-slate-500">
+                        працює
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    <span className="rounded-full border border-slate-700 px-3 py-2 text-xs font-black text-slate-300">
-                      На сайті з {formatDate(user.created_at)}
-                    </span>
-
-                    {getSocialCount(user) > 0 && (
-                      <span className="rounded-full border border-slate-700 px-3 py-2 text-xs font-black text-slate-300">
-                        посилань: {getSocialCount(user)}
+                  <div className="mt-auto pt-5">
+                    {user.username ? (
+                      <Link
+                        href={`/u/${user.username}`}
+                        className="inline-flex rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                      >
+                        Відкрити профіль
+                      </Link>
+                    ) : (
+                      <span className="inline-flex rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-400">
+                        Без публічного username
                       </span>
                     )}
                   </div>
-                </Link>
+
+                  <p className="mt-4 text-xs font-bold text-slate-600">
+                    На сайті з {formatDate(user.createdAt)}
+                  </p>
+                </article>
               ))}
             </div>
           )}
