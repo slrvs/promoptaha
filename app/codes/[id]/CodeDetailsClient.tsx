@@ -1,9 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
+import UserLevelBadge from "@/components/UserLevelBadge";
 
 type VoteType = "works" | "not_works";
 
@@ -40,7 +46,8 @@ type Store = {
   name: string;
   slug: string;
   website_url?: string | null;
-  description?: string | null;
+  category_names?: string[] | null;
+  category_slugs?: string[] | null;
 };
 
 type UserProfile = {
@@ -83,6 +90,13 @@ type FavoriteRecord = {
   created_at?: string | null;
 };
 
+type VoteRecord = {
+  id: string;
+  promo_code_id: string;
+  user_id: string;
+  vote_type: VoteType;
+};
+
 type CodeDetailsClientProps = {
   promo: Promo;
 };
@@ -95,12 +109,19 @@ const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
-function normalizeText(value: string) {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[ʼ’`]/g, "'")
-    .replace(/\s+/g, " ");
+function normalizeOptionalUrl(value: string | null | undefined) {
+  const trimmedValue = String(value || "").trim();
+
+  if (!trimmedValue) return "";
+
+  if (
+    trimmedValue.startsWith("http://") ||
+    trimmedValue.startsWith("https://")
+  ) {
+    return trimmedValue;
+  }
+
+  return `https://${trimmedValue}`;
 }
 
 function formatDate(date: string | null | undefined) {
@@ -108,7 +129,7 @@ function formatDate(date: string | null | undefined) {
 
   return new Intl.DateTimeFormat("uk-UA", {
     day: "2-digit",
-    month: "long",
+    month: "2-digit",
     year: "numeric",
   }).format(new Date(date));
 }
@@ -129,39 +150,39 @@ function getDaysLeft(date: string | null | undefined) {
   if (!date) return null;
 
   const now = new Date();
-  const end = new Date(date);
-  const diff = end.getTime() - now.getTime();
+  const target = new Date(date);
+  const difference = target.getTime() - now.getTime();
 
-  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  return Math.ceil(difference / (1000 * 60 * 60 * 24));
 }
 
-function isExpired(date: string | null | undefined) {
-  if (!date) return false;
+function getExpiryLabel(date: string | null | undefined) {
+  const daysLeft = getDaysLeft(date);
 
-  return new Date(date) < new Date();
+  if (daysLeft === null) return "Без терміну";
+  if (daysLeft < 0) return "Закінчився";
+  if (daysLeft === 0) return "Сьогодні";
+  if (daysLeft === 1) return "Завтра";
+
+  return `${daysLeft} дн.`;
 }
 
-function getSourceTypeLabel(sourceType: string | null | undefined) {
-  if (sourceType === "youtube") return "YouTube";
-  if (sourceType === "telegram") return "Telegram";
-  if (sourceType === "instagram") return "Instagram";
-  if (sourceType === "tiktok") return "TikTok";
-  if (sourceType === "website") return "Сайт";
-  if (sourceType === "other") return "Інше";
+function getExpiryClass(date: string | null | undefined) {
+  const daysLeft = getDaysLeft(date);
 
-  return sourceType || "Не вказано";
-}
+  if (daysLeft === null) {
+    return "border-slate-700 bg-slate-900 text-slate-300";
+  }
 
-function getAuthorName(profile: UserProfile | null | undefined) {
-  return profile?.display_name || profile?.username || "Користувач";
-}
+  if (daysLeft < 0) {
+    return "border-red-400/30 bg-red-400/10 text-red-300";
+  }
 
-function getAuthorFallback(profile: UserProfile | null | undefined) {
-  const name = getAuthorName(profile).trim();
+  if (daysLeft <= 7) {
+    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
+  }
 
-  if (!name) return "🐦";
-
-  return name.slice(0, 1).toUpperCase();
+  return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
 }
 
 function getWorksPercent(worksCount: number, notWorksCount: number) {
@@ -172,38 +193,68 @@ function getWorksPercent(worksCount: number, notWorksCount: number) {
   return Math.round((worksCount / total) * 100);
 }
 
-function validateCommentBody(body: string, forbiddenWords: ForbiddenWord[]) {
-  const trimmedBody = body.trim();
+function getProfileName(profile: UserProfile | null | undefined) {
+  return (
+    profile?.display_name ||
+    profile?.username ||
+    profile?.email?.split("@")[0] ||
+    "ПромоПтаха"
+  );
+}
 
-  if (trimmedBody.length < 2) {
-    return "Коментар має містити хоча б 2 символи.";
-  }
+function getAvatarFallback(profile: UserProfile | null | undefined) {
+  const name = getProfileName(profile).trim();
 
-  if (trimmedBody.length > 1000) {
-    return "Коментар занадто довгий. Максимум — 1000 символів.";
-  }
+  if (!name) return "🐦";
 
-  const normalizedBody = normalizeText(trimmedBody);
+  return name.slice(0, 1).toUpperCase();
+}
 
-  const blockedWord = forbiddenWords.find((item) => {
-    const normalizedWord = normalizeText(item.word || "");
+function getSourceLabel(sourceType: string | null | undefined) {
+  if (sourceType === "youtube") return "YouTube";
+  if (sourceType === "telegram") return "Telegram";
+  if (sourceType === "instagram") return "Instagram";
+  if (sourceType === "tiktok") return "TikTok";
+  if (sourceType === "website") return "Сайт";
+  if (sourceType === "other") return "Інше";
 
-    if (!normalizedWord) return false;
+  return sourceType || "Не вказано";
+}
 
-    return normalizedBody.includes(normalizedWord);
-  });
+function getSocialLinks(profile: UserProfile | null) {
+  if (!profile) return [];
 
-  if (blockedWord) {
-    return "Коментар містить заборонене слово.";
-  }
-
-  return null;
+  return [
+    {
+      label: "Сайт",
+      href: profile.website_url,
+    },
+    {
+      label: "Instagram",
+      href: profile.instagram_url,
+    },
+    {
+      label: "Telegram",
+      href: profile.telegram_url,
+    },
+    {
+      label: "TikTok",
+      href: profile.tiktok_url,
+    },
+    {
+      label: "YouTube",
+      href: profile.youtube_url,
+    },
+  ].filter((link): link is { label: string; href: string } =>
+    Boolean(link.href)
+  );
 }
 
 export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
   const [user, setUser] = useState<User | null>(null);
   const [store, setStore] = useState<Store | null>(null);
   const [authorProfile, setAuthorProfile] = useState<UserProfile | null>(null);
+  const [authorApprovedPromos, setAuthorApprovedPromos] = useState(0);
 
   const [worksCount, setWorksCount] = useState(Number(promo.works_count || 0));
   const [notWorksCount, setNotWorksCount] = useState(
@@ -211,132 +262,134 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
   );
   const [myVote, setMyVote] = useState<VoteType | null>(null);
 
+  const [favoriteId, setFavoriteId] = useState<string | null>(null);
+
   const [comments, setComments] = useState<PromoComment[]>([]);
   const [commentProfilesMap, setCommentProfilesMap] = useState<
     Map<string, UserProfile>
   >(new Map());
   const [forbiddenWords, setForbiddenWords] = useState<ForbiddenWord[]>([]);
+
   const [commentBody, setCommentBody] = useState("");
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentBody, setEditingCommentBody] = useState("");
 
-  const [favoriteId, setFavoriteId] = useState<string | null>(null);
+  const [reportDescription, setReportDescription] = useState("");
 
-  const [isLoadingExtraData, setIsLoadingExtraData] = useState(true);
+  const [isLoadingExtra, setIsLoadingExtra] = useState(true);
+  const [isCopying, setIsCopying] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
-  const [isReportOpen, setIsReportOpen] = useState(false);
-  const [isSavingFavorite, setIsSavingFavorite] = useState(false);
-  const [isSendingComment, setIsSendingComment] = useState(false);
+  const [isAddingComment, setIsAddingComment] = useState(false);
   const [isUpdatingComment, setIsUpdatingComment] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
     null
   );
-
-  const [reportDescription, setReportDescription] = useState("");
 
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "info">(
     "info"
   );
 
-  const daysLeft = getDaysLeft(promo.expires_at);
-  const expired = isExpired(promo.expires_at);
+  const sourceUrl = normalizeOptionalUrl(promo.source_url);
+  const storeWebsiteUrl = store?.website_url || "";
   const worksPercent = getWorksPercent(worksCount, notWorksCount);
+  const categoryNames = promo.all_category_names?.length
+    ? promo.all_category_names
+    : promo.category_name
+      ? [promo.category_name]
+      : [];
 
-  const allCategoryNames = useMemo(() => {
-    const names = [
-      promo.category_name,
-      ...(promo.all_category_names || []),
-    ].filter((name): name is string => Boolean(name));
-
-    return Array.from(new Set(names));
-  }, [promo.category_name, promo.all_category_names]);
-
-  const isFavorite = Boolean(favoriteId);
+  const socialLinks = useMemo(() => {
+    return getSocialLinks(authorProfile);
+  }, [authorProfile]);
 
   async function loadExtraData() {
-    setIsLoadingExtraData(true);
+    setIsLoadingExtra(true);
 
     const { data: userData } = await supabase.auth.getUser();
 
-    setUser(userData.user);
+    const currentUser = userData.user;
+
+    setUser(currentUser);
 
     await Promise.all([
       loadStore(),
-      loadAuthorProfile(),
+      loadAuthorProfileAndStats(),
       loadForbiddenWords(),
       loadComments(),
-      userData.user ? loadMyVote(userData.user.id) : Promise.resolve(),
-      userData.user ? loadFavorite(userData.user.id) : Promise.resolve(),
+      currentUser ? loadMyVote(currentUser.id) : Promise.resolve(),
+      currentUser ? loadFavorite(currentUser.id) : Promise.resolve(),
     ]);
 
-    setIsLoadingExtraData(false);
+    setIsLoadingExtra(false);
   }
 
   async function loadStore() {
-    if (!promo.store_id) return;
+    if (!promo.store_id) {
+      setStore(null);
+      return;
+    }
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("store_category_stats")
-      .select("id, name, slug, website_url, description")
+      .select("id, name, slug, website_url, category_names, category_slugs")
       .eq("id", promo.store_id)
       .maybeSingle();
 
-    if (data) {
-      setStore(data as Store);
+    if (error) {
+      setStore(null);
+      return;
     }
+
+    setStore((data as Store | null) || null);
   }
 
-  async function loadAuthorProfile() {
-    if (!promo.submitted_by) return;
-
-    const { data } = await supabase
-      .from("profiles")
-      .select(
-        "id, email, username, display_name, avatar_url, bio, website_url, instagram_url, telegram_url, tiktok_url, youtube_url, created_at, updated_at"
-      )
-      .eq("id", promo.submitted_by)
-      .maybeSingle();
-
-    if (data) {
-      setAuthorProfile(data as UserProfile);
+  async function loadAuthorProfileAndStats() {
+    if (!promo.submitted_by) {
+      setAuthorProfile(null);
+      setAuthorApprovedPromos(0);
+      return;
     }
-  }
 
-  async function loadMyVote(userId: string) {
-    const { data } = await supabase
-      .from("promo_votes")
-      .select("vote_type")
-      .eq("promo_code_id", promo.id)
-      .eq("user_id", userId)
-      .maybeSingle();
+    const [profileResult, approvedResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select(
+          "id, email, username, display_name, avatar_url, bio, website_url, instagram_url, telegram_url, tiktok_url, youtube_url, created_at, updated_at"
+        )
+        .eq("id", promo.submitted_by)
+        .maybeSingle(),
 
-    if (data?.vote_type) {
-      setMyVote(data.vote_type as VoteType);
+      supabase
+        .from("promo_code_category_stats")
+        .select("id")
+        .eq("status", "approved")
+        .eq("submitted_by", promo.submitted_by)
+        .limit(5000),
+    ]);
+
+    if (!profileResult.error) {
+      setAuthorProfile((profileResult.data as UserProfile | null) || null);
     }
-  }
 
-  async function loadFavorite(userId: string) {
-    const { data } = await supabase
-      .from("promo_favorites")
-      .select("id, promo_code_id, user_id, created_at")
-      .eq("promo_code_id", promo.id)
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    const favorite = data as FavoriteRecord | null;
-
-    setFavoriteId(favorite?.id || null);
+    if (!approvedResult.error) {
+      setAuthorApprovedPromos((approvedResult.data || []).length);
+    }
   }
 
   async function loadForbiddenWords() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("forbidden_words")
       .select("id, word, severity, status")
       .eq("status", "active")
-      .eq("severity", "block")
-      .limit(1000);
+      .eq("severity", "block");
+
+    if (error) {
+      setForbiddenWords([]);
+      return;
+    }
 
     setForbiddenWords((data || []) as ForbiddenWord[]);
   }
@@ -348,10 +401,11 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       .eq("promo_code_id", promo.id)
       .eq("status", "visible")
       .order("created_at", { ascending: false })
-      .limit(100);
+      .limit(200);
 
     if (error) {
       setComments([]);
+      setCommentProfilesMap(new Map());
       return;
     }
 
@@ -359,6 +413,10 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
 
     setComments(nextComments);
 
+    await loadCommentProfiles(nextComments);
+  }
+
+  async function loadCommentProfiles(nextComments: PromoComment[]) {
     const userIds = Array.from(
       new Set(
         nextComments
@@ -367,10 +425,6 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       )
     );
 
-    await loadCommentProfiles(userIds);
-  }
-
-  async function loadCommentProfiles(userIds: string[]) {
     if (userIds.length === 0) {
       setCommentProfilesMap(new Map());
       return;
@@ -378,7 +432,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, username, display_name, avatar_url")
+      .select(
+        "id, email, username, display_name, avatar_url, bio, website_url, instagram_url, telegram_url, tiktok_url, youtube_url, created_at, updated_at"
+      )
       .in("id", userIds);
 
     if (error) {
@@ -391,6 +447,42 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     );
 
     setCommentProfilesMap(nextMap);
+  }
+
+  async function loadMyVote(userId: string) {
+    const { data, error } = await supabase
+      .from("promo_votes")
+      .select("id, promo_code_id, user_id, vote_type")
+      .eq("promo_code_id", promo.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      setMyVote(null);
+      return;
+    }
+
+    const voteRecord = (data as VoteRecord | null) || null;
+
+    setMyVote(voteRecord?.vote_type || null);
+  }
+
+  async function loadFavorite(userId: string) {
+    const { data, error } = await supabase
+      .from("promo_favorites")
+      .select("id, promo_code_id, user_id, created_at")
+      .eq("promo_code_id", promo.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      setFavoriteId(null);
+      return;
+    }
+
+    const favorite = (data as FavoriteRecord | null) || null;
+
+    setFavoriteId(favorite?.id || null);
   }
 
   useEffect(() => {
@@ -415,28 +507,136 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     };
   }, [promo.id]);
 
+  function validateCommentBody(value: string) {
+    const trimmedValue = value.trim();
+
+    if (trimmedValue.length < 2) {
+      return "Коментар має містити хоча б 2 символи.";
+    }
+
+    if (trimmedValue.length > 1000) {
+      return "Коментар завеликий. Максимум — 1000 символів.";
+    }
+
+    const lowerValue = trimmedValue.toLowerCase();
+
+    const matchedWord = forbiddenWords.find((forbiddenWord) => {
+      return lowerValue.includes(forbiddenWord.word.toLowerCase());
+    });
+
+    if (matchedWord) {
+      return "Коментар містить заборонене слово.";
+    }
+
+    return "";
+  }
+
   async function copyCode() {
+    setIsCopying(true);
+
     try {
       await navigator.clipboard.writeText(promo.code);
-
-      setMessage("Промокод скопійовано.");
+      setMessage(`Промокод ${promo.code} скопійовано.`);
       setMessageType("success");
     } catch {
       setMessage("Не вдалося скопіювати промокод.");
       setMessageType("error");
     }
+
+    window.setTimeout(() => {
+      setIsCopying(false);
+    }, 700);
   }
 
-  async function toggleFavorite() {
+  async function vote(nextVote: VoteType) {
     if (!user) {
-      setMessage("Щоб зберегти промокод, потрібно увійти.");
+      setMessage("Щоб голосувати, потрібно увійти.");
       setMessageType("error");
       return;
     }
 
-    if (isSavingFavorite) return;
+    if (isVoting) return;
 
-    setIsSavingFavorite(true);
+    setIsVoting(true);
+    setMessage("");
+
+    if (myVote === nextVote) {
+      const { error } = await supabase
+        .from("promo_votes")
+        .delete()
+        .eq("promo_code_id", promo.id)
+        .eq("user_id", user.id);
+
+      setIsVoting(false);
+
+      if (error) {
+        setMessage(`Не вдалося прибрати голос: ${error.message}`);
+        setMessageType("error");
+        return;
+      }
+
+      if (nextVote === "works") {
+        setWorksCount((currentCount) => Math.max(0, currentCount - 1));
+      } else {
+        setNotWorksCount((currentCount) => Math.max(0, currentCount - 1));
+      }
+
+      setMyVote(null);
+      setMessage("Голос прибрано.");
+      setMessageType("success");
+      return;
+    }
+
+    const previousVote = myVote;
+
+    const { error } = await supabase.from("promo_votes").upsert(
+      {
+        promo_code_id: promo.id,
+        user_id: user.id,
+        vote_type: nextVote,
+      },
+      {
+        onConflict: "promo_code_id,user_id",
+      }
+    );
+
+    setIsVoting(false);
+
+    if (error) {
+      setMessage(`Не вдалося проголосувати: ${error.message}`);
+      setMessageType("error");
+      return;
+    }
+
+    if (previousVote === "works") {
+      setWorksCount((currentCount) => Math.max(0, currentCount - 1));
+    }
+
+    if (previousVote === "not_works") {
+      setNotWorksCount((currentCount) => Math.max(0, currentCount - 1));
+    }
+
+    if (nextVote === "works") {
+      setWorksCount((currentCount) => currentCount + 1);
+    } else {
+      setNotWorksCount((currentCount) => currentCount + 1);
+    }
+
+    setMyVote(nextVote);
+    setMessage("Голос зараховано.");
+    setMessageType("success");
+  }
+
+  async function toggleFavorite() {
+    if (!user) {
+      setMessage("Щоб зберігати промокоди, потрібно увійти.");
+      setMessageType("error");
+      return;
+    }
+
+    if (isTogglingFavorite) return;
+
+    setIsTogglingFavorite(true);
     setMessage("");
 
     if (favoriteId) {
@@ -446,7 +646,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
         .eq("id", favoriteId)
         .eq("user_id", user.id);
 
-      setIsSavingFavorite(false);
+      setIsTogglingFavorite(false);
 
       if (error) {
         setMessage(`Не вдалося прибрати зі збережених: ${error.message}`);
@@ -469,7 +669,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       .select("id, promo_code_id, user_id, created_at")
       .single();
 
-    setIsSavingFavorite(false);
+    setIsTogglingFavorite(false);
 
     if (error) {
       setMessage(`Не вдалося зберегти промокод: ${error.message}`);
@@ -480,77 +680,15 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     const favorite = data as FavoriteRecord;
 
     setFavoriteId(favorite.id);
-    setMessage("Промокод збережено. Він зʼявиться у твоєму профілі.");
+    setMessage("Промокод додано до збережених.");
     setMessageType("success");
   }
 
-  async function vote(nextVote: VoteType) {
+  async function submitReport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
     if (!user) {
-      setMessage("Щоб голосувати, потрібно увійти.");
-      setMessageType("error");
-      return;
-    }
-
-    if (isVoting) return;
-
-    setIsVoting(true);
-    setMessage("");
-
-    const previousVote = myVote;
-
-    const { error } = await supabase.from("promo_votes").upsert(
-      {
-        promo_code_id: promo.id,
-        user_id: user.id,
-        vote_type: nextVote,
-      },
-      {
-        onConflict: "promo_code_id,user_id",
-      }
-    );
-
-    setIsVoting(false);
-
-    if (error) {
-      setMessage(`Не вдалося зарахувати голос: ${error.message}`);
-      setMessageType("error");
-      return;
-    }
-
-    if (previousVote === "works") {
-      setWorksCount((current) => Math.max(0, current - 1));
-    }
-
-    if (previousVote === "not_works") {
-      setNotWorksCount((current) => Math.max(0, current - 1));
-    }
-
-    if (nextVote === "works") {
-      setWorksCount((current) => current + 1);
-    }
-
-    if (nextVote === "not_works") {
-      setNotWorksCount((current) => current + 1);
-    }
-
-    setMyVote(nextVote);
-    setMessage(
-      nextVote === "works"
-        ? "Дякуємо, ти підтвердив, що промокод працює."
-        : "Дякуємо, ти повідомив, що промокод не працює."
-    );
-    setMessageType("success");
-  }
-
-  async function submitReport() {
-    if (!user) {
-      setMessage("Щоб поскаржитися на промокод, потрібно увійти.");
-      setMessageType("error");
-      return;
-    }
-
-    if (!reportDescription.trim()) {
-      setMessage("Коротко опиши проблему з промокодом.");
+      setMessage("Щоб надіслати репорт, потрібно увійти.");
       setMessageType("error");
       return;
     }
@@ -561,21 +699,20 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     const { error } = await supabase.from("promo_reports").insert({
       promo_code_id: promo.id,
       reported_by: user.id,
-      description: reportDescription.trim(),
+      description: reportDescription.trim() || null,
       status: "open",
     });
 
     setIsReporting(false);
 
     if (error) {
-      setMessage(`Не вдалося відправити репорт: ${error.message}`);
+      setMessage(`Не вдалося надіслати репорт: ${error.message}`);
       setMessageType("error");
       return;
     }
 
     setReportDescription("");
-    setIsReportOpen(false);
-    setMessage("Репорт відправлено. Адмін перевірить промокод.");
+    setMessage("Репорт надіслано. Дякуємо за допомогу.");
     setMessageType("success");
   }
 
@@ -583,12 +720,12 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     event.preventDefault();
 
     if (!user) {
-      setMessage("Щоб коментувати, потрібно увійти.");
+      setMessage("Щоб писати коментарі, потрібно увійти.");
       setMessageType("error");
       return;
     }
 
-    const validationError = validateCommentBody(commentBody, forbiddenWords);
+    const validationError = validateCommentBody(commentBody);
 
     if (validationError) {
       setMessage(validationError);
@@ -596,7 +733,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       return;
     }
 
-    setIsSendingComment(true);
+    setIsAddingComment(true);
     setMessage("");
 
     const { error } = await supabase.from("promo_comments").insert({
@@ -606,7 +743,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       status: "visible",
     });
 
-    setIsSendingComment(false);
+    setIsAddingComment(false);
 
     if (error) {
       setMessage(`Не вдалося додати коментар: ${error.message}`);
@@ -615,9 +752,10 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     }
 
     setCommentBody("");
+    await loadComments();
+
     setMessage("Коментар додано.");
     setMessageType("success");
-    await loadComments();
   }
 
   function startEditComment(comment: PromoComment) {
@@ -630,13 +768,12 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setEditingCommentBody("");
   }
 
-  async function updateComment(comment: PromoComment) {
-    if (!user) return;
+  async function updateComment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-    const validationError = validateCommentBody(
-      editingCommentBody,
-      forbiddenWords
-    );
+    if (!user || !editingCommentId) return;
+
+    const validationError = validateCommentBody(editingCommentBody);
 
     if (validationError) {
       setMessage(validationError);
@@ -651,8 +788,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       .from("promo_comments")
       .update({
         body: editingCommentBody.trim(),
+        status: "visible",
       })
-      .eq("id", comment.id)
+      .eq("id", editingCommentId)
       .eq("user_id", user.id);
 
     setIsUpdatingComment(false);
@@ -664,9 +802,10 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     }
 
     cancelEditComment();
+    await loadComments();
+
     setMessage("Коментар оновлено.");
     setMessageType("success");
-    await loadComments();
   }
 
   async function deleteComment(comment: PromoComment) {
@@ -693,9 +832,10 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       return;
     }
 
+    await loadComments();
+
     setMessage("Коментар видалено.");
     setMessageType("success");
-    await loadComments();
   }
 
   return (
@@ -712,34 +852,19 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
           </Link>
 
           <span>/</span>
-
-          {promo.store_slug ? (
-            <Link
-              href={`/stores/${promo.store_slug}`}
-              className="hover:text-emerald-300"
-            >
-              {promo.store_name || "Магазин"}
-            </Link>
-          ) : (
-            <span>{promo.store_name || "Магазин"}</span>
-          )}
-
-          <span>/</span>
           <span className="text-slate-300">{promo.code}</span>
         </div>
 
         <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
           <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
             <div>
-              <div className="flex flex-wrap gap-2">
+              <div className="mb-5 flex flex-wrap gap-2">
                 <span
-                  className={`rounded-full border px-4 py-2 text-sm font-black ${
-                    expired
-                      ? "border-red-400/30 bg-red-400/10 text-red-300"
-                      : "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-                  }`}
+                  className={`rounded-full border px-4 py-2 text-sm font-black ${getExpiryClass(
+                    promo.expires_at
+                  )}`}
                 >
-                  {expired ? "Термін минув" : "Активний промокод"}
+                  {getExpiryLabel(promo.expires_at)}
                 </span>
 
                 {promo.category_name && (
@@ -749,11 +874,11 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                 )}
               </div>
 
-              <h1 className="mt-6 break-all text-6xl font-black tracking-tight md:text-8xl">
+              <h1 className="break-all text-6xl font-black tracking-tight md:text-8xl">
                 {promo.code}
               </h1>
 
-              <p className="mt-5 max-w-3xl text-xl font-bold text-emerald-300">
+              <p className="mt-5 text-3xl font-black text-emerald-300">
                 {promo.discount_value || "Знижка не вказана"}
               </p>
 
@@ -767,31 +892,28 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                 <button
                   type="button"
                   onClick={copyCode}
-                  className="rounded-full bg-emerald-400 px-7 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+                  disabled={isCopying}
+                  className="rounded-full bg-emerald-400 px-7 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Скопіювати промокод
+                  {isCopying ? "Скопійовано" : "Копіювати код"}
                 </button>
 
                 <button
                   type="button"
                   onClick={toggleFavorite}
-                  disabled={isSavingFavorite}
-                  className={`rounded-full border px-7 py-4 font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                    isFavorite
-                      ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-300 hover:bg-yellow-400/20"
-                      : "border-slate-700 text-slate-200 hover:border-yellow-400 hover:text-yellow-300"
+                  disabled={isTogglingFavorite}
+                  className={`rounded-full px-7 py-4 font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    favoriteId
+                      ? "bg-yellow-300 text-slate-950 hover:bg-yellow-200"
+                      : "border border-slate-700 text-slate-200 hover:border-yellow-300 hover:text-yellow-300"
                   }`}
                 >
-                  {isSavingFavorite
-                    ? "Зберігаю..."
-                    : isFavorite
-                      ? "★ Збережено"
-                      : "☆ Зберегти"}
+                  {favoriteId ? "★ Збережено" : "☆ Зберегти"}
                 </button>
 
-                {promo.source_url && (
+                {sourceUrl && (
                   <a
-                    href={promo.source_url}
+                    href={sourceUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="rounded-full border border-slate-700 px-7 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
@@ -805,35 +927,35 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                     href={`/stores/${promo.store_slug}`}
                     className="rounded-full border border-slate-700 px-7 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                   >
-                    Сторінка магазину
+                    Магазин
                   </Link>
                 )}
               </div>
             </div>
 
-            <div className="grid gap-5">
+            <div className="grid gap-4">
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
                 <div className="flex items-center gap-4">
                   <StoreLogo
                     name={promo.store_name || store?.name || "Магазин"}
-                    websiteUrl={store?.website_url}
+                    websiteUrl={storeWebsiteUrl}
                     size="md"
                   />
 
-                  <div className="min-w-0">
+                  <div>
                     <p className="text-sm font-bold text-slate-500">Магазин</p>
 
-                    <h2 className="truncate text-2xl font-black text-white">
-                      {promo.store_name || store?.name || "Магазин"}
-                    </h2>
-
-                    {promo.store_slug && (
+                    {promo.store_slug ? (
                       <Link
                         href={`/stores/${promo.store_slug}`}
-                        className="mt-1 inline-flex text-sm font-black text-emerald-300 hover:text-emerald-200"
+                        className="text-2xl font-black text-white transition hover:text-emerald-300"
                       >
-                        /stores/{promo.store_slug}
+                        {promo.store_name || store?.name || "Магазин"}
                       </Link>
+                    ) : (
+                      <p className="text-2xl font-black text-white">
+                        {promo.store_name || store?.name || "Магазин"}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -841,44 +963,29 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                  <p className="text-sm font-bold text-slate-500">Діє до</p>
-
-                  <p className="mt-2 text-2xl font-black text-white">
-                    {formatDate(promo.expires_at)}
+                  <p className="text-4xl font-black text-emerald-300">
+                    {worksCount}
                   </p>
-
-                  {daysLeft !== null && !expired && (
-                    <p className="mt-2 text-sm font-bold text-emerald-300">
-                      Залишилось днів: {daysLeft}
-                    </p>
-                  )}
-                </div>
-
-                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                  <p className="text-sm font-bold text-slate-500">Джерело</p>
-
-                  <p className="mt-2 text-2xl font-black text-white">
-                    {getSourceTypeLabel(promo.source_type)}
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    працює
                   </p>
                 </div>
 
                 <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                  <p className="text-sm font-bold text-slate-500">Додано</p>
-
-                  <p className="mt-2 text-2xl font-black text-white">
-                    {formatDate(promo.created_at)}
+                  <p className="text-4xl font-black text-red-300">
+                    {notWorksCount}
+                  </p>
+                  <p className="mt-2 text-sm font-bold text-slate-500">
+                    не працює
                   </p>
                 </div>
+              </div>
 
-                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                  <p className="text-sm font-bold text-slate-500">
-                    Надійність
-                  </p>
-
-                  <p className="mt-2 text-2xl font-black text-white">
-                    {worksPercent === null ? "Ще немає" : `${worksPercent}%`}
-                  </p>
-                </div>
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                <p className="text-sm font-bold text-slate-500">Надійність</p>
+                <p className="mt-2 text-4xl font-black text-white">
+                  {worksPercent === null ? "Немає" : `${worksPercent}%`}
+                </p>
               </div>
             </div>
           </div>
@@ -898,222 +1005,46 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
           </div>
         )}
 
-        <section className="mt-8 grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
-          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-            <h2 className="text-3xl font-black">Перевірка промокоду</h2>
-
-            <p className="mt-3 leading-7 text-slate-400">
-              Допоможи іншим користувачам зрозуміти, чи цей промокод ще працює.
-            </p>
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => vote("works")}
-                disabled={isVoting}
-                className={`rounded-2xl border px-5 py-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                  myVote === "works"
-                    ? "border-emerald-400 bg-emerald-400 text-slate-950"
-                    : "border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
-                }`}
-              >
-                <p className="text-3xl font-black">👍 {worksCount}</p>
-                <p className="mt-2 text-sm font-black">Працює</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => vote("not_works")}
-                disabled={isVoting}
-                className={`rounded-2xl border px-5 py-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                  myVote === "not_works"
-                    ? "border-red-400 bg-red-400 text-slate-950"
-                    : "border-red-400/30 bg-red-400/10 text-red-300 hover:bg-red-400/20"
-                }`}
-              >
-                <p className="text-3xl font-black">👎 {notWorksCount}</p>
-                <p className="mt-2 text-sm font-black">Не працює</p>
-              </button>
-            </div>
-
-            {!user && (
-              <p className="mt-4 text-sm font-bold text-slate-500">
-                Щоб голосувати, потрібно{" "}
-                <Link href="/login" className="text-emerald-300">
-                  увійти
-                </Link>
-                .
-              </p>
-            )}
-
-            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-              <p className="text-sm font-bold text-slate-500">
-                Всього перевірок
-              </p>
-
-              <p className="mt-2 text-3xl font-black text-white">
-                {worksCount + notWorksCount}
-              </p>
-
-              {worksPercent !== null && (
-                <p className="mt-2 text-sm font-bold text-slate-400">
-                  {worksPercent}% користувачів кажуть, що промокод працює.
-                </p>
-              )}
-            </div>
-          </section>
-
-          <section className="grid gap-8">
+        <section className="mt-8 grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
+          <aside className="grid gap-8">
             <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-3xl font-black">Додав користувач</h2>
+              <h2 className="text-3xl font-black">Перевірка</h2>
 
-              {isLoadingExtraData ? (
-                <div className="mt-5 h-28 animate-pulse rounded-2xl border border-slate-800 bg-slate-950" />
-              ) : authorProfile ? (
-                <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 text-2xl font-black text-emerald-300">
-                      {authorProfile.avatar_url ? (
-                        <img
-                          src={authorProfile.avatar_url}
-                          alt={getAuthorName(authorProfile)}
-                          className="h-full w-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <span>{getAuthorFallback(authorProfile)}</span>
-                      )}
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate text-xl font-black text-white">
-                        {getAuthorName(authorProfile)}
-                      </p>
-
-                      {authorProfile.username ? (
-                        <p className="mt-1 text-sm font-black text-emerald-300">
-                          @{authorProfile.username}
-                        </p>
-                      ) : (
-                        <p className="mt-1 text-sm font-bold text-slate-500">
-                          Публічний нікнейм ще не налаштовано
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {authorProfile.bio && (
-                    <p className="mt-4 line-clamp-3 leading-7 text-slate-400">
-                      {authorProfile.bio}
-                    </p>
-                  )}
-
-                  {authorProfile.username && (
-                    <Link
-                      href={`/u/${authorProfile.username}`}
-                      className="mt-5 inline-flex rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-                    >
-                      Відкрити профіль
-                    </Link>
-                  )}
-                </div>
-              ) : promo.submitted_by ? (
-                <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="font-black text-slate-300">
-                    Автор ще не налаштував публічний профіль
-                  </p>
-
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    Коли користувач додасть нікнейм у профілі, тут зʼявиться
-                    посилання на його сторінку.
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900">
-                      <img
-                        src="/icons/promoptaha-bird.png"
-                        alt="ПромоПтаха"
-                        className="h-full w-full object-contain p-2"
-                      />
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate text-xl font-black text-white">
-                        ПромоПтаха
-                      </p>
-
-                      <p className="mt-1 text-sm font-black text-emerald-300">
-                        службовий автор старих промокодів
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="mt-4 leading-7 text-slate-400">
-                    Цей промокод був доданий до появи публічних профілів
-                    користувачів, тому автором показується службовий профіль
-                    сайту.
-                  </p>
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-3xl font-black">Поскаржитися</h2>
-
-              <p className="mt-3 leading-7 text-slate-400">
-                Якщо промокод не працює, веде не туди або має неправильний опис,
-                можна відправити репорт.
+              <p className="mt-2 leading-7 text-slate-400">
+                Проголосуй, чи працює цей промокод.
               </p>
 
-              {!isReportOpen ? (
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => setIsReportOpen(true)}
-                  className="mt-5 rounded-full border border-red-400/40 px-5 py-3 font-black text-red-300 transition hover:bg-red-400/10"
+                  onClick={() => vote("works")}
+                  disabled={isVoting}
+                  className={`rounded-2xl border px-5 py-5 font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    myVote === "works"
+                      ? "border-emerald-400 bg-emerald-400 text-slate-950"
+                      : "border-emerald-400/40 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
+                  }`}
                 >
-                  Поскаржитися
+                  Працює
                 </button>
-              ) : (
-                <div className="mt-5 grid gap-4">
-                  <textarea
-                    value={reportDescription}
-                    onChange={(event) =>
-                      setReportDescription(event.target.value)
-                    }
-                    rows={5}
-                    placeholder="Опиши проблему з промокодом..."
-                    className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-red-400"
-                  />
 
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      type="button"
-                      onClick={submitReport}
-                      disabled={isReporting}
-                      className="rounded-full bg-red-400 px-5 py-3 font-black text-slate-950 transition hover:bg-red-300 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isReporting ? "Відправляю..." : "Відправити репорт"}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsReportOpen(false);
-                        setReportDescription("");
-                      }}
-                      className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                    >
-                      Скасувати
-                    </button>
-                  </div>
-                </div>
-              )}
+                <button
+                  type="button"
+                  onClick={() => vote("not_works")}
+                  disabled={isVoting}
+                  className={`rounded-2xl border px-5 py-5 font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    myVote === "not_works"
+                      ? "border-red-400 bg-red-400 text-slate-950"
+                      : "border-red-400/40 bg-red-400/10 text-red-300 hover:bg-red-400/20"
+                  }`}
+                >
+                  Не працює
+                </button>
+              </div>
 
               {!user && (
                 <p className="mt-4 text-sm font-bold text-slate-500">
-                  Щоб відправити репорт, потрібно{" "}
+                  Щоб голосувати, зберігати коди та писати коментарі, потрібно{" "}
                   <Link href="/login" className="text-emerald-300">
                     увійти
                   </Link>
@@ -1121,205 +1052,333 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                 </p>
               )}
             </section>
-          </section>
-        </section>
 
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-3xl font-black">
-                Коментарі{" "}
-                <span className="text-emerald-300">({comments.length})</span>
-              </h2>
+            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+              <h2 className="text-3xl font-black">Автор</h2>
+
+              <div className="mt-5 flex items-start gap-4">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-950 text-2xl font-black text-emerald-300">
+                  {authorProfile?.avatar_url ? (
+                    <img
+                      src={authorProfile.avatar_url}
+                      alt={getProfileName(authorProfile)}
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span>{getAvatarFallback(authorProfile)}</span>
+                  )}
+                </div>
+
+                <div className="min-w-0">
+                  {authorProfile?.username ? (
+                    <Link
+                      href={`/u/${authorProfile.username}`}
+                      className="break-words text-2xl font-black text-white transition hover:text-emerald-300"
+                    >
+                      {getProfileName(authorProfile)}
+                    </Link>
+                  ) : (
+                    <p className="break-words text-2xl font-black text-white">
+                      {getProfileName(authorProfile)}
+                    </p>
+                  )}
+
+                  {authorProfile?.username && (
+                    <p className="mt-1 text-sm font-bold text-emerald-300">
+                      @{authorProfile.username}
+                    </p>
+                  )}
+
+                  {promo.submitted_by && (
+                    <div className="mt-3">
+                      <UserLevelBadge
+                        approvedPromos={authorApprovedPromos}
+                        size="sm"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {authorProfile?.bio && (
+                <p className="mt-5 line-clamp-4 leading-7 text-slate-400">
+                  {authorProfile.bio}
+                </p>
+              )}
+
+              {socialLinks.length > 0 && (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {socialLinks.map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-full border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                    >
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+              <h2 className="text-3xl font-black">Деталі</h2>
+
+              <div className="mt-5 grid gap-3">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-xs font-bold text-slate-500">Діє до</p>
+                  <p className="mt-1 font-black text-slate-200">
+                    {formatDate(promo.expires_at)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-xs font-bold text-slate-500">Джерело</p>
+                  <p className="mt-1 font-black text-slate-200">
+                    {getSourceLabel(promo.source_type)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-xs font-bold text-slate-500">Додано</p>
+                  <p className="mt-1 font-black text-slate-200">
+                    {formatDateTime(promo.created_at)}
+                  </p>
+                </div>
+              </div>
+            </section>
+          </aside>
+
+          <section className="grid gap-8">
+            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+              <h2 className="text-3xl font-black">Коментарі</h2>
 
               <p className="mt-2 leading-7 text-slate-400">
-                Питай, уточнюй умови або залишай корисну інформацію для інших.
-                Коментарі з забороненими словами не публікуються.
-              </p>
-            </div>
-          </div>
-
-          {user ? (
-            <form onSubmit={addComment} className="mt-6 grid gap-4">
-              <textarea
-                value={commentBody}
-                onChange={(event) => setCommentBody(event.target.value)}
-                rows={4}
-                placeholder="Напиши коментар..."
-                className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
-              />
-
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-bold text-slate-500">
-                  {commentBody.trim().length}/1000 символів
-                </p>
-
-                <button
-                  type="submit"
-                  disabled={isSendingComment}
-                  className="rounded-full bg-emerald-400 px-6 py-3 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSendingComment ? "Публікую..." : "Опублікувати"}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-              <p className="font-black text-slate-300">
-                Щоб коментувати, потрібно увійти.
+                Додай уточнення, умови використання або свій досвід.
               </p>
 
-              <Link
-                href="/login"
-                className="mt-4 inline-flex rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-              >
-                Увійти
-              </Link>
-            </div>
-          )}
+              {user ? (
+                <form onSubmit={addComment} className="mt-6 grid gap-4">
+                  <textarea
+                    value={commentBody}
+                    onChange={(event) => setCommentBody(event.target.value)}
+                    rows={4}
+                    placeholder="Напиши коментар..."
+                    className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  />
 
-          {comments.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
-              <div className="text-5xl">💬</div>
-
-              <h3 className="mt-4 text-2xl font-black">
-                Коментарів поки немає
-              </h3>
-
-              <p className="mx-auto mt-3 max-w-md leading-7 text-slate-400">
-                Будь першим, хто залишить уточнення або корисну інформацію про
-                цей промокод.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-6 grid gap-4">
-              {comments.map((comment) => {
-                const commentProfile = commentProfilesMap.get(comment.user_id);
-                const isOwnComment = user?.id === comment.user_id;
-                const isEditing = editingCommentId === comment.id;
-
-                return (
-                  <article
-                    key={comment.id}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                  <button
+                    type="submit"
+                    disabled={isAddingComment}
+                    className="w-fit rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 text-lg font-black text-emerald-300">
-                          {commentProfile?.avatar_url ? (
-                            <img
-                              src={commentProfile.avatar_url}
-                              alt={getAuthorName(commentProfile)}
-                              className="h-full w-full object-cover"
-                              referrerPolicy="no-referrer"
+                    {isAddingComment ? "Додаю..." : "Додати коментар"}
+                  </button>
+                </form>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
+                  <p className="font-bold text-slate-300">
+                    Щоб писати коментарі, потрібно{" "}
+                    <Link href="/login" className="text-emerald-300">
+                      увійти
+                    </Link>
+                    .
+                  </p>
+                </div>
+              )}
+
+              {isLoadingExtra ? (
+                <div className="mt-6 h-32 animate-pulse rounded-2xl border border-slate-800 bg-slate-950" />
+              ) : comments.length === 0 ? (
+                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
+                  <div className="text-5xl">💬</div>
+
+                  <h3 className="mt-4 text-2xl font-black">
+                    Коментарів поки немає
+                  </h3>
+
+                  <p className="mx-auto mt-3 max-w-md leading-7 text-slate-400">
+                    Будь першим, хто додасть уточнення.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-6 grid gap-4">
+                  {comments.map((comment) => {
+                    const commentProfile = commentProfilesMap.get(
+                      comment.user_id
+                    );
+                    const isOwnComment = user?.id === comment.user_id;
+                    const isEditing = editingCommentId === comment.id;
+
+                    return (
+                      <article
+                        key={comment.id}
+                        className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 text-sm font-black text-emerald-300">
+                              {commentProfile?.avatar_url ? (
+                                <img
+                                  src={commentProfile.avatar_url}
+                                  alt={getProfileName(commentProfile)}
+                                  className="h-full w-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span>{getAvatarFallback(commentProfile)}</span>
+                              )}
+                            </div>
+
+                            <div>
+                              {commentProfile?.username ? (
+                                <Link
+                                  href={`/u/${commentProfile.username}`}
+                                  className="font-black text-emerald-300 transition hover:text-emerald-200"
+                                >
+                                  {getProfileName(commentProfile)}
+                                </Link>
+                              ) : (
+                                <p className="font-black text-slate-300">
+                                  {getProfileName(commentProfile)}
+                                </p>
+                              )}
+
+                              <p className="mt-1 text-xs font-bold text-slate-500">
+                                {formatDateTime(comment.created_at)}
+                              </p>
+                            </div>
+                          </div>
+
+                          {isOwnComment && !isEditing && (
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => startEditComment(comment)}
+                                className="rounded-full border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                              >
+                                Редагувати
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => deleteComment(comment)}
+                                disabled={deletingCommentId === comment.id}
+                                className="rounded-full border border-red-400/40 px-4 py-2 text-xs font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {deletingCommentId === comment.id
+                                  ? "Видаляю..."
+                                  : "Видалити"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {isEditing ? (
+                          <form onSubmit={updateComment} className="mt-4 grid gap-3">
+                            <textarea
+                              value={editingCommentBody}
+                              onChange={(event) =>
+                                setEditingCommentBody(event.target.value)
+                              }
+                              rows={4}
+                              className="resize-none rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
                             />
-                          ) : (
-                            <span>{getAuthorFallback(commentProfile)}</span>
-                          )}
-                        </div>
 
-                        <div className="min-w-0">
-                          {commentProfile?.username ? (
-                            <Link
-                              href={`/u/${commentProfile.username}`}
-                              className="truncate font-black text-white transition hover:text-emerald-300"
-                            >
-                              {getAuthorName(commentProfile)}
-                            </Link>
-                          ) : (
-                            <p className="truncate font-black text-white">
-                              {getAuthorName(commentProfile)}
-                            </p>
-                          )}
+                            <div className="flex flex-wrap gap-3">
+                              <button
+                                type="submit"
+                                disabled={isUpdatingComment}
+                                className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isUpdatingComment
+                                  ? "Зберігаю..."
+                                  : "Зберегти"}
+                              </button>
 
-                          <p className="text-xs font-bold text-slate-500">
-                            {formatDateTime(comment.created_at)}
+                              <button
+                                type="button"
+                                onClick={cancelEditComment}
+                                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                              >
+                                Скасувати
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
+                          <p className="mt-4 whitespace-pre-wrap leading-7 text-slate-300">
+                            {comment.body}
                           </p>
-                        </div>
-                      </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
 
-                      {isOwnComment && !isEditing && (
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => startEditComment(comment)}
-                            className="rounded-full border border-slate-700 px-3 py-2 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-                          >
-                            Редагувати
-                          </button>
+            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+              <h2 className="text-3xl font-black">Репорт</h2>
 
-                          <button
-                            type="button"
-                            onClick={() => deleteComment(comment)}
-                            disabled={deletingCommentId === comment.id}
-                            className="rounded-full border border-red-400/40 px-3 py-2 text-xs font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {deletingCommentId === comment.id
-                              ? "Видаляю..."
-                              : "Видалити"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
+              <p className="mt-2 leading-7 text-slate-400">
+                Повідом, якщо код не працює, має неправильний опис або сумнівне
+                джерело.
+              </p>
 
-                    {isEditing ? (
-                      <div className="mt-4 grid gap-3">
-                        <textarea
-                          value={editingCommentBody}
-                          onChange={(event) =>
-                            setEditingCommentBody(event.target.value)
-                          }
-                          rows={4}
-                          className="resize-none rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
-                        />
+              {user ? (
+                <form onSubmit={submitReport} className="mt-6 grid gap-4">
+                  <textarea
+                    value={reportDescription}
+                    onChange={(event) =>
+                      setReportDescription(event.target.value)
+                    }
+                    rows={4}
+                    placeholder="Що саме не так?"
+                    className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-red-400"
+                  />
 
-                        <div className="flex flex-wrap gap-3">
-                          <button
-                            type="button"
-                            onClick={() => updateComment(comment)}
-                            disabled={isUpdatingComment}
-                            className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {isUpdatingComment ? "Зберігаю..." : "Зберегти"}
-                          </button>
+                  <button
+                    type="submit"
+                    disabled={isReporting}
+                    className="w-fit rounded-full border border-red-400/40 px-6 py-4 font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isReporting ? "Надсилаю..." : "Надіслати репорт"}
+                  </button>
+                </form>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
+                  <p className="font-bold text-slate-300">
+                    Щоб надіслати репорт, потрібно{" "}
+                    <Link href="/login" className="text-emerald-300">
+                      увійти
+                    </Link>
+                    .
+                  </p>
+                </div>
+              )}
+            </section>
 
-                          <button
-                            type="button"
-                            onClick={cancelEditComment}
-                            className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-                          >
-                            Скасувати
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="mt-4 whitespace-pre-wrap leading-7 text-slate-300">
-                        {comment.body}
-                      </p>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
+            {categoryNames.length > 0 && (
+              <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+                <h2 className="text-3xl font-black">Категорії</h2>
 
-        {allCategoryNames.length > 0 && (
-          <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-            <h2 className="text-3xl font-black">Категорії</h2>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              {allCategoryNames.map((categoryName) => (
-                <span
-                  key={categoryName}
-                  className="rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black text-slate-300"
-                >
-                  {categoryName}
-                </span>
-              ))}
-            </div>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {categoryNames.map((categoryName) => (
+                    <span
+                      key={categoryName}
+                      className="rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black text-slate-300"
+                    >
+                      {categoryName}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
           </section>
-        )}
+        </section>
       </section>
     </main>
   );

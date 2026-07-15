@@ -1,19 +1,11 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { Suspense } from "react";
+import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
-
-type PageProps = {
-  params: Promise<{
-    username: string;
-  }>;
-};
-
-type PublicUserContentProps = {
-  username: string;
-};
+import UserLevelBadge from "@/components/UserLevelBadge";
 
 type UserProfile = {
   id: string;
@@ -31,21 +23,17 @@ type UserProfile = {
   updated_at?: string | null;
 };
 
-type PublicPromo = {
+type Promo = {
   id: string;
   slug?: string | null;
   code: string;
   store_id?: string | null;
   store_name?: string | null;
   store_slug?: string | null;
-  store_website_url?: string | null;
   category_name?: string | null;
   category_slug?: string | null;
   discount_value?: string | null;
   expires_at?: string | null;
-  status?: string | null;
-  source_type?: string | null;
-  source_url?: string | null;
   description?: string | null;
   created_at?: string | null;
   works_count?: number | null;
@@ -58,86 +46,18 @@ type StoreWebsite = {
   website_url?: string | null;
 };
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
-  const { username: rawUsername } = await params;
-  const username = normalizeUsername(rawUsername);
+const supabase = createClient(
+  supabaseUrl || "https://placeholder.supabase.co",
+  supabaseAnonKey || "placeholder"
+);
 
-  return {
-    title: `@${username} — профіль`,
-    description:
-      "Публічний профіль користувача ПромоПтахи, додані промокоди та внесок у спільноту.",
-    alternates: {
-      canonical: `${siteUrl}/u/${username}`,
-    },
-    openGraph: {
-      title: `@${username} — ПромоПтаха`,
-      description:
-        "Публічний профіль користувача ПромоПтахи, додані промокоди та внесок у спільноту.",
-      type: "profile",
-      url: `${siteUrl}/u/${username}`,
-      images: [
-        {
-          url: "/icons/promoptaha-bird.png",
-          width: 512,
-          height: 512,
-          alt: "ПромоПтаха",
-        },
-      ],
-    },
-    twitter: {
-      card: "summary",
-      title: `@${username} — ПромоПтаха`,
-      description:
-        "Публічний профіль користувача ПромоПтахи, додані промокоди та внесок у спільноту.",
-      images: ["/icons/promoptaha-bird.png"],
-    },
-  };
-}
-
-function getSupabaseClient() {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return null;
-  }
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      fetch: (input, init) => {
-        return fetch(input, {
-          ...init,
-          cache: "no-store",
-        });
-      },
-    },
-  });
-}
-
-function normalizeUsername(value: string) {
-  return decodeURIComponent(value)
-    .toLowerCase()
-    .trim()
-    .replace(/^@/, "")
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9а-яіїєґ_-]/gi, "")
-    .slice(0, 32);
-}
-
-function getProfileName(profile: UserProfile) {
-  return profile.display_name || profile.username || "Користувач";
-}
-
-function getAvatarFallback(profile: UserProfile) {
-  const name = getProfileName(profile).trim();
-
-  if (!name) return "🐦";
-
-  return name.slice(0, 1).toUpperCase();
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  );
 }
 
 function formatDate(date: string | null | undefined) {
@@ -150,23 +70,36 @@ function formatDate(date: string | null | undefined) {
   }).format(new Date(date));
 }
 
-function formatDateTime(date: string | null | undefined) {
-  if (!date) return "Невідомо";
-
-  return new Intl.DateTimeFormat("uk-UA", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date));
+function getProfileName(profile: UserProfile | null) {
+  return (
+    profile?.display_name ||
+    profile?.username ||
+    profile?.email?.split("@")[0] ||
+    "Користувач"
+  );
 }
 
-function getPromoLink(promo: PublicPromo) {
-  return `/codes/${promo.slug || promo.id}`;
+function getAvatarFallback(profile: UserProfile | null) {
+  const name = getProfileName(profile).trim();
+
+  if (!name) return "🐦";
+
+  return name.slice(0, 1).toUpperCase();
 }
 
-function getSocialLinks(profile: UserProfile) {
+function getWorksPercent(promo: Promo) {
+  const worksCount = Number(promo.works_count || 0);
+  const notWorksCount = Number(promo.not_works_count || 0);
+  const total = worksCount + notWorksCount;
+
+  if (total === 0) return null;
+
+  return Math.round((worksCount / total) * 100);
+}
+
+function getSocialLinks(profile: UserProfile | null) {
+  if (!profile) return [];
+
   return [
     {
       label: "Сайт",
@@ -188,159 +121,240 @@ function getSocialLinks(profile: UserProfile) {
       label: "YouTube",
       href: profile.youtube_url,
     },
-  ].filter((link) => Boolean(link.href));
+  ].filter((link): link is { label: string; href: string } =>
+    Boolean(link.href)
+  );
 }
 
-function isPromoActual(promo: PublicPromo) {
-  if (!promo.expires_at) return true;
-
-  return new Date(promo.expires_at) >= new Date();
-}
-
-async function getProfile(username: string) {
-  const supabase = getSupabaseClient();
-
-  if (!supabase) return null;
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      "id, email, username, display_name, avatar_url, bio, website_url, instagram_url, telegram_url, tiktok_url, youtube_url, created_at, updated_at"
-    )
-    .ilike("username", username)
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data) return null;
-
-  return data as UserProfile;
-}
-
-async function getStoreWebsiteMap(storeIds: string[]) {
-  const supabase = getSupabaseClient();
-
-  if (!supabase || storeIds.length === 0) {
-    return new Map<string, string | null>();
-  }
-
-  const { data, error } = await supabase
-    .from("store_category_stats")
-    .select("id, website_url")
-    .in("id", storeIds);
-
-  if (error) {
-    return new Map<string, string | null>();
-  }
-
+function getStoreWebsiteMap(storeWebsites: StoreWebsite[]) {
   return new Map(
-    ((data || []) as StoreWebsite[]).map((store) => [
-      store.id,
-      store.website_url || null,
+    storeWebsites.map((storeWebsite) => [
+      storeWebsite.id,
+      storeWebsite.website_url || null,
     ])
   );
 }
 
-async function getUserPromos(userId: string) {
-  const supabase = getSupabaseClient();
+export default function UserPublicProfilePage() {
+  const params = useParams<{ username: string }>();
+  const profileIdentifier = decodeURIComponent(params.username || "");
 
-  if (!supabase) return [];
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [promos, setPromos] = useState<Promo[]>([]);
+  const [storeWebsites, setStoreWebsites] = useState<StoreWebsite[]>([]);
 
-  const { data, error } = await supabase
-    .from("promo_code_category_stats")
-    .select(
-      "id, slug, code, store_id, store_name, store_slug, category_name, category_slug, discount_value, expires_at, status, source_type, source_url, description, created_at, works_count, not_works_count, submitted_by"
-    )
-    .eq("submitted_by", userId)
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState("");
 
-  if (error) {
-    return [];
-  }
+  const storeWebsiteMap = useMemo(() => {
+    return getStoreWebsiteMap(storeWebsites);
+  }, [storeWebsites]);
 
-  const promos = (data || []) as unknown as PublicPromo[];
+  const profileName = getProfileName(profile);
+  const socialLinks = getSocialLinks(profile);
 
-  const storeIds = Array.from(
-    new Set(
+  const uniqueStoresCount = useMemo(() => {
+    return new Set(
       promos
         .map((promo) => promo.store_id)
         .filter((storeId): storeId is string => Boolean(storeId))
-    )
-  );
+    ).size;
+  }, [promos]);
 
-  const storeWebsiteMap = await getStoreWebsiteMap(storeIds);
+  const totalWorks = useMemo(() => {
+    return promos.reduce(
+      (sum, promo) => sum + Number(promo.works_count || 0),
+      0
+    );
+  }, [promos]);
 
-  return promos.map((promo) => ({
-    ...promo,
-    store_website_url: promo.store_id
-      ? storeWebsiteMap.get(promo.store_id) || null
-      : null,
-  }));
-}
+  const totalNotWorks = useMemo(() => {
+    return promos.reduce(
+      (sum, promo) => sum + Number(promo.not_works_count || 0),
+      0
+    );
+  }, [promos]);
 
-function UserProfileLoading() {
-  return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
-      <section className="mx-auto w-full max-w-7xl">
-        <div className="h-[420px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
+  const averageReliability = useMemo(() => {
+    const totalVotes = totalWorks + totalNotWorks;
 
-        <div className="mt-8 h-96 animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
-      </section>
-    </main>
-  );
-}
+    if (totalVotes === 0) return null;
 
-async function PublicUserContent({ username }: PublicUserContentProps) {
-  const profile = await getProfile(username);
+    return Math.round((totalWorks / totalVotes) * 100);
+  }, [totalWorks, totalNotWorks]);
 
-  if (!profile || !profile.username) {
-    notFound();
+  async function loadPublicProfile() {
+    setIsLoading(true);
+    setMessage("");
+    setProfile(null);
+    setPromos([]);
+    setStoreWebsites([]);
+
+    const loadedProfile = await loadProfile(profileIdentifier);
+
+    if (!loadedProfile) {
+      setIsLoading(false);
+      setMessage(
+        `Профіль "${profileIdentifier}" не знайдено. Перевір username у профілі.`
+      );
+      return;
+    }
+
+    setProfile(loadedProfile);
+
+    const loadedPromos = await loadApprovedPromos(loadedProfile.id);
+
+    setPromos(loadedPromos);
+
+    const storeIds = Array.from(
+      new Set(
+        loadedPromos
+          .map((promo) => promo.store_id)
+          .filter((storeId): storeId is string => Boolean(storeId))
+      )
+    );
+
+    const loadedStoreWebsites = await loadStoreWebsites(storeIds);
+
+    setStoreWebsites(loadedStoreWebsites);
+    setIsLoading(false);
   }
 
-  const promos = await getUserPromos(profile.id);
-  const socialLinks = getSocialLinks(profile);
+  async function loadProfile(identifier: string) {
+    const selectFields =
+      "id, email, username, display_name, avatar_url, bio, website_url, instagram_url, telegram_url, tiktok_url, youtube_url, created_at, updated_at";
 
-  const actualPromosCount = promos.filter(isPromoActual).length;
-  const storesCount = new Set(promos.map((promo) => promo.store_id)).size;
-  const worksVotesCount = promos.reduce(
-    (sum, promo) => sum + Number(promo.works_count || 0),
-    0
-  );
+    if (isUuid(identifier)) {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(selectFields)
+        .eq("id", identifier)
+        .maybeSingle();
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "ProfilePage",
-    name: getProfileName(profile),
-    url: `${siteUrl}/u/${profile.username}`,
-    description: profile.bio || "Публічний профіль користувача ПромоПтахи.",
-    image: profile.avatar_url || `${siteUrl}/icons/promoptaha-bird.png`,
-  };
+      if (error) {
+        setMessage(`Не вдалося завантажити профіль: ${error.message}`);
+        return null;
+      }
+
+      return (data as UserProfile | null) || null;
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(selectFields)
+      .ilike("username", identifier)
+      .maybeSingle();
+
+    if (error) {
+      setMessage(`Не вдалося завантажити профіль: ${error.message}`);
+      return null;
+    }
+
+    return (data as UserProfile | null) || null;
+  }
+
+  async function loadApprovedPromos(userId: string) {
+    const { data, error } = await supabase
+      .from("promo_code_category_stats")
+      .select(
+        "id, slug, code, store_id, store_name, store_slug, category_name, category_slug, discount_value, expires_at, description, created_at, works_count, not_works_count, submitted_by"
+      )
+      .eq("status", "approved")
+      .eq("submitted_by", userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      return [];
+    }
+
+    return (data || []) as Promo[];
+  }
+
+  async function loadStoreWebsites(storeIds: string[]) {
+    if (storeIds.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from("store_category_stats")
+      .select("id, website_url")
+      .in("id", storeIds);
+
+    if (error) {
+      return [];
+    }
+
+    return (data || []) as StoreWebsite[];
+  }
+
+  useEffect(() => {
+    loadPublicProfile();
+  }, [profileIdentifier]);
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+        <section className="mx-auto w-full max-w-7xl">
+          <div className="h-[420px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
+          <div className="mt-8 h-96 animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
+        </section>
+      </main>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+        <section className="mx-auto w-full max-w-3xl rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center">
+          <div className="text-6xl">👤</div>
+
+          <h1 className="mt-5 text-4xl font-black">
+            Профіль не знайдено
+          </h1>
+
+          <p className="mt-4 leading-7 text-slate-400">
+            {message ||
+              `Не вдалося знайти користувача за адресою /u/${profileIdentifier}.`}
+          </p>
+
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/users"
+              className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+            >
+              До спільноти
+            </Link>
+
+            <Link
+              href="/profile"
+              className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+            >
+              Мій профіль
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jsonLd),
-        }}
-      />
-
       <section className="mx-auto w-full max-w-7xl">
         <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
           <Link href="/" className="hover:text-emerald-300">
             Головна
           </Link>
           <span>/</span>
+
           <Link href="/users" className="hover:text-emerald-300">
             Спільнота
           </Link>
+
           <span>/</span>
-          <span className="text-slate-300">@{profile.username}</span>
+          <span className="text-slate-300">{profileName}</span>
         </div>
 
         <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-10">
+          <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
             <div>
               <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Публічний профіль
@@ -351,7 +365,7 @@ async function PublicUserContent({ username }: PublicUserContentProps) {
                   {profile.avatar_url ? (
                     <img
                       src={profile.avatar_url}
-                      alt={getProfileName(profile)}
+                      alt={profileName}
                       className="h-full w-full object-cover"
                       referrerPolicy="no-referrer"
                     />
@@ -361,61 +375,55 @@ async function PublicUserContent({ username }: PublicUserContentProps) {
                 </div>
 
                 <div className="min-w-0">
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    <UserLevelBadge
+                      approvedPromos={promos.length}
+                      size="md"
+                    />
+
+                    {profile.username && (
+                      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-300">
+                        @{profile.username}
+                      </span>
+                    )}
+                  </div>
+
                   <h1 className="break-words text-5xl font-black tracking-tight md:text-7xl">
-                    {getProfileName(profile)}
+                    {profileName}
                   </h1>
 
-                  <p className="mt-3 text-lg font-black text-emerald-300">
-                    @{profile.username}
-                  </p>
-
-                  <p className="mt-2 text-sm font-bold text-slate-500">
+                  <p className="mt-3 text-sm font-bold text-slate-500">
                     На ПромоПтасі з {formatDate(profile.created_at)}
                   </p>
                 </div>
               </div>
 
-              {profile.bio ? (
+              {profile.bio && (
                 <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
                   {profile.bio}
                 </p>
-              ) : (
-                <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-500">
-                  Користувач ще не додав опис профілю.
-                </p>
               )}
 
-              {socialLinks.length > 0 ? (
+              {socialLinks.length > 0 && (
                 <div className="mt-8 flex flex-wrap gap-3">
                   {socialLinks.map((link) => (
                     <a
                       key={link.label}
-                      href={link.href || "#"}
+                      href={link.href}
                       target="_blank"
                       rel="noreferrer"
-                      className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                      className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
                     >
                       {link.label}
                     </a>
                   ))}
-                </div>
-              ) : (
-                <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="font-black text-slate-300">
-                    Соцмережі ще не додані
-                  </p>
-
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    Коли користувач додасть посилання у своєму профілі, вони
-                    зʼявляться тут.
-                  </p>
                 </div>
               )}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">
+                <p className="text-4xl font-black text-emerald-300">
                   {promos.length}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
@@ -424,27 +432,31 @@ async function PublicUserContent({ username }: PublicUserContentProps) {
               </div>
 
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-emerald-300">
-                  {worksVotesCount}
+                <p className="text-4xl font-black text-white">
+                  {uniqueStoresCount}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  голосів “працює”
+                  магазинів
                 </p>
               </div>
 
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
                 <p className="text-4xl font-black text-yellow-300">
-                  {actualPromosCount}
+                  {totalWorks}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  ще актуальні
+                  підтверджень “працює”
                 </p>
               </div>
 
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">{storesCount}</p>
+                <p className="text-4xl font-black text-white">
+                  {averageReliability === null
+                    ? "—"
+                    : `${averageReliability}%`}
+                </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  магазинів
+                  середня надійність
                 </p>
               </div>
             </div>
@@ -454,19 +466,18 @@ async function PublicUserContent({ username }: PublicUserContentProps) {
         <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-3xl font-black">Промокоди користувача</h2>
+              <h2 className="text-3xl font-black">Промокоди автора</h2>
 
               <p className="mt-2 leading-7 text-slate-400">
-                Тут показані тільки схвалені промокоди, які вже доступні на
-                сайті.
+                Схвалені промокоди, які додав цей користувач.
               </p>
             </div>
 
             <Link
-              href="/add"
-              className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+              href="/users"
+              className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
             >
-              Додати промокод
+              До спільноти
             </Link>
           </div>
 
@@ -479,123 +490,99 @@ async function PublicUserContent({ username }: PublicUserContentProps) {
               </h3>
 
               <p className="mx-auto mt-3 max-w-md leading-7 text-slate-400">
-                Сторінка профілю вже працює. Коли користувач додасть промокоди,
-                які пройдуть модерацію, вони зʼявляться тут.
+                Коли промокоди користувача пройдуть модерацію, вони зʼявляться
+                тут.
               </p>
-
-              <Link
-                href="/codes"
-                className="mt-6 inline-flex rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Переглянути всі промокоди
-              </Link>
             </div>
           ) : (
             <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {promos.map((promo) => (
-                <article
-                  key={promo.id}
-                  className="flex flex-col rounded-[2rem] border border-slate-800 bg-slate-950 p-5"
-                >
-                  <div className="flex flex-wrap gap-2">
-                    {promo.category_name && (
-                      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
-                        {promo.category_name}
-                      </span>
-                    )}
+              {promos.map((promo) => {
+                const websiteUrl = promo.store_id
+                  ? storeWebsiteMap.get(promo.store_id)
+                  : null;
+                const worksPercent = getWorksPercent(promo);
 
-                    <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
-                      Схвалено
-                    </span>
-                  </div>
+                return (
+                  <article
+                    key={promo.id}
+                    className="flex flex-col rounded-[2rem] border border-slate-800 bg-slate-950 p-5 transition hover:border-emerald-400/40"
+                  >
+                    <div className="flex items-start gap-4">
+                      <StoreLogo
+                        name={promo.store_name || "Магазин"}
+                        websiteUrl={websiteUrl}
+                        size="sm"
+                      />
 
-                  <div className="mt-5 flex items-start gap-4">
-                    <StoreLogo
-                      name={promo.store_name || "Магазин"}
-                      websiteUrl={promo.store_website_url}
-                      size="sm"
-                    />
+                      <div className="min-w-0">
+                        <Link
+                          href={`/codes/${promo.slug || promo.id}`}
+                          className="break-all text-3xl font-black text-white transition hover:text-emerald-300"
+                        >
+                          {promo.code}
+                        </Link>
 
-                    <div className="min-w-0">
-                      <h3 className="break-all text-3xl font-black text-white">
-                        {promo.code}
-                      </h3>
-
-                      <p className="mt-2 truncate text-sm font-bold text-slate-500">
-                        {promo.store_name || "Магазин"}
-                      </p>
+                        <p className="mt-2 truncate text-sm font-black text-emerald-300">
+                          {promo.store_name || "Магазин"}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  {promo.description && (
-                    <p className="mt-4 line-clamp-3 leading-7 text-slate-400">
-                      {promo.description}
+                    <p className="mt-4 text-xl font-black text-emerald-300">
+                      {promo.discount_value || "Знижка не вказана"}
                     </p>
-                  )}
 
-                  <div className="mt-5 grid gap-3">
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                      <p className="text-xs font-bold text-slate-500">
-                        Знижка
+                    {promo.description && (
+                      <p className="mt-3 line-clamp-3 leading-7 text-slate-400">
+                        {promo.description}
                       </p>
-                      <p className="mt-1 font-black text-slate-200">
-                        {promo.discount_value || "Не вказано"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                      <p className="text-xs font-bold text-slate-500">
-                        Діє до
-                      </p>
-                      <p className="mt-1 font-black text-slate-200">
-                        {formatDate(promo.expires_at)}
-                      </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                      <p className="text-xs font-bold text-slate-500">
-                        Додано
-                      </p>
-                      <p className="mt-1 font-black text-slate-200">
-                        {formatDateTime(promo.created_at)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-auto flex flex-wrap gap-3 pt-5">
-                    <Link
-                      href={getPromoLink(promo)}
-                      className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-                    >
-                      Відкрити
-                    </Link>
-
-                    {promo.store_slug && (
-                      <Link
-                        href={`/stores/${promo.store_slug}`}
-                        className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                      >
-                        Магазин
-                      </Link>
                     )}
-                  </div>
-                </article>
-              ))}
+
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                        <p className="text-xs font-bold text-slate-500">
+                          Діє до
+                        </p>
+
+                        <p className="mt-1 font-black text-slate-200">
+                          {formatDate(promo.expires_at)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                        <p className="text-xs font-bold text-slate-500">
+                          Надійність
+                        </p>
+
+                        <p className="mt-1 font-black text-slate-200">
+                          {worksPercent === null ? "Немає" : `${worksPercent}%`}
+                        </p>
+                      </div>
+                    </div>
+
+                    {promo.category_name && (
+                      <div className="mt-4">
+                        <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black text-slate-300">
+                          {promo.category_name}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="mt-auto pt-5">
+                      <Link
+                        href={`/codes/${promo.slug || promo.id}`}
+                        className="inline-flex rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                      >
+                        Відкрити промокод
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
       </section>
     </main>
-  );
-}
-
-export default async function PublicUserPage({ params }: PageProps) {
-  const { username: rawUsername } = await params;
-  const username = normalizeUsername(rawUsername);
-
-  return (
-    <Suspense fallback={<UserProfileLoading />}>
-      <PublicUserContent username={username} />
-    </Suspense>
   );
 }
