@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
@@ -59,6 +59,30 @@ type UserProfile = {
   updated_at?: string | null;
 };
 
+type PromoComment = {
+  id: string;
+  promo_code_id: string;
+  user_id: string;
+  body: string;
+  status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type ForbiddenWord = {
+  id: string;
+  word: string;
+  severity?: string | null;
+  status?: string | null;
+};
+
+type FavoriteRecord = {
+  id: string;
+  promo_code_id: string;
+  user_id: string;
+  created_at?: string | null;
+};
+
 type CodeDetailsClientProps = {
   promo: Promo;
 };
@@ -71,6 +95,14 @@ const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[ʼ’`]/g, "'")
+    .replace(/\s+/g, " ");
+}
+
 function formatDate(date: string | null | undefined) {
   if (!date) return "Не вказано";
 
@@ -78,6 +110,18 @@ function formatDate(date: string | null | undefined) {
     day: "2-digit",
     month: "long",
     year: "numeric",
+  }).format(new Date(date));
+}
+
+function formatDateTime(date: string | null | undefined) {
+  if (!date) return "Невідомо";
+
+  return new Intl.DateTimeFormat("uk-UA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   }).format(new Date(date));
 }
 
@@ -108,11 +152,11 @@ function getSourceTypeLabel(sourceType: string | null | undefined) {
   return sourceType || "Не вказано";
 }
 
-function getAuthorName(profile: UserProfile | null) {
+function getAuthorName(profile: UserProfile | null | undefined) {
   return profile?.display_name || profile?.username || "Користувач";
 }
 
-function getAuthorFallback(profile: UserProfile | null) {
+function getAuthorFallback(profile: UserProfile | null | undefined) {
   const name = getAuthorName(profile).trim();
 
   if (!name) return "🐦";
@@ -128,6 +172,34 @@ function getWorksPercent(worksCount: number, notWorksCount: number) {
   return Math.round((worksCount / total) * 100);
 }
 
+function validateCommentBody(body: string, forbiddenWords: ForbiddenWord[]) {
+  const trimmedBody = body.trim();
+
+  if (trimmedBody.length < 2) {
+    return "Коментар має містити хоча б 2 символи.";
+  }
+
+  if (trimmedBody.length > 1000) {
+    return "Коментар занадто довгий. Максимум — 1000 символів.";
+  }
+
+  const normalizedBody = normalizeText(trimmedBody);
+
+  const blockedWord = forbiddenWords.find((item) => {
+    const normalizedWord = normalizeText(item.word || "");
+
+    if (!normalizedWord) return false;
+
+    return normalizedBody.includes(normalizedWord);
+  });
+
+  if (blockedWord) {
+    return "Коментар містить заборонене слово.";
+  }
+
+  return null;
+}
+
 export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
   const [user, setUser] = useState<User | null>(null);
   const [store, setStore] = useState<Store | null>(null);
@@ -139,10 +211,28 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
   );
   const [myVote, setMyVote] = useState<VoteType | null>(null);
 
+  const [comments, setComments] = useState<PromoComment[]>([]);
+  const [commentProfilesMap, setCommentProfilesMap] = useState<
+    Map<string, UserProfile>
+  >(new Map());
+  const [forbiddenWords, setForbiddenWords] = useState<ForbiddenWord[]>([]);
+  const [commentBody, setCommentBody] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentBody, setEditingCommentBody] = useState("");
+
+  const [favoriteId, setFavoriteId] = useState<string | null>(null);
+
   const [isLoadingExtraData, setIsLoadingExtraData] = useState(true);
   const [isVoting, setIsVoting] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [isSavingFavorite, setIsSavingFavorite] = useState(false);
+  const [isSendingComment, setIsSendingComment] = useState(false);
+  const [isUpdatingComment, setIsUpdatingComment] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(
+    null
+  );
+
   const [reportDescription, setReportDescription] = useState("");
 
   const [message, setMessage] = useState("");
@@ -163,6 +253,8 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     return Array.from(new Set(names));
   }, [promo.category_name, promo.all_category_names]);
 
+  const isFavorite = Boolean(favoriteId);
+
   async function loadExtraData() {
     setIsLoadingExtraData(true);
 
@@ -170,76 +262,135 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
 
     setUser(userData.user);
 
-    const storePromise: Promise<{
-      data: Store | null;
-      error: { message: string } | null;
-    }> = promo.store_id
-      ? Promise.resolve(
-          supabase
-            .from("store_category_stats")
-            .select("id, name, slug, website_url, description")
-            .eq("id", promo.store_id)
-            .maybeSingle()
-        ) as Promise<{
-          data: Store | null;
-          error: { message: string } | null;
-        }>
-      : Promise.resolve({ data: null, error: null });
-
-    const profilePromise: Promise<{
-      data: UserProfile | null;
-      error: { message: string } | null;
-    }> = promo.submitted_by
-      ? Promise.resolve(
-          supabase
-            .from("profiles")
-            .select(
-              "id, email, username, display_name, avatar_url, bio, website_url, instagram_url, telegram_url, tiktok_url, youtube_url, created_at, updated_at"
-            )
-            .eq("id", promo.submitted_by)
-            .maybeSingle()
-        ) as Promise<{
-          data: UserProfile | null;
-          error: { message: string } | null;
-        }>
-      : Promise.resolve({ data: null, error: null });
-
-    const votePromise: Promise<{
-      data: { vote_type?: VoteType | null } | null;
-      error: { message: string } | null;
-    }> = userData.user
-      ? Promise.resolve(
-          supabase
-            .from("promo_votes")
-            .select("vote_type")
-            .eq("promo_code_id", promo.id)
-            .eq("user_id", userData.user.id)
-            .maybeSingle()
-        ) as Promise<{
-          data: { vote_type?: VoteType | null } | null;
-          error: { message: string } | null;
-        }>
-      : Promise.resolve({ data: null, error: null });
-
-    const [storeResult, profileResult, voteResult] = await Promise.all([
-      storePromise,
-      profilePromise,
-      votePromise,
+    await Promise.all([
+      loadStore(),
+      loadAuthorProfile(),
+      loadForbiddenWords(),
+      loadComments(),
+      userData.user ? loadMyVote(userData.user.id) : Promise.resolve(),
+      userData.user ? loadFavorite(userData.user.id) : Promise.resolve(),
     ]);
 
-    if (storeResult.data) {
-      setStore(storeResult.data);
-    }
-
-    if (profileResult.data) {
-      setAuthorProfile(profileResult.data);
-    }
-
-    if (voteResult.data?.vote_type) {
-      setMyVote(voteResult.data.vote_type);
-    }
-
     setIsLoadingExtraData(false);
+  }
+
+  async function loadStore() {
+    if (!promo.store_id) return;
+
+    const { data } = await supabase
+      .from("store_category_stats")
+      .select("id, name, slug, website_url, description")
+      .eq("id", promo.store_id)
+      .maybeSingle();
+
+    if (data) {
+      setStore(data as Store);
+    }
+  }
+
+  async function loadAuthorProfile() {
+    if (!promo.submitted_by) return;
+
+    const { data } = await supabase
+      .from("profiles")
+      .select(
+        "id, email, username, display_name, avatar_url, bio, website_url, instagram_url, telegram_url, tiktok_url, youtube_url, created_at, updated_at"
+      )
+      .eq("id", promo.submitted_by)
+      .maybeSingle();
+
+    if (data) {
+      setAuthorProfile(data as UserProfile);
+    }
+  }
+
+  async function loadMyVote(userId: string) {
+    const { data } = await supabase
+      .from("promo_votes")
+      .select("vote_type")
+      .eq("promo_code_id", promo.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (data?.vote_type) {
+      setMyVote(data.vote_type as VoteType);
+    }
+  }
+
+  async function loadFavorite(userId: string) {
+    const { data } = await supabase
+      .from("promo_favorites")
+      .select("id, promo_code_id, user_id, created_at")
+      .eq("promo_code_id", promo.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const favorite = data as FavoriteRecord | null;
+
+    setFavoriteId(favorite?.id || null);
+  }
+
+  async function loadForbiddenWords() {
+    const { data } = await supabase
+      .from("forbidden_words")
+      .select("id, word, severity, status")
+      .eq("status", "active")
+      .eq("severity", "block")
+      .limit(1000);
+
+    setForbiddenWords((data || []) as ForbiddenWord[]);
+  }
+
+  async function loadComments() {
+    const { data, error } = await supabase
+      .from("promo_comments")
+      .select("id, promo_code_id, user_id, body, status, created_at, updated_at")
+      .eq("promo_code_id", promo.id)
+      .eq("status", "visible")
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    if (error) {
+      setComments([]);
+      return;
+    }
+
+    const nextComments = (data || []) as PromoComment[];
+
+    setComments(nextComments);
+
+    const userIds = Array.from(
+      new Set(
+        nextComments
+          .map((comment) => comment.user_id)
+          .filter((userId): userId is string => Boolean(userId))
+      )
+    );
+
+    await loadCommentProfiles(userIds);
+  }
+
+  async function loadCommentProfiles(userIds: string[]) {
+    if (userIds.length === 0) {
+      setCommentProfilesMap(new Map());
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url")
+      .in("id", userIds);
+
+    if (error) {
+      setCommentProfilesMap(new Map());
+      return;
+    }
+
+    const nextMap = new Map(
+      ((data || []) as UserProfile[]).map((profile) => [profile.id, profile])
+    );
+
+    setCommentProfilesMap(nextMap);
   }
 
   useEffect(() => {
@@ -249,6 +400,14 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
+
+      if (session?.user) {
+        loadMyVote(session.user.id);
+        loadFavorite(session.user.id);
+      } else {
+        setMyVote(null);
+        setFavoriteId(null);
+      }
     });
 
     return () => {
@@ -266,6 +425,63 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       setMessage("Не вдалося скопіювати промокод.");
       setMessageType("error");
     }
+  }
+
+  async function toggleFavorite() {
+    if (!user) {
+      setMessage("Щоб зберегти промокод, потрібно увійти.");
+      setMessageType("error");
+      return;
+    }
+
+    if (isSavingFavorite) return;
+
+    setIsSavingFavorite(true);
+    setMessage("");
+
+    if (favoriteId) {
+      const { error } = await supabase
+        .from("promo_favorites")
+        .delete()
+        .eq("id", favoriteId)
+        .eq("user_id", user.id);
+
+      setIsSavingFavorite(false);
+
+      if (error) {
+        setMessage(`Не вдалося прибрати зі збережених: ${error.message}`);
+        setMessageType("error");
+        return;
+      }
+
+      setFavoriteId(null);
+      setMessage("Промокод прибрано зі збережених.");
+      setMessageType("success");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("promo_favorites")
+      .insert({
+        promo_code_id: promo.id,
+        user_id: user.id,
+      })
+      .select("id, promo_code_id, user_id, created_at")
+      .single();
+
+    setIsSavingFavorite(false);
+
+    if (error) {
+      setMessage(`Не вдалося зберегти промокод: ${error.message}`);
+      setMessageType("error");
+      return;
+    }
+
+    const favorite = data as FavoriteRecord;
+
+    setFavoriteId(favorite.id);
+    setMessage("Промокод збережено. Він зʼявиться у твоєму профілі.");
+    setMessageType("success");
   }
 
   async function vote(nextVote: VoteType) {
@@ -363,6 +579,125 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setMessageType("success");
   }
 
+  async function addComment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!user) {
+      setMessage("Щоб коментувати, потрібно увійти.");
+      setMessageType("error");
+      return;
+    }
+
+    const validationError = validateCommentBody(commentBody, forbiddenWords);
+
+    if (validationError) {
+      setMessage(validationError);
+      setMessageType("error");
+      return;
+    }
+
+    setIsSendingComment(true);
+    setMessage("");
+
+    const { error } = await supabase.from("promo_comments").insert({
+      promo_code_id: promo.id,
+      user_id: user.id,
+      body: commentBody.trim(),
+      status: "visible",
+    });
+
+    setIsSendingComment(false);
+
+    if (error) {
+      setMessage(`Не вдалося додати коментар: ${error.message}`);
+      setMessageType("error");
+      return;
+    }
+
+    setCommentBody("");
+    setMessage("Коментар додано.");
+    setMessageType("success");
+    await loadComments();
+  }
+
+  function startEditComment(comment: PromoComment) {
+    setEditingCommentId(comment.id);
+    setEditingCommentBody(comment.body);
+  }
+
+  function cancelEditComment() {
+    setEditingCommentId(null);
+    setEditingCommentBody("");
+  }
+
+  async function updateComment(comment: PromoComment) {
+    if (!user) return;
+
+    const validationError = validateCommentBody(
+      editingCommentBody,
+      forbiddenWords
+    );
+
+    if (validationError) {
+      setMessage(validationError);
+      setMessageType("error");
+      return;
+    }
+
+    setIsUpdatingComment(true);
+    setMessage("");
+
+    const { error } = await supabase
+      .from("promo_comments")
+      .update({
+        body: editingCommentBody.trim(),
+      })
+      .eq("id", comment.id)
+      .eq("user_id", user.id);
+
+    setIsUpdatingComment(false);
+
+    if (error) {
+      setMessage(`Не вдалося оновити коментар: ${error.message}`);
+      setMessageType("error");
+      return;
+    }
+
+    cancelEditComment();
+    setMessage("Коментар оновлено.");
+    setMessageType("success");
+    await loadComments();
+  }
+
+  async function deleteComment(comment: PromoComment) {
+    if (!user) return;
+
+    const confirmed = window.confirm("Видалити цей коментар?");
+
+    if (!confirmed) return;
+
+    setDeletingCommentId(comment.id);
+    setMessage("");
+
+    const { error } = await supabase
+      .from("promo_comments")
+      .delete()
+      .eq("id", comment.id)
+      .eq("user_id", user.id);
+
+    setDeletingCommentId(null);
+
+    if (error) {
+      setMessage(`Не вдалося видалити коментар: ${error.message}`);
+      setMessageType("error");
+      return;
+    }
+
+    setMessage("Коментар видалено.");
+    setMessageType("success");
+    await loadComments();
+  }
+
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <section className="mx-auto w-full max-w-7xl">
@@ -371,10 +706,13 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
             Головна
           </Link>
           <span>/</span>
+
           <Link href="/codes" className="hover:text-emerald-300">
             Промокоди
           </Link>
+
           <span>/</span>
+
           {promo.store_slug ? (
             <Link
               href={`/stores/${promo.store_slug}`}
@@ -385,6 +723,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
           ) : (
             <span>{promo.store_name || "Магазин"}</span>
           )}
+
           <span>/</span>
           <span className="text-slate-300">{promo.code}</span>
         </div>
@@ -431,6 +770,23 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                   className="rounded-full bg-emerald-400 px-7 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
                 >
                   Скопіювати промокод
+                </button>
+
+                <button
+                  type="button"
+                  onClick={toggleFavorite}
+                  disabled={isSavingFavorite}
+                  className={`rounded-full border px-7 py-4 font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isFavorite
+                      ? "border-yellow-400/40 bg-yellow-400/10 text-yellow-300 hover:bg-yellow-400/20"
+                      : "border-slate-700 text-slate-200 hover:border-yellow-400 hover:text-yellow-300"
+                  }`}
+                >
+                  {isSavingFavorite
+                    ? "Зберігаю..."
+                    : isFavorite
+                      ? "★ Збережено"
+                      : "☆ Зберегти"}
                 </button>
 
                 {promo.source_url && (
@@ -486,6 +842,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
                   <p className="text-sm font-bold text-slate-500">Діє до</p>
+
                   <p className="mt-2 text-2xl font-black text-white">
                     {formatDate(promo.expires_at)}
                   </p>
@@ -499,6 +856,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
 
                 <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
                   <p className="text-sm font-bold text-slate-500">Джерело</p>
+
                   <p className="mt-2 text-2xl font-black text-white">
                     {getSourceTypeLabel(promo.source_type)}
                   </p>
@@ -506,6 +864,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
 
                 <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
                   <p className="text-sm font-bold text-slate-500">Додано</p>
+
                   <p className="mt-2 text-2xl font-black text-white">
                     {formatDate(promo.created_at)}
                   </p>
@@ -631,9 +990,13 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                         {getAuthorName(authorProfile)}
                       </p>
 
-                      {authorProfile.username && (
+                      {authorProfile.username ? (
                         <p className="mt-1 text-sm font-black text-emerald-300">
                           @{authorProfile.username}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-sm font-bold text-slate-500">
+                          Публічний нікнейм ще не налаштовано
                         </p>
                       )}
                     </div>
@@ -654,7 +1017,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                     </Link>
                   )}
                 </div>
-              ) : (
+              ) : promo.submitted_by ? (
                 <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-5">
                   <p className="font-black text-slate-300">
                     Автор ще не налаштував публічний профіль
@@ -663,6 +1026,34 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                   <p className="mt-2 text-sm leading-6 text-slate-500">
                     Коли користувач додасть нікнейм у профілі, тут зʼявиться
                     посилання на його сторінку.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-5">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900">
+                      <img
+                        src="/icons/promoptaha-bird.png"
+                        alt="ПромоПтаха"
+                        className="h-full w-full object-contain p-2"
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="truncate text-xl font-black text-white">
+                        ПромоПтаха
+                      </p>
+
+                      <p className="mt-1 text-sm font-black text-emerald-300">
+                        службовий автор старих промокодів
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="mt-4 leading-7 text-slate-400">
+                    Цей промокод був доданий до появи публічних профілів
+                    користувачів, тому автором показується службовий профіль
+                    сайту.
                   </p>
                 </div>
               )}
@@ -731,6 +1122,186 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
               )}
             </section>
           </section>
+        </section>
+
+        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-black">
+                Коментарі{" "}
+                <span className="text-emerald-300">({comments.length})</span>
+              </h2>
+
+              <p className="mt-2 leading-7 text-slate-400">
+                Питай, уточнюй умови або залишай корисну інформацію для інших.
+                Коментарі з забороненими словами не публікуються.
+              </p>
+            </div>
+          </div>
+
+          {user ? (
+            <form onSubmit={addComment} className="mt-6 grid gap-4">
+              <textarea
+                value={commentBody}
+                onChange={(event) => setCommentBody(event.target.value)}
+                rows={4}
+                placeholder="Напиши коментар..."
+                className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-bold text-slate-500">
+                  {commentBody.trim().length}/1000 символів
+                </p>
+
+                <button
+                  type="submit"
+                  disabled={isSendingComment}
+                  className="rounded-full bg-emerald-400 px-6 py-3 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSendingComment ? "Публікую..." : "Опублікувати"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
+              <p className="font-black text-slate-300">
+                Щоб коментувати, потрібно увійти.
+              </p>
+
+              <Link
+                href="/login"
+                className="mt-4 inline-flex rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+              >
+                Увійти
+              </Link>
+            </div>
+          )}
+
+          {comments.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
+              <div className="text-5xl">💬</div>
+
+              <h3 className="mt-4 text-2xl font-black">
+                Коментарів поки немає
+              </h3>
+
+              <p className="mx-auto mt-3 max-w-md leading-7 text-slate-400">
+                Будь першим, хто залишить уточнення або корисну інформацію про
+                цей промокод.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-4">
+              {comments.map((comment) => {
+                const commentProfile = commentProfilesMap.get(comment.user_id);
+                const isOwnComment = user?.id === comment.user_id;
+                const isEditing = editingCommentId === comment.id;
+
+                return (
+                  <article
+                    key={comment.id}
+                    className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 text-lg font-black text-emerald-300">
+                          {commentProfile?.avatar_url ? (
+                            <img
+                              src={commentProfile.avatar_url}
+                              alt={getAuthorName(commentProfile)}
+                              className="h-full w-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <span>{getAuthorFallback(commentProfile)}</span>
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          {commentProfile?.username ? (
+                            <Link
+                              href={`/u/${commentProfile.username}`}
+                              className="truncate font-black text-white transition hover:text-emerald-300"
+                            >
+                              {getAuthorName(commentProfile)}
+                            </Link>
+                          ) : (
+                            <p className="truncate font-black text-white">
+                              {getAuthorName(commentProfile)}
+                            </p>
+                          )}
+
+                          <p className="text-xs font-bold text-slate-500">
+                            {formatDateTime(comment.created_at)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {isOwnComment && !isEditing && (
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startEditComment(comment)}
+                            className="rounded-full border border-slate-700 px-3 py-2 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                          >
+                            Редагувати
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deleteComment(comment)}
+                            disabled={deletingCommentId === comment.id}
+                            className="rounded-full border border-red-400/40 px-3 py-2 text-xs font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {deletingCommentId === comment.id
+                              ? "Видаляю..."
+                              : "Видалити"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {isEditing ? (
+                      <div className="mt-4 grid gap-3">
+                        <textarea
+                          value={editingCommentBody}
+                          onChange={(event) =>
+                            setEditingCommentBody(event.target.value)
+                          }
+                          rows={4}
+                          className="resize-none rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                        />
+
+                        <div className="flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={() => updateComment(comment)}
+                            disabled={isUpdatingComment}
+                            className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isUpdatingComment ? "Зберігаю..." : "Зберегти"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={cancelEditComment}
+                            className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                          >
+                            Скасувати
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-4 whitespace-pre-wrap leading-7 text-slate-300">
+                        {comment.body}
+                      </p>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {allCategoryNames.length > 0 && (

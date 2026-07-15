@@ -4,14 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
-import { getHostName } from "@/lib/searchAliases";
 
-type Category = {
+type Promo = {
   id: string;
-  name: string;
-  slug: string;
+  slug?: string | null;
+  code: string;
+  store_id?: string | null;
+  store_name?: string | null;
+  store_slug?: string | null;
+  category_name?: string | null;
+  discount_value?: string | null;
+  expires_at?: string | null;
   description?: string | null;
-  status?: string | null;
+  created_at?: string | null;
+  works_count?: number | null;
+  not_works_count?: number | null;
+  submitted_by?: string | null;
 };
 
 type Store = {
@@ -20,56 +28,58 @@ type Store = {
   slug: string;
   description?: string | null;
   website_url?: string | null;
-  status?: string | null;
-  category_id?: string | null;
-  search_aliases?: string[] | null;
-  created_at?: string | null;
-
-  category_ids?: string[] | null;
   category_names?: string[] | null;
-  category_slugs?: string[] | null;
-
-  promo_count?: number | string | null;
-  active_promo_count?: number | string | null;
-  expired_promo_count?: number | string | null;
-  verified_promo_count?: number | string | null;
-  works_count?: number | string | null;
-  not_works_count?: number | string | null;
+  active_promo_count?: number | null;
+  promo_count?: number | null;
+  works_count?: number | null;
 };
 
-type PromoCode = {
+type Deal = {
   id: string;
-  slug?: string | null;
-  code: string;
-  normalized_code?: string | null;
-
-  store_id: string;
+  store_id?: string | null;
   store_name?: string | null;
   store_slug?: string | null;
-  store_search_aliases?: string[] | null;
-
-  category_id?: string | null;
+  store_website_url?: string | null;
   category_name?: string | null;
-  category_slug?: string | null;
-
-  all_category_ids?: string[] | null;
-  all_category_names?: string[] | null;
-  all_category_slugs?: string[] | null;
-
-  search_aliases?: string[] | null;
-  discount_value?: string | null;
-  expires_at?: string | null;
-  status?: string | null;
-  source_type?: string | null;
+  title: string;
+  slug?: string | null;
   description?: string | null;
+  deal_url?: string | null;
+  image_url?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  status?: string | null;
   created_at?: string | null;
-  works_count?: number | string | null;
-  not_works_count?: number | string | null;
 };
 
-type CategoryStats = {
-  stores: number;
-  promos: number;
+type UserProfile = {
+  id: string;
+  username?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type StoreWebsite = {
+  id: string;
+  website_url?: string | null;
+};
+
+type TopUser = UserProfile & {
+  approvedPromos: number;
+  actualPromos: number;
+  worksVotes: number;
+  storesCount: number;
+};
+
+type PublicPromoForStats = {
+  id: string;
+  submitted_by?: string | null;
+  store_id?: string | null;
+  expires_at?: string | null;
+  works_count?: number | null;
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -80,49 +90,8 @@ const supabase = createClient(
   supabaseAnonKey || "placeholder"
 );
 
-function toNumber(value: number | string | null | undefined) {
-  if (typeof value === "number") return value;
-
-  if (typeof value === "string") {
-    const parsed = Number(value);
-
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  return 0;
-}
-
-function toArray(value: string[] | null | undefined) {
-  if (!value) return [];
-
-  return Array.isArray(value) ? value : [];
-}
-
-function isExpired(date: string | null | undefined) {
-  if (!date) return false;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const expires = new Date(date);
-  expires.setHours(0, 0, 0, 0);
-
-  return expires < today;
-}
-
-function isVerified(promo: PromoCode) {
-  const works = toNumber(promo.works_count);
-  const notWorks = toNumber(promo.not_works_count);
-
-  return works > 0 && works > notWorks;
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("uk-UA").format(value);
-}
-
 function formatDate(date: string | null | undefined) {
-  if (!date) return "Без терміну";
+  if (!date) return "Не вказано";
 
   return new Intl.DateTimeFormat("uk-UA", {
     day: "2-digit",
@@ -131,275 +100,323 @@ function formatDate(date: string | null | undefined) {
   }).format(new Date(date));
 }
 
-function getPromoUrl(promo: PromoCode) {
+function getDaysLeft(date: string | null | undefined) {
+  if (!date) return null;
+
+  const now = new Date();
+  const end = new Date(date);
+  const diff = end.getTime() - now.getTime();
+
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function isExpired(date: string | null | undefined) {
+  if (!date) return false;
+
+  return new Date(date) < new Date();
+}
+
+function getPromoLink(promo: Promo) {
   return `/codes/${promo.slug || promo.id}`;
 }
 
-function getStatusLabel(promo: PromoCode) {
-  if (!promo.expires_at) return "Без терміну";
-  if (isExpired(promo.expires_at)) return "Прострочений";
-  if (isVerified(promo)) return "Перевірений";
+function getWorksPercent(promo: Promo) {
+  const worksCount = Number(promo.works_count || 0);
+  const notWorksCount = Number(promo.not_works_count || 0);
+  const total = worksCount + notWorksCount;
 
-  return "Активний";
+  if (total === 0) return null;
+
+  return Math.round((worksCount / total) * 100);
 }
 
-function getStatusClass(promo: PromoCode) {
-  if (!promo.expires_at) {
-    return "border-slate-700 bg-slate-950 text-slate-300";
-  }
-
-  if (isExpired(promo.expires_at)) {
-    return "border-red-400/30 bg-red-400/10 text-red-300";
-  }
-
-  if (isVerified(promo)) {
-    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
-  }
-
-  return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
+function getAuthorName(profile: UserProfile | null | undefined) {
+  return profile?.display_name || profile?.username || "Користувач";
 }
 
-function makeEmptyCategoryStats(): CategoryStats {
-  return {
-    stores: 0,
-    promos: 0,
-  };
+function getAuthorFallback(profile: UserProfile | null | undefined) {
+  const name = getAuthorName(profile).trim();
+
+  if (!name) return "🐦";
+
+  return name.slice(0, 1).toUpperCase();
 }
 
-function getStoreCategoryIds(store: Store) {
-  return toArray(store.category_ids);
+function getDealUrl(deal: Deal) {
+  return deal.deal_url || (deal.store_slug ? `/stores/${deal.store_slug}` : "/deals");
 }
 
-function getStoreCategoryNames(store: Store) {
-  return toArray(store.category_names);
-}
+function isActualPromo(promo: PublicPromoForStats) {
+  if (!promo.expires_at) return true;
 
-function getPromoCategoryIds(promo: PromoCode) {
-  const ids = toArray(promo.all_category_ids);
-
-  if (ids.length > 0) {
-    return ids;
-  }
-
-  return promo.category_id ? [promo.category_id] : [];
-}
-
-function getPromoCategoryNames(promo: PromoCode) {
-  const names = toArray(promo.all_category_names);
-
-  if (names.length > 0) {
-    return names;
-  }
-
-  return promo.category_name ? [promo.category_name] : [];
+  return new Date(promo.expires_at) >= new Date();
 }
 
 export default function HomePage() {
+  const [promos, setPromos] = useState<Promo[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [promos, setPromos] = useState<PromoCode[]>([]);
-
-  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
-
-  const [isLoadingStores, setIsLoadingStores] = useState(true);
-  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
-  const [isLoadingPromos, setIsLoadingPromos] = useState(true);
-
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<"success" | "error" | "info">(
-    "info"
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [topUsers, setTopUsers] = useState<TopUser[]>([]);
+  const [storeWebsiteMap, setStoreWebsiteMap] = useState<
+    Map<string, string | null>
+  >(new Map());
+  const [profilesMap, setProfilesMap] = useState<Map<string, UserProfile>>(
+    new Map()
   );
 
-  const isLoading = isLoadingStores || isLoadingCategories || isLoadingPromos;
+  const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState("");
 
-  async function loadCategories() {
-    setIsLoadingCategories(true);
+  const activePromos = useMemo(() => {
+    return promos.filter((promo) => !isExpired(promo.expires_at));
+  }, [promos]);
 
-    const { data, error } = await supabase
-      .from("categories")
-      .select("id, name, slug, description, status")
-      .eq("status", "active")
-      .order("name", { ascending: true });
+  const totalWorksVotes = useMemo(() => {
+    return promos.reduce(
+      (sum, promo) => sum + Number(promo.works_count || 0),
+      0
+    );
+  }, [promos]);
 
-    if (error) {
-      setCategories([]);
-      setMessage(`Не вдалося завантажити категорії: ${error.message}`);
-      setMessageType("error");
-      setIsLoadingCategories(false);
-      return;
+  async function loadData() {
+    setIsLoading(true);
+    setMessage("");
+
+    const [promosResult, storesResult, dealsResult] = await Promise.all([
+      supabase
+        .from("promo_code_category_stats")
+        .select(
+          "id, slug, code, store_id, store_name, store_slug, category_name, discount_value, expires_at, description, created_at, works_count, not_works_count, submitted_by"
+        )
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(9),
+
+      supabase
+        .from("store_category_stats")
+        .select(
+          "id, name, slug, description, website_url, category_names, active_promo_count, promo_count, works_count"
+        )
+        .eq("status", "active")
+        .order("active_promo_count", { ascending: false })
+        .limit(8),
+
+      supabase
+        .from("store_deal_public_stats")
+        .select(
+          "id, store_id, store_name, store_slug, store_website_url, category_name, title, slug, description, deal_url, image_url, starts_at, ends_at, status, created_at"
+        )
+        .order("created_at", { ascending: false })
+        .limit(6),
+    ]);
+
+    if (promosResult.error) {
+      setPromos([]);
+      setMessage(`Не вдалося завантажити промокоди: ${promosResult.error.message}`);
+    } else {
+      const nextPromos = (promosResult.data || []) as unknown as Promo[];
+
+      setPromos(nextPromos);
+
+      const storeIds = Array.from(
+        new Set(
+          nextPromos
+            .map((promo) => promo.store_id)
+            .filter((storeId): storeId is string => Boolean(storeId))
+        )
+      );
+
+      const authorIds = Array.from(
+        new Set(
+          nextPromos
+            .map((promo) => promo.submitted_by)
+            .filter((authorId): authorId is string => Boolean(authorId))
+        )
+      );
+
+      await Promise.all([loadStoreWebsites(storeIds), loadProfiles(authorIds)]);
     }
 
-    setCategories((data || []) as unknown as Category[]);
-    setIsLoadingCategories(false);
+    if (storesResult.error) {
+      setStores([]);
+    } else {
+      setStores((storesResult.data || []) as unknown as Store[]);
+    }
+
+    if (dealsResult.error) {
+      setDeals([]);
+    } else {
+      setDeals((dealsResult.data || []) as unknown as Deal[]);
+    }
+
+    await loadTopUsers();
+
+    setIsLoading(false);
   }
 
-  async function loadStores() {
-    setIsLoadingStores(true);
-    setMessage("");
+  async function loadStoreWebsites(storeIds: string[]) {
+    if (storeIds.length === 0) {
+      setStoreWebsiteMap(new Map());
+      return;
+    }
 
     const { data, error } = await supabase
       .from("store_category_stats")
-      .select(
-        "id, name, slug, description, website_url, status, category_id, search_aliases, created_at, category_ids, category_names, category_slugs, promo_count, active_promo_count, expired_promo_count, verified_promo_count, works_count, not_works_count"
-      )
-      .order("created_at", { ascending: false })
-      .limit(500);
+      .select("id, website_url")
+      .in("id", storeIds);
 
     if (error) {
-      setStores([]);
-      setMessage(`Не вдалося завантажити магазини: ${error.message}`);
-      setMessageType("error");
-      setIsLoadingStores(false);
+      setStoreWebsiteMap(new Map());
       return;
     }
 
-    setStores((data || []) as unknown as Store[]);
-    setIsLoadingStores(false);
+    const nextMap = new Map(
+      ((data || []) as StoreWebsite[]).map((store) => [
+        store.id,
+        store.website_url || null,
+      ])
+    );
+
+    setStoreWebsiteMap(nextMap);
   }
 
-  async function loadPromos() {
-    setIsLoadingPromos(true);
-
-    const { data, error } = await supabase
-      .from("promo_code_category_stats")
-      .select(
-        "id, slug, code, normalized_code, store_id, store_name, store_slug, store_search_aliases, category_id, category_name, category_slug, all_category_ids, all_category_names, all_category_slugs, search_aliases, discount_value, expires_at, status, source_type, description, created_at, works_count, not_works_count"
-      )
-      .order("created_at", { ascending: false })
-      .limit(2000);
-
-    if (error) {
-      setPromos([]);
-      setMessage(`Не вдалося завантажити промокоди: ${error.message}`);
-      setMessageType("error");
-      setIsLoadingPromos(false);
+  async function loadProfiles(authorIds: string[]) {
+    if (authorIds.length === 0) {
+      setProfilesMap(new Map());
       return;
     }
 
-    setPromos((data || []) as unknown as PromoCode[]);
-    setIsLoadingPromos(false);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url, bio, created_at, updated_at")
+      .in("id", authorIds);
+
+    if (error) {
+      setProfilesMap(new Map());
+      return;
+    }
+
+    const nextMap = new Map(
+      ((data || []) as UserProfile[]).map((profile) => [profile.id, profile])
+    );
+
+    setProfilesMap(nextMap);
+  }
+
+  async function loadTopUsers() {
+    const [profilesResult, promosResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url, bio, created_at, updated_at")
+        .not("username", "is", null)
+        .limit(100),
+
+      supabase
+        .from("promo_code_category_stats")
+        .select("id, submitted_by, store_id, expires_at, works_count")
+        .eq("status", "approved")
+        .not("submitted_by", "is", null)
+        .limit(5000),
+    ]);
+
+    if (profilesResult.error || promosResult.error) {
+      setTopUsers([]);
+      return;
+    }
+
+    const profiles = (profilesResult.data || []) as UserProfile[];
+    const publicPromos = (promosResult.data || []) as unknown as PublicPromoForStats[];
+
+    const statsMap = new Map<
+      string,
+      {
+        approvedPromos: number;
+        actualPromos: number;
+        worksVotes: number;
+        storeIds: Set<string>;
+      }
+    >();
+
+    for (const profile of profiles) {
+      statsMap.set(profile.id, {
+        approvedPromos: 0,
+        actualPromos: 0,
+        worksVotes: 0,
+        storeIds: new Set<string>(),
+      });
+    }
+
+    for (const promo of publicPromos) {
+      if (!promo.submitted_by) continue;
+
+      const stats = statsMap.get(promo.submitted_by);
+
+      if (!stats) continue;
+
+      stats.approvedPromos += 1;
+      stats.worksVotes += Number(promo.works_count || 0);
+
+      if (isActualPromo(promo)) {
+        stats.actualPromos += 1;
+      }
+
+      if (promo.store_id) {
+        stats.storeIds.add(promo.store_id);
+      }
+    }
+
+    const usersWithStats = profiles
+      .map((profile) => {
+        const stats =
+          statsMap.get(profile.id) ||
+          {
+            approvedPromos: 0,
+            actualPromos: 0,
+            worksVotes: 0,
+            storeIds: new Set<string>(),
+          };
+
+        return {
+          ...profile,
+          approvedPromos: stats.approvedPromos,
+          actualPromos: stats.actualPromos,
+          worksVotes: stats.worksVotes,
+          storesCount: stats.storeIds.size,
+        };
+      })
+      .sort((firstUser, secondUser) => {
+        if (secondUser.approvedPromos !== firstUser.approvedPromos) {
+          return secondUser.approvedPromos - firstUser.approvedPromos;
+        }
+
+        return secondUser.worksVotes - firstUser.worksVotes;
+      })
+      .slice(0, 5);
+
+    setTopUsers(usersWithStats);
   }
 
   useEffect(() => {
-    loadCategories();
-    loadStores();
-    loadPromos();
+    loadData();
   }, []);
-
-  const categoryStatsById = useMemo(() => {
-    const map = new Map<string, CategoryStats>();
-
-    for (const store of stores) {
-      const categoryIds = getStoreCategoryIds(store);
-
-      for (const categoryId of categoryIds) {
-        const currentStats = map.get(categoryId) || makeEmptyCategoryStats();
-
-        currentStats.stores += 1;
-
-        map.set(categoryId, currentStats);
-      }
-    }
-
-    for (const promo of promos) {
-      const categoryIds = getPromoCategoryIds(promo);
-
-      for (const categoryId of categoryIds) {
-        const currentStats = map.get(categoryId) || makeEmptyCategoryStats();
-
-        currentStats.promos += 1;
-
-        map.set(categoryId, currentStats);
-      }
-    }
-
-    return map;
-  }, [stores, promos]);
-
-  const totals = useMemo(() => {
-    const activePromos = promos.filter((promo) => !isExpired(promo.expires_at));
-    const verifiedPromos = promos.filter((promo) => isVerified(promo));
-    const storesWithPromos = stores.filter(
-      (store) => toNumber(store.promo_count) > 0
-    );
-
-    return {
-      stores: stores.length,
-      promos: promos.length,
-      activePromos: activePromos.length,
-      verifiedPromos: verifiedPromos.length,
-      storesWithPromos: storesWithPromos.length,
-      categories: categories.length,
-    };
-  }, [stores, promos, categories]);
-
-  const popularStores = useMemo(() => {
-    return [...stores]
-      .sort((firstStore, secondStore) => {
-        return (
-          toNumber(secondStore.promo_count) - toNumber(firstStore.promo_count) ||
-          toNumber(secondStore.active_promo_count) -
-            toNumber(firstStore.active_promo_count) ||
-          toNumber(secondStore.works_count) - toNumber(firstStore.works_count) ||
-          firstStore.name.localeCompare(secondStore.name, "uk")
-        );
-      })
-      .slice(0, 6);
-  }, [stores]);
-
-  const latestPromos = useMemo(() => {
-    return promos.slice(0, 9);
-  }, [promos]);
-
-  const topCategories = useMemo(() => {
-    return [...categories]
-      .sort((firstCategory, secondCategory) => {
-        const firstStats =
-          categoryStatsById.get(firstCategory.id) || makeEmptyCategoryStats();
-        const secondStats =
-          categoryStatsById.get(secondCategory.id) || makeEmptyCategoryStats();
-
-        return (
-          secondStats.promos - firstStats.promos ||
-          secondStats.stores - firstStats.stores ||
-          firstCategory.name.localeCompare(secondCategory.name, "uk")
-        );
-      })
-      .slice(0, 10);
-  }, [categories, categoryStatsById]);
-
-  async function copyCode(promo: PromoCode) {
-    try {
-      await navigator.clipboard.writeText(promo.code);
-      setCopiedCodeId(promo.id);
-
-      window.setTimeout(() => {
-        setCopiedCodeId(null);
-      }, 1500);
-    } catch {
-      setMessage("Не вдалося скопіювати код. Скопіюй вручну.");
-      setMessageType("error");
-    }
-  }
 
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
       <section className="mx-auto w-full max-w-7xl">
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-10 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
+        <section className="overflow-hidden rounded-[3rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
+          <div className="grid gap-10 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-12">
             <div>
               <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 На крилах знижок
               </p>
 
               <h1 className="text-5xl font-black tracking-tight md:text-7xl">
-                Промокоди, які перевіряє спільнота
+                Промокоди, акції та магазини в одному місці
               </h1>
 
               <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
-                ПромоПтаха збирає промокоди з YouTube, Telegram, Instagram,
-                TikTok і сайтів магазинів. Додавай коди, голосуй “працює / не
-                працює” і знаходь знижки швидше.
+                ПромоПтаха — це спільна база промокодів. Користувачі додають
+                коди, перевіряють їх голосами та допомагають іншим економити.
               </p>
 
               <div className="mt-8 flex flex-wrap gap-3">
@@ -414,14 +431,21 @@ export default function HomePage() {
                   href="/add"
                   className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
-                  Додати код
+                  Додати промокод
                 </Link>
 
                 <Link
-                  href="/stores"
+                  href="/deals"
                   className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                 >
-                  Магазини
+                  Акції
+                </Link>
+
+                <Link
+                  href="/users"
+                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                >
+                  Спільнота
                 </Link>
               </div>
             </div>
@@ -429,37 +453,37 @@ export default function HomePage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
                 <p className="text-4xl font-black text-white">
-                  {formatNumber(totals.promos)}
+                  {isLoading ? "..." : promos.length}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  промокодів
+                  нових промокодів
                 </p>
               </div>
 
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
                 <p className="text-4xl font-black text-emerald-300">
-                  {formatNumber(totals.activePromos)}
+                  {isLoading ? "..." : activePromos.length}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  активні / без терміну
+                  активні
                 </p>
               </div>
 
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
                 <p className="text-4xl font-black text-yellow-300">
-                  {formatNumber(totals.stores)}
+                  {isLoading ? "..." : totalWorksVotes}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  магазинів
+                  голосів “працює”
                 </p>
               </div>
 
               <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-orange-300">
-                  {formatNumber(totals.categories)}
+                <p className="text-4xl font-black text-white">
+                  {isLoading ? "..." : topUsers.length}
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-500">
-                  категорій
+                  учасників спільноти
                 </p>
               </div>
             </div>
@@ -467,377 +491,493 @@ export default function HomePage() {
         </section>
 
         {message && (
-          <div
-            className={`mt-6 rounded-2xl border p-4 ${
-              messageType === "success"
-                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-                : messageType === "error"
-                ? "border-red-400/30 bg-red-400/10 text-red-300"
-                : "border-slate-700 bg-slate-900 text-slate-300"
-            }`}
-          >
+          <div className="mt-6 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 font-bold text-red-300">
             {message}
           </div>
         )}
 
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
-                Категорії
-              </p>
+        <section className="mt-10 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-3xl font-black">Нові промокоди</h2>
 
-              <h2 className="text-4xl font-black tracking-tight">
-                Знижки по категоріях
-              </h2>
+                <p className="mt-2 leading-7 text-slate-400">
+                  Останні схвалені промокоди зі спільноти.
+                </p>
+              </div>
 
-              <p className="mt-3 max-w-2xl leading-7 text-slate-400">
-                Магазин може бути одразу в кількох категоріях, а промокоди
-                підтягуються через готову SQL view.
-              </p>
+              <Link
+                href="/codes"
+                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              >
+                Всі промокоди
+              </Link>
             </div>
 
-            <Link
-              href="/stores"
-              className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-            >
-              Всі магазини
-            </Link>
-          </div>
+            {isLoading ? (
+              <div className="mt-6 grid gap-5 md:grid-cols-2">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-72 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-950"
+                  />
+                ))}
+              </div>
+            ) : promos.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
+                <div className="text-5xl">🎟️</div>
+                <h3 className="mt-4 text-2xl font-black">
+                  Промокодів поки немає
+                </h3>
+                <p className="mt-3 leading-7 text-slate-400">
+                  Додай перший промокод, і після модерації він зʼявиться тут.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-5 md:grid-cols-2">
+                {promos.slice(0, 6).map((promo) => {
+                  const expired = isExpired(promo.expires_at);
+                  const daysLeft = getDaysLeft(promo.expires_at);
+                  const worksPercent = getWorksPercent(promo);
+                  const storeWebsite = promo.store_id
+                    ? storeWebsiteMap.get(promo.store_id)
+                    : null;
+                  const authorProfile = promo.submitted_by
+                    ? profilesMap.get(promo.submitted_by)
+                    : null;
 
-          {isLoading ? (
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-              {Array.from({ length: 10 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-32 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950"
-                />
-              ))}
-            </div>
-          ) : topCategories.length === 0 ? (
-            <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
-              Категорій поки немає.
-            </div>
-          ) : (
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-              {topCategories.map((category) => {
-                const categoryStats =
-                  categoryStatsById.get(category.id) || makeEmptyCategoryStats();
+                  return (
+                    <article
+                      key={promo.id}
+                      className="flex flex-col rounded-[2rem] border border-slate-800 bg-slate-950 p-5 transition hover:border-emerald-400/50"
+                    >
+                      <div className="flex flex-wrap gap-2">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-black ${
+                            expired
+                              ? "border-red-400/30 bg-red-400/10 text-red-300"
+                              : "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                          }`}
+                        >
+                          {expired ? "Термін минув" : "Активний"}
+                        </span>
 
-                return (
-                  <Link
-                    key={category.id}
-                    href="/stores"
-                    className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-5 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:bg-slate-900"
-                  >
-                    <h3 className="line-clamp-2 text-xl font-black text-white">
-                      {category.name}
-                    </h3>
-
-                    <p className="mt-2 text-sm font-bold text-slate-500">
-                      {category.slug}
-                    </p>
-
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
-                        {formatNumber(categoryStats.stores)} магазинів
-                      </span>
-
-                      <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
-                        {formatNumber(categoryStats.promos)} кодів
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
-                Магазини
-              </p>
-
-              <h2 className="text-4xl font-black tracking-tight">
-                Популярні магазини
-              </h2>
-
-              <p className="mt-3 max-w-2xl leading-7 text-slate-400">
-                Магазини з найбільшою кількістю промокодів і перевірок.
-              </p>
-            </div>
-
-            <Link
-              href="/stores"
-              className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-            >
-              Всі магазини
-            </Link>
-          </div>
-
-          {isLoading ? (
-            <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-72 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-950"
-                />
-              ))}
-            </div>
-          ) : popularStores.length === 0 ? (
-            <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
-              Магазинів поки немає.
-            </div>
-          ) : (
-            <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {popularStores.map((store) => {
-                const categoryNames = getStoreCategoryNames(store);
-
-                return (
-                  <article
-                    key={store.id}
-                    className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:bg-slate-900"
-                  >
-                    <div className="flex items-start gap-4">
-                      <StoreLogo
-                        name={store.name}
-                        websiteUrl={store.website_url}
-                        size="md"
-                      />
-
-                      <div className="min-w-0">
-                        <h3 className="break-words text-2xl font-black text-white">
-                          {store.name}
-                        </h3>
-
-                        <p className="mt-1 break-all text-sm font-bold text-slate-500">
-                          /stores/{store.slug}
-                        </p>
-
-                        {store.website_url && (
-                          <p className="mt-1 break-all text-sm font-bold text-slate-600">
-                            {getHostName(store.website_url)}
-                          </p>
+                        {promo.category_name && (
+                          <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                            {promo.category_name}
+                          </span>
                         )}
                       </div>
-                    </div>
 
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      {categoryNames.length === 0 ? (
-                        <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-500">
-                          Без категорії
-                        </span>
-                      ) : (
-                        categoryNames.slice(0, 4).map((categoryName) => (
-                          <span
-                            key={categoryName}
-                            className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300"
+                      <div className="mt-5 flex items-start gap-4">
+                        <StoreLogo
+                          name={promo.store_name || "Магазин"}
+                          websiteUrl={storeWebsite}
+                          size="sm"
+                        />
+
+                        <div className="min-w-0">
+                          <Link
+                            href={getPromoLink(promo)}
+                            className="break-all text-3xl font-black text-white transition hover:text-emerald-300"
                           >
-                            {categoryName}
-                          </span>
-                        ))
-                      )}
-                    </div>
+                            {promo.code}
+                          </Link>
 
-                    <div className="mt-5 grid grid-cols-3 gap-3">
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center">
-                        <p className="text-2xl font-black text-white">
-                          {formatNumber(toNumber(store.promo_count))}
-                        </p>
-                        <p className="mt-1 text-xs font-bold text-slate-500">
-                          всього
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center">
-                        <p className="text-2xl font-black text-emerald-300">
-                          {formatNumber(toNumber(store.active_promo_count))}
-                        </p>
-                        <p className="mt-1 text-xs font-bold text-slate-500">
-                          активні
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center">
-                        <p className="text-2xl font-black text-yellow-300">
-                          {formatNumber(toNumber(store.verified_promo_count))}
-                        </p>
-                        <p className="mt-1 text-xs font-bold text-slate-500">
-                          робочі
-                        </p>
-                      </div>
-                    </div>
-
-                    <Link
-                      href={`/stores/${store.slug}`}
-                      className="mt-5 flex w-full justify-center rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
-                    >
-                      Відкрити магазин
-                    </Link>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
-                Нове
-              </p>
-
-              <h2 className="text-4xl font-black tracking-tight">
-                Останні промокоди
-              </h2>
-
-              <p className="mt-3 max-w-2xl leading-7 text-slate-400">
-                Свіжі коди, які додали користувачі ПромоПтахи.
-              </p>
-            </div>
-
-            <Link
-              href="/codes"
-              className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-            >
-              Всі промокоди
-            </Link>
-          </div>
-
-          {isLoading ? (
-            <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {Array.from({ length: 9 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="h-80 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-950"
-                />
-              ))}
-            </div>
-          ) : latestPromos.length === 0 ? (
-            <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
-              Промокодів поки немає.
-            </div>
-          ) : (
-            <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {latestPromos.map((promo) => {
-                const categoryNames = getPromoCategoryNames(promo);
-
-                return (
-                  <article
-                    key={promo.id}
-                    className="group flex min-h-[360px] flex-col rounded-[2rem] border border-slate-800 bg-slate-950 p-5 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:bg-slate-900"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-slate-500">
                           {promo.store_slug ? (
                             <Link
                               href={`/stores/${promo.store_slug}`}
-                              className="transition hover:text-emerald-300"
+                              className="mt-2 block truncate text-sm font-black text-emerald-300 transition hover:text-emerald-200"
                             >
                               {promo.store_name || "Магазин"}
                             </Link>
                           ) : (
-                            promo.store_name || "Магазин"
+                            <p className="mt-2 truncate text-sm font-black text-slate-500">
+                              {promo.store_name || "Магазин"}
+                            </p>
                           )}
-                        </p>
-
-                        <h3 className="mt-2 break-all text-3xl font-black text-white transition group-hover:text-emerald-300">
-                          {promo.code}
-                        </h3>
+                        </div>
                       </div>
 
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-black ${getStatusClass(
-                          promo
-                        )}`}
-                      >
-                        {getStatusLabel(promo)}
-                      </span>
-                    </div>
+                      <p className="mt-4 text-xl font-black text-emerald-300">
+                        {promo.discount_value || "Знижка не вказана"}
+                      </p>
 
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      {categoryNames.length === 0 ? (
-                        <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-500">
-                          Без категорії
-                        </span>
-                      ) : (
-                        categoryNames.slice(0, 4).map((categoryName) => (
-                          <span
-                            key={categoryName}
-                            className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300"
+                      {authorProfile ? (
+                        authorProfile.username ? (
+                          <Link
+                            href={`/u/${authorProfile.username}`}
+                            className="mt-5 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3 transition hover:border-emerald-400/50"
                           >
-                            {categoryName}
-                          </span>
-                        ))
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-400/30 bg-slate-950 text-sm font-black text-emerald-300">
+                              {authorProfile.avatar_url ? (
+                                <img
+                                  src={authorProfile.avatar_url}
+                                  alt={getAuthorName(authorProfile)}
+                                  className="h-full w-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span>{getAuthorFallback(authorProfile)}</span>
+                              )}
+                            </div>
+
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-bold text-slate-500">
+                                Додав користувач
+                              </p>
+                              <p className="truncate text-sm font-black text-white">
+                                {getAuthorName(authorProfile)}
+                              </p>
+                              <p className="truncate text-xs font-black text-emerald-300">
+                                @{authorProfile.username}
+                              </p>
+                            </div>
+                          </Link>
+                        ) : (
+                          <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                            <p className="text-xs font-bold text-slate-500">
+                              Додав користувач
+                            </p>
+                            <p className="mt-1 text-sm font-black text-slate-300">
+                              Профіль ще не має публічного нікнейму
+                            </p>
+                          </div>
+                        )
+                      ) : promo.submitted_by ? (
+                        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                          <p className="text-xs font-bold text-slate-500">
+                            Додав користувач
+                          </p>
+                          <p className="mt-1 text-sm font-black text-slate-300">
+                            Профіль ще не налаштовано
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mt-5 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-emerald-400/30 bg-slate-950">
+                            <img
+                              src="/icons/promoptaha-bird.png"
+                              alt="ПромоПтаха"
+                              className="h-full w-full object-contain p-1"
+                            />
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-bold text-slate-500">
+                              Додав користувач
+                            </p>
+                            <p className="truncate text-sm font-black text-white">
+                              ПромоПтаха
+                            </p>
+                            <p className="truncate text-xs font-black text-emerald-300">
+                              службовий автор старих промокодів
+                            </p>
+                          </div>
+                        </div>
                       )}
-                    </div>
 
-                    <p className="mt-5 text-xl font-black text-emerald-300">
-                      {promo.discount_value || "Знижка"}
-                    </p>
+                      <div className="mt-5 grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                          <p className="text-xs font-bold text-slate-500">
+                            Діє до
+                          </p>
+                          <p className="mt-1 font-black text-slate-200">
+                            {formatDate(promo.expires_at)}
+                          </p>
 
-                    <p className="mt-3 line-clamp-3 min-h-[72px] leading-6 text-slate-400">
-                      {promo.description ||
-                        "Промокод додано спільнотою. Перевір деталі, термін дії та голоси користувачів."}
-                    </p>
+                          {daysLeft !== null && !expired && (
+                            <p className="mt-1 text-xs font-bold text-emerald-300">
+                              {daysLeft} дн.
+                            </p>
+                          )}
+                        </div>
 
-                    <div className="mt-5 grid grid-cols-3 gap-3">
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center">
-                        <p className="text-2xl font-black text-emerald-300">
-                          {formatNumber(toNumber(promo.works_count))}
-                        </p>
-                        <p className="mt-1 text-xs font-bold text-slate-500">
-                          працює
-                        </p>
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                          <p className="text-xs font-bold text-slate-500">
+                            Надійність
+                          </p>
+                          <p className="mt-1 font-black text-slate-200">
+                            {worksPercent === null
+                              ? "Немає"
+                              : `${worksPercent}%`}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center">
-                        <p className="text-2xl font-black text-red-300">
-                          {formatNumber(toNumber(promo.not_works_count))}
-                        </p>
-                        <p className="mt-1 text-xs font-bold text-slate-500">
-                          ні
-                        </p>
+                      <div className="mt-auto flex flex-wrap gap-3 pt-5">
+                        <Link
+                          href={getPromoLink(promo)}
+                          className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                        >
+                          Деталі
+                        </Link>
+
+                        {promo.store_slug && (
+                          <Link
+                            href={`/stores/${promo.store_slug}`}
+                            className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                          >
+                            Магазин
+                          </Link>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          <section className="grid gap-8">
+            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-black">Топ спільноти</h2>
+
+                  <p className="mt-2 leading-7 text-slate-400">
+                    Користувачі, які найбільше допомагають базі промокодів.
+                  </p>
+                </div>
+
+                <Link
+                  href="/users"
+                  className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                >
+                  Вся спільнота
+                </Link>
+              </div>
+
+              {topUsers.length === 0 ? (
+                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center">
+                  <div className="text-5xl">🐦</div>
+                  <h3 className="mt-4 text-2xl font-black">
+                    Спільнота формується
+                  </h3>
+                  <p className="mt-3 leading-7 text-slate-400">
+                    Коли користувачі додадуть нікнейми та промокоди, вони
+                    зʼявляться тут.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-6 grid gap-4">
+                  {topUsers.map((topUser, index) => (
+                    <Link
+                      key={topUser.id}
+                      href={`/u/${topUser.username}`}
+                      className="rounded-2xl border border-slate-800 bg-slate-950 p-4 transition hover:border-emerald-400/50"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 text-xl font-black text-emerald-300">
+                          {topUser.avatar_url ? (
+                            <img
+                              src={topUser.avatar_url}
+                              alt={getAuthorName(topUser)}
+                              className="h-full w-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <span>{getAuthorFallback(topUser)}</span>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 text-xs font-black text-slate-400">
+                              #{index + 1}
+                            </span>
+
+                            <p className="truncate text-xl font-black text-white">
+                              {getAuthorName(topUser)}
+                            </p>
+                          </div>
+
+                          <p className="mt-1 truncate text-sm font-black text-emerald-300">
+                            @{topUser.username}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center">
-                        <p className="text-sm font-black text-slate-200">
-                          {formatDate(promo.expires_at)}
+                      <div className="mt-4 grid grid-cols-4 gap-2">
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                          <p className="text-lg font-black text-white">
+                            {topUser.approvedPromos}
+                          </p>
+                          <p className="text-[11px] font-bold text-slate-500">
+                            кодів
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                          <p className="text-lg font-black text-emerald-300">
+                            {topUser.actualPromos}
+                          </p>
+                          <p className="text-[11px] font-bold text-slate-500">
+                            актуальні
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                          <p className="text-lg font-black text-yellow-300">
+                            {topUser.worksVotes}
+                          </p>
+                          <p className="text-[11px] font-bold text-slate-500">
+                            працює
+                          </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                          <p className="text-lg font-black text-white">
+                            {topUser.storesCount}
+                          </p>
+                          <p className="text-[11px] font-bold text-slate-500">
+                            магазинів
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-black">Акції</h2>
+
+                  <p className="mt-2 leading-7 text-slate-400">
+                    Окремі акційні пропозиції магазинів.
+                  </p>
+                </div>
+
+                <Link
+                  href="/deals"
+                  className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                >
+                  Всі акції
+                </Link>
+              </div>
+
+              {deals.length === 0 ? (
+                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center">
+                  <div className="text-5xl">🔥</div>
+                  <h3 className="mt-4 text-2xl font-black">
+                    Акцій поки немає
+                  </h3>
+                  <p className="mt-3 leading-7 text-slate-400">
+                    Додай перші акції в адмінці.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-6 grid gap-4">
+                  {deals.slice(0, 4).map((deal) => (
+                    <article
+                      key={deal.id}
+                      className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                    >
+                      <div className="flex items-start gap-4">
+                        <StoreLogo
+                          name={deal.store_name || "Магазин"}
+                          websiteUrl={deal.store_website_url}
+                          size="sm"
+                        />
+
+                        <div className="min-w-0">
+                          <h3 className="line-clamp-2 text-xl font-black text-white">
+                            {deal.title}
+                          </h3>
+
+                          <p className="mt-2 truncate text-sm font-black text-emerald-300">
+                            {deal.store_name || "Магазин"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {deal.description && (
+                        <p className="mt-4 line-clamp-2 leading-7 text-slate-400">
+                          {deal.description}
                         </p>
-                        <p className="mt-1 text-xs font-bold text-slate-500">
-                          термін
+                      )}
+
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        <a
+                          href={getDealUrl(deal)}
+                          target={deal.deal_url ? "_blank" : undefined}
+                          rel={deal.deal_url ? "noreferrer" : undefined}
+                          className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                        >
+                          Відкрити
+                        </a>
+
+                        {deal.ends_at && (
+                          <span className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300">
+                            до {formatDate(deal.ends_at)}
+                          </span>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-black">Магазини</h2>
+
+                  <p className="mt-2 leading-7 text-slate-400">
+                    Популярні магазини з промокодами.
+                  </p>
+                </div>
+
+                <Link
+                  href="/stores"
+                  className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                >
+                  Всі магазини
+                </Link>
+              </div>
+
+              {stores.length === 0 ? (
+                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center">
+                  <div className="text-5xl">🏪</div>
+                  <h3 className="mt-4 text-2xl font-black">
+                    Магазинів поки немає
+                  </h3>
+                </div>
+              ) : (
+                <div className="mt-6 grid gap-4">
+                  {stores.slice(0, 6).map((store) => (
+                    <Link
+                      key={store.id}
+                      href={`/stores/${store.slug}`}
+                      className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950 p-4 transition hover:border-emerald-400/50"
+                    >
+                      <StoreLogo
+                        name={store.name}
+                        websiteUrl={store.website_url}
+                        size="sm"
+                      />
+
+                      <div className="min-w-0">
+                        <p className="truncate text-xl font-black text-white">
+                          {store.name}
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-slate-500">
+                          {Number(store.active_promo_count || 0)} активних
+                          промокодів
                         </p>
                       </div>
-                    </div>
-
-                    <div className="mt-auto grid gap-3 pt-6 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={() => copyCode(promo)}
-                        className="rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
-                      >
-                        {copiedCodeId === promo.id
-                          ? "Скопійовано"
-                          : "Копіювати"}
-                      </button>
-
-                      <Link
-                        href={getPromoUrl(promo)}
-                        className="flex justify-center rounded-2xl border border-slate-700 px-5 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                      >
-                        Деталі
-                      </Link>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+          </section>
         </section>
       </section>
     </main>

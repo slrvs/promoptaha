@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { createClient } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
 
@@ -8,6 +9,10 @@ type PageProps = {
   params: Promise<{
     username: string;
   }>;
+};
+
+type PublicUserContentProps = {
+  username: string;
 };
 
 type UserProfile = {
@@ -58,12 +63,59 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { username: rawUsername } = await params;
+  const username = normalizeUsername(rawUsername);
+
+  return {
+    title: `@${username} — профіль`,
+    description:
+      "Публічний профіль користувача ПромоПтахи, додані промокоди та внесок у спільноту.",
+    alternates: {
+      canonical: `${siteUrl}/u/${username}`,
+    },
+    openGraph: {
+      title: `@${username} — ПромоПтаха`,
+      description:
+        "Публічний профіль користувача ПромоПтахи, додані промокоди та внесок у спільноту.",
+      type: "profile",
+      url: `${siteUrl}/u/${username}`,
+      images: [
+        {
+          url: "/icons/promoptaha-bird.png",
+          width: 512,
+          height: 512,
+          alt: "ПромоПтаха",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary",
+      title: `@${username} — ПромоПтаха`,
+      description:
+        "Публічний профіль користувача ПромоПтахи, додані промокоди та внесок у спільноту.",
+      images: ["/icons/promoptaha-bird.png"],
+    },
+  };
+}
+
 function getSupabaseClient() {
   if (!supabaseUrl || !supabaseAnonKey) {
     return null;
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey);
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      fetch: (input, init) => {
+        return fetch(input, {
+          ...init,
+          cache: "no-store",
+        });
+      },
+    },
+  });
 }
 
 function normalizeUsername(value: string) {
@@ -155,7 +207,8 @@ async function getProfile(username: string) {
     .select(
       "id, email, username, display_name, avatar_url, bio, website_url, instagram_url, telegram_url, tiktok_url, youtube_url, created_at, updated_at"
     )
-    .eq("username", username)
+    .ilike("username", username)
+    .limit(1)
     .maybeSingle();
 
   if (error || !data) return null;
@@ -207,6 +260,7 @@ async function getUserPromos(userId: string) {
   }
 
   const promos = (data || []) as unknown as PublicPromo[];
+
   const storeIds = Array.from(
     new Set(
       promos
@@ -225,66 +279,19 @@ async function getUserPromos(userId: string) {
   }));
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
-  const { username: rawUsername } = await params;
-  const username = normalizeUsername(rawUsername);
-  const profile = await getProfile(username);
+function UserProfileLoading() {
+  return (
+    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+      <section className="mx-auto w-full max-w-7xl">
+        <div className="h-[420px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
 
-  if (!profile) {
-    return {
-      title: "Користувача не знайдено",
-      description: "Публічний профіль користувача на ПромоПтасі.",
-    };
-  }
-
-  const name = getProfileName(profile);
-  const description =
-    profile.bio ||
-    `Публічний профіль ${name} на ПромоПтасі: промокоди, внесок у спільноту та корисні знижки.`;
-
-  return {
-    title: `${name} — профіль`,
-    description,
-    alternates: {
-      canonical: `${siteUrl}/u/${profile.username}`,
-    },
-    openGraph: {
-      title: `${name} — ПромоПтаха`,
-      description,
-      type: "profile",
-      url: `${siteUrl}/u/${profile.username}`,
-      images: profile.avatar_url
-        ? [
-            {
-              url: profile.avatar_url,
-              alt: name,
-            },
-          ]
-        : [
-            {
-              url: "/icons/promoptaha-bird.png",
-              width: 512,
-              height: 512,
-              alt: "ПромоПтаха",
-            },
-          ],
-    },
-    twitter: {
-      card: "summary",
-      title: `${name} — ПромоПтаха`,
-      description,
-      images: profile.avatar_url
-        ? [profile.avatar_url]
-        : ["/icons/promoptaha-bird.png"],
-    },
-  };
+        <div className="mt-8 h-96 animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
+      </section>
+    </main>
+  );
 }
 
-export default async function PublicUserPage({ params }: PageProps) {
-  const { username: rawUsername } = await params;
-  const username = normalizeUsername(rawUsername);
+async function PublicUserContent({ username }: PublicUserContentProps) {
   const profile = await getProfile(username);
 
   if (!profile || !profile.username) {
@@ -323,6 +330,10 @@ export default async function PublicUserPage({ params }: PageProps) {
         <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
           <Link href="/" className="hover:text-emerald-300">
             Головна
+          </Link>
+          <span>/</span>
+          <Link href="/users" className="hover:text-emerald-300">
+            Спільнота
           </Link>
           <span>/</span>
           <span className="text-slate-300">@{profile.username}</span>
@@ -393,6 +404,7 @@ export default async function PublicUserPage({ params }: PageProps) {
                   <p className="font-black text-slate-300">
                     Соцмережі ще не додані
                   </p>
+
                   <p className="mt-2 text-sm leading-6 text-slate-500">
                     Коли користувач додасть посилання у своєму профілі, вони
                     зʼявляться тут.
@@ -574,5 +586,16 @@ export default async function PublicUserPage({ params }: PageProps) {
         </section>
       </section>
     </main>
+  );
+}
+
+export default async function PublicUserPage({ params }: PageProps) {
+  const { username: rawUsername } = await params;
+  const username = normalizeUsername(rawUsername);
+
+  return (
+    <Suspense fallback={<UserProfileLoading />}>
+      <PublicUserContent username={username} />
+    </Suspense>
   );
 }
