@@ -4,9 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import CodeDetailsClient from "./CodeDetailsClient";
 
 type PageProps = {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 };
 
 type PromoCode = {
@@ -18,6 +16,7 @@ type PromoCode = {
   discount_value?: string | null;
   expires_at?: string | null;
   description?: string | null;
+  all_category_names?: string[] | null;
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -49,9 +48,9 @@ function isExpired(date: string | null | undefined) {
 
 async function getPromo(param: string) {
   const query = supabase
-    .from("promo_code_stats")
+    .from("promo_code_category_stats")
     .select(
-      "id, slug, code, store_name, store_slug, discount_value, expires_at, description"
+      "id, slug, code, store_name, store_slug, discount_value, expires_at, description, all_category_names"
     );
 
   const { data } = isUuid(param)
@@ -72,8 +71,11 @@ function makeDescription(promo: PromoCode | null) {
 
   const storeName = promo.store_name || "магазину";
   const discount = promo.discount_value || "знижка";
+  const categories = promo.all_category_names?.length
+    ? ` Категорії: ${promo.all_category_names.join(", ")}.`
+    : "";
 
-  return `Промокод ${promo.code} для ${storeName}: ${discount}. Перевірка, термін дії та голоси користувачів у ПромоПтасі.`;
+  return `Промокод ${promo.code} для ${storeName}: ${discount}.${categories} Перевірка, термін дії та голоси користувачів у ПромоПтасі.`;
 }
 
 function makePromoJsonLd(promo: PromoCode) {
@@ -86,7 +88,9 @@ function makePromoJsonLd(promo: PromoCode) {
     name: `Промокод ${promo.code} для ${promo.store_name || "магазину"}`,
     description: makeDescription(promo),
     url: pageUrl,
-    category: "Промокод",
+    category: promo.all_category_names?.length
+      ? promo.all_category_names.join(", ")
+      : "Промокод",
     availability: expired
       ? "https://schema.org/OutOfStock"
       : "https://schema.org/InStock",
