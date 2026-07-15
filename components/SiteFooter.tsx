@@ -4,6 +4,7 @@ const mainLinks = [
   { href: "/codes", label: "Промокоди" },
   { href: "/deals", label: "Акції" },
   { href: "/stores", label: "Магазини" },
+  { href: "/users", label: "Спільнота" },
   { href: "/stats", label: "Статистика" },
   { href: "/add", label: "Додати промокод" },
   { href: "/request-store", label: "Запропонувати магазин" },
@@ -102,6 +103,13 @@ export default function SiteFooter() {
                 className="rounded-full border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
               >
                 Магазин
+              </Link>
+
+              <Link
+                href="/users"
+                className="rounded-full border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+              >
+                Спільнота
               </Link>
             </div>
           </div>

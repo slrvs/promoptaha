@@ -3,15 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
+import StoreLogo from "@/components/StoreLogo";
 
-type PromoCode = {
+type VoteType = "works" | "not_works";
+
+type Promo = {
   id: string;
   slug?: string | null;
   code: string;
   normalized_code?: string | null;
-  store_id: string;
-  store_name: string;
-  store_slug: string;
+  store_id?: string | null;
+  store_name?: string | null;
+  store_slug?: string | null;
   store_search_aliases?: string[] | null;
   category_id?: string | null;
   category_name?: string | null;
@@ -32,15 +35,32 @@ type PromoCode = {
   submitted_by?: string | null;
 };
 
-type UserVote = {
-  id?: string;
-  promo_code_id: string;
-  user_id: string;
-  vote_type: "works" | "not_works";
+type Store = {
+  id: string;
+  name: string;
+  slug: string;
+  website_url?: string | null;
+  description?: string | null;
+};
+
+type UserProfile = {
+  id: string;
+  email?: string | null;
+  username?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
+  website_url?: string | null;
+  instagram_url?: string | null;
+  telegram_url?: string | null;
+  tiktok_url?: string | null;
+  youtube_url?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 type CodeDetailsClientProps = {
-  promo: PromoCode;
+  promo: Promo;
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -52,40 +72,32 @@ const supabase = createClient(
 );
 
 function formatDate(date: string | null | undefined) {
-  if (!date) return "Без терміну";
+  if (!date) return "Не вказано";
 
   return new Intl.DateTimeFormat("uk-UA", {
     day: "2-digit",
-    month: "2-digit",
+    month: "long",
     year: "numeric",
   }).format(new Date(date));
 }
 
-function formatDateTime(date: string | null | undefined) {
-  if (!date) return "Невідомо";
+function getDaysLeft(date: string | null | undefined) {
+  if (!date) return null;
 
-  return new Intl.DateTimeFormat("uk-UA", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(date));
+  const now = new Date();
+  const end = new Date(date);
+  const diff = end.getTime() - now.getTime();
+
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
 function isExpired(date: string | null | undefined) {
   if (!date) return false;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const expiresAt = new Date(date);
-  expiresAt.setHours(0, 0, 0, 0);
-
-  return expiresAt < today;
+  return new Date(date) < new Date();
 }
 
-function getSourceLabel(sourceType: string | null | undefined) {
+function getSourceTypeLabel(sourceType: string | null | undefined) {
   if (sourceType === "youtube") return "YouTube";
   if (sourceType === "telegram") return "Telegram";
   if (sourceType === "instagram") return "Instagram";
@@ -93,115 +105,150 @@ function getSourceLabel(sourceType: string | null | undefined) {
   if (sourceType === "website") return "Сайт";
   if (sourceType === "other") return "Інше";
 
-  return "Не вказано";
+  return sourceType || "Не вказано";
 }
 
-function getCategories(promo: PromoCode) {
-  if (promo.all_category_names && promo.all_category_names.length > 0) {
-    return promo.all_category_names;
-  }
-
-  return promo.category_name ? [promo.category_name] : [];
+function getAuthorName(profile: UserProfile | null) {
+  return profile?.display_name || profile?.username || "Користувач";
 }
 
-function getTrustLabel(worksCount: number, notWorksCount: number) {
-  if (worksCount === 0 && notWorksCount === 0) {
-    return "Ще немає голосів";
-  }
+function getAuthorFallback(profile: UserProfile | null) {
+  const name = getAuthorName(profile).trim();
 
-  if (worksCount > notWorksCount) {
-    return "Ймовірно працює";
-  }
+  if (!name) return "🐦";
 
-  if (notWorksCount > worksCount) {
-    return "Є скарги";
-  }
-
-  return "Голоси порівну";
+  return name.slice(0, 1).toUpperCase();
 }
 
-function getTrustClass(worksCount: number, notWorksCount: number) {
-  if (worksCount === 0 && notWorksCount === 0) {
-    return "border-slate-700 bg-slate-900 text-slate-300";
-  }
+function getWorksPercent(worksCount: number, notWorksCount: number) {
+  const total = worksCount + notWorksCount;
 
-  if (worksCount > notWorksCount) {
-    return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
-  }
+  if (total === 0) return null;
 
-  if (notWorksCount > worksCount) {
-    return "border-red-400/30 bg-red-400/10 text-red-300";
-  }
-
-  return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
+  return Math.round((worksCount / total) * 100);
 }
 
 export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [store, setStore] = useState<Store | null>(null);
+  const [authorProfile, setAuthorProfile] = useState<UserProfile | null>(null);
+
   const [worksCount, setWorksCount] = useState(Number(promo.works_count || 0));
   const [notWorksCount, setNotWorksCount] = useState(
     Number(promo.not_works_count || 0)
   );
-  const [userVote, setUserVote] = useState<"works" | "not_works" | null>(null);
+  const [myVote, setMyVote] = useState<VoteType | null>(null);
 
-  const [isCheckingUser, setIsCheckingUser] = useState(true);
+  const [isLoadingExtraData, setIsLoadingExtraData] = useState(true);
   const [isVoting, setIsVoting] = useState(false);
   const [isReporting, setIsReporting] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState("not_working");
   const [reportDescription, setReportDescription] = useState("");
 
-  const [copied, setCopied] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "info">(
     "info"
   );
 
-  const categories = useMemo(() => getCategories(promo), [promo]);
-
+  const daysLeft = getDaysLeft(promo.expires_at);
   const expired = isExpired(promo.expires_at);
-  const totalVotes = worksCount + notWorksCount;
-  const worksPercent = totalVotes > 0 ? Math.round((worksCount / totalVotes) * 100) : 0;
+  const worksPercent = getWorksPercent(worksCount, notWorksCount);
 
-  async function loadUserAndVote() {
-    setIsCheckingUser(true);
+  const allCategoryNames = useMemo(() => {
+    const names = [
+      promo.category_name,
+      ...(promo.all_category_names || []),
+    ].filter((name): name is string => Boolean(name));
 
-    const { data } = await supabase.auth.getUser();
-    const currentUser = data.user;
+    return Array.from(new Set(names));
+  }, [promo.category_name, promo.all_category_names]);
 
-    setUser(currentUser);
+  async function loadExtraData() {
+    setIsLoadingExtraData(true);
 
-    if (currentUser) {
-      const { data: voteData } = await supabase
-        .from("promo_votes")
-        .select("promo_code_id, user_id, vote_type")
-        .eq("promo_code_id", promo.id)
-        .eq("user_id", currentUser.id)
-        .maybeSingle();
+    const { data: userData } = await supabase.auth.getUser();
 
-      const vote = voteData as UserVote | null;
+    setUser(userData.user);
 
-      if (vote?.vote_type === "works" || vote?.vote_type === "not_works") {
-        setUserVote(vote.vote_type);
-      }
+    const storePromise: Promise<{
+      data: Store | null;
+      error: { message: string } | null;
+    }> = promo.store_id
+      ? Promise.resolve(
+          supabase
+            .from("store_category_stats")
+            .select("id, name, slug, website_url, description")
+            .eq("id", promo.store_id)
+            .maybeSingle()
+        ) as Promise<{
+          data: Store | null;
+          error: { message: string } | null;
+        }>
+      : Promise.resolve({ data: null, error: null });
+
+    const profilePromise: Promise<{
+      data: UserProfile | null;
+      error: { message: string } | null;
+    }> = promo.submitted_by
+      ? Promise.resolve(
+          supabase
+            .from("profiles")
+            .select(
+              "id, email, username, display_name, avatar_url, bio, website_url, instagram_url, telegram_url, tiktok_url, youtube_url, created_at, updated_at"
+            )
+            .eq("id", promo.submitted_by)
+            .maybeSingle()
+        ) as Promise<{
+          data: UserProfile | null;
+          error: { message: string } | null;
+        }>
+      : Promise.resolve({ data: null, error: null });
+
+    const votePromise: Promise<{
+      data: { vote_type?: VoteType | null } | null;
+      error: { message: string } | null;
+    }> = userData.user
+      ? Promise.resolve(
+          supabase
+            .from("promo_votes")
+            .select("vote_type")
+            .eq("promo_code_id", promo.id)
+            .eq("user_id", userData.user.id)
+            .maybeSingle()
+        ) as Promise<{
+          data: { vote_type?: VoteType | null } | null;
+          error: { message: string } | null;
+        }>
+      : Promise.resolve({ data: null, error: null });
+
+    const [storeResult, profileResult, voteResult] = await Promise.all([
+      storePromise,
+      profilePromise,
+      votePromise,
+    ]);
+
+    if (storeResult.data) {
+      setStore(storeResult.data);
     }
 
-    setIsCheckingUser(false);
+    if (profileResult.data) {
+      setAuthorProfile(profileResult.data);
+    }
+
+    if (voteResult.data?.vote_type) {
+      setMyVote(voteResult.data.vote_type);
+    }
+
+    setIsLoadingExtraData(false);
   }
 
   useEffect(() => {
-    loadUserAndVote();
+    loadExtraData();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null);
-
-      if (session?.user) {
-        loadUserAndVote();
-      } else {
-        setUserVote(null);
-      }
     });
 
     return () => {
@@ -213,20 +260,15 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     try {
       await navigator.clipboard.writeText(promo.code);
 
-      setCopied(true);
       setMessage("Промокод скопійовано.");
       setMessageType("success");
-
-      window.setTimeout(() => {
-        setCopied(false);
-      }, 1800);
     } catch {
-      setMessage("Не вдалося скопіювати код. Скопіюй його вручну.");
+      setMessage("Не вдалося скопіювати промокод.");
       setMessageType("error");
     }
   }
 
-  async function vote(nextVote: "works" | "not_works") {
+  async function vote(nextVote: VoteType) {
     if (!user) {
       setMessage("Щоб голосувати, потрібно увійти.");
       setMessageType("error");
@@ -238,7 +280,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setIsVoting(true);
     setMessage("");
 
-    const previousVote = userVote;
+    const previousVote = myVote;
 
     const { error } = await supabase.from("promo_votes").upsert(
       {
@@ -254,31 +296,33 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setIsVoting(false);
 
     if (error) {
-      setMessage(`Не вдалося зберегти голос: ${error.message}`);
+      setMessage(`Не вдалося зарахувати голос: ${error.message}`);
       setMessageType("error");
       return;
     }
 
-    if (previousVote !== nextVote) {
-      if (previousVote === "works") {
-        setWorksCount((current) => Math.max(0, current - 1));
-      }
-
-      if (previousVote === "not_works") {
-        setNotWorksCount((current) => Math.max(0, current - 1));
-      }
-
-      if (nextVote === "works") {
-        setWorksCount((current) => current + 1);
-      }
-
-      if (nextVote === "not_works") {
-        setNotWorksCount((current) => current + 1);
-      }
+    if (previousVote === "works") {
+      setWorksCount((current) => Math.max(0, current - 1));
     }
 
-    setUserVote(nextVote);
-    setMessage("Дякуємо, голос збережено.");
+    if (previousVote === "not_works") {
+      setNotWorksCount((current) => Math.max(0, current - 1));
+    }
+
+    if (nextVote === "works") {
+      setWorksCount((current) => current + 1);
+    }
+
+    if (nextVote === "not_works") {
+      setNotWorksCount((current) => current + 1);
+    }
+
+    setMyVote(nextVote);
+    setMessage(
+      nextVote === "works"
+        ? "Дякуємо, ти підтвердив, що промокод працює."
+        : "Дякуємо, ти повідомив, що промокод не працює."
+    );
     setMessageType("success");
   }
 
@@ -289,7 +333,11 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       return;
     }
 
-    if (isReporting) return;
+    if (!reportDescription.trim()) {
+      setMessage("Коротко опиши проблему з промокодом.");
+      setMessageType("error");
+      return;
+    }
 
     setIsReporting(true);
     setMessage("");
@@ -297,23 +345,21 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     const { error } = await supabase.from("promo_reports").insert({
       promo_code_id: promo.id,
       reported_by: user.id,
-      reason: reportReason,
-      description: reportDescription.trim() || null,
+      description: reportDescription.trim(),
       status: "open",
     });
 
     setIsReporting(false);
 
     if (error) {
-      setMessage(`Не вдалося відправити скаргу: ${error.message}`);
+      setMessage(`Не вдалося відправити репорт: ${error.message}`);
       setMessageType("error");
       return;
     }
 
-    setIsReportOpen(false);
     setReportDescription("");
-    setReportReason("not_working");
-    setMessage("Скаргу відправлено. Адмін перевірить промокод.");
+    setIsReportOpen(false);
+    setMessage("Репорт відправлено. Адмін перевірить промокод.");
     setMessageType("success");
   }
 
@@ -329,11 +375,22 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
             Промокоди
           </Link>
           <span>/</span>
-          <span className="break-all text-slate-300">{promo.code}</span>
+          {promo.store_slug ? (
+            <Link
+              href={`/stores/${promo.store_slug}`}
+              className="hover:text-emerald-300"
+            >
+              {promo.store_name || "Магазин"}
+            </Link>
+          ) : (
+            <span>{promo.store_name || "Магазин"}</span>
+          )}
+          <span>/</span>
+          <span className="text-slate-300">{promo.code}</span>
         </div>
 
         <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
+          <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
             <div>
               <div className="flex flex-wrap gap-2">
                 <span
@@ -343,106 +400,128 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                       : "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                   }`}
                 >
-                  {expired ? "Термін минув" : "Активний"}
+                  {expired ? "Термін минув" : "Активний промокод"}
                 </span>
 
-                <span
-                  className={`rounded-full border px-4 py-2 text-sm font-black ${getTrustClass(
-                    worksCount,
-                    notWorksCount
-                  )}`}
-                >
-                  {getTrustLabel(worksCount, notWorksCount)}
-                </span>
-
-                {categories.map((category) => (
-                  <span
-                    key={category}
-                    className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-300"
-                  >
-                    {category}
+                {promo.category_name && (
+                  <span className="rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black text-slate-300">
+                    {promo.category_name}
                   </span>
-                ))}
+                )}
               </div>
 
-              <h1 className="mt-6 break-all text-5xl font-black tracking-tight md:text-7xl">
+              <h1 className="mt-6 break-all text-6xl font-black tracking-tight md:text-8xl">
                 {promo.code}
               </h1>
 
-              <p className="mt-4 text-3xl font-black text-emerald-300">
-                {promo.discount_value || "Промокод на знижку"}
+              <p className="mt-5 max-w-3xl text-xl font-bold text-emerald-300">
+                {promo.discount_value || "Знижка не вказана"}
               </p>
 
-              <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
-                {promo.description ||
-                  `Промокод для ${promo.store_name}. Перевір актуальність, скопіюй код і проголосуй, чи він працює.`}
-              </p>
+              {promo.description && (
+                <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+                  {promo.description}
+                </p>
+              )}
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <button
                   type="button"
                   onClick={copyCode}
-                  className="rounded-full bg-emerald-400 px-7 py-4 text-lg font-black text-slate-950 transition hover:bg-emerald-300"
+                  className="rounded-full bg-emerald-400 px-7 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
                 >
-                  {copied ? "Скопійовано" : "Скопіювати код"}
+                  Скопіювати промокод
                 </button>
-
-                <Link
-                  href={`/stores/${promo.store_slug}`}
-                  className="rounded-full border border-slate-700 px-7 py-4 text-lg font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                >
-                  До магазину
-                </Link>
 
                 {promo.source_url && (
                   <a
                     href={promo.source_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-full border border-slate-700 px-7 py-4 text-lg font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                    className="rounded-full border border-slate-700 px-7 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
                   >
                     Джерело
                   </a>
                 )}
+
+                {promo.store_slug && (
+                  <Link
+                    href={`/stores/${promo.store_slug}`}
+                    className="rounded-full border border-slate-700 px-7 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  >
+                    Сторінка магазину
+                  </Link>
+                )}
               </div>
             </div>
 
-            <aside className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-              <h2 className="text-3xl font-black">Перевірка коду</h2>
+            <div className="grid gap-5">
+              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                <div className="flex items-center gap-4">
+                  <StoreLogo
+                    name={promo.store_name || store?.name || "Магазин"}
+                    websiteUrl={store?.website_url}
+                    size="md"
+                  />
 
-              <div className="mt-6 grid gap-4">
-                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                  <p className="text-sm font-bold text-slate-500">Магазин</p>
-                  <Link
-                    href={`/stores/${promo.store_slug}`}
-                    className="mt-1 block text-xl font-black text-emerald-300 hover:text-emerald-200"
-                  >
-                    {promo.store_name}
-                  </Link>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-500">Магазин</p>
+
+                    <h2 className="truncate text-2xl font-black text-white">
+                      {promo.store_name || store?.name || "Магазин"}
+                    </h2>
+
+                    {promo.store_slug && (
+                      <Link
+                        href={`/stores/${promo.store_slug}`}
+                        className="mt-1 inline-flex text-sm font-black text-emerald-300 hover:text-emerald-200"
+                      >
+                        /stores/{promo.store_slug}
+                      </Link>
+                    )}
+                  </div>
                 </div>
+              </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
                   <p className="text-sm font-bold text-slate-500">Діє до</p>
-                  <p className="mt-1 text-xl font-black text-white">
+                  <p className="mt-2 text-2xl font-black text-white">
                     {formatDate(promo.expires_at)}
                   </p>
+
+                  {daysLeft !== null && !expired && (
+                    <p className="mt-2 text-sm font-bold text-emerald-300">
+                      Залишилось днів: {daysLeft}
+                    </p>
+                  )}
                 </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                  <p className="text-sm font-bold text-slate-500">Додано</p>
-                  <p className="mt-1 text-xl font-black text-white">
-                    {formatDateTime(promo.created_at)}
+                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                  <p className="text-sm font-bold text-slate-500">Джерело</p>
+                  <p className="mt-2 text-2xl font-black text-white">
+                    {getSourceTypeLabel(promo.source_type)}
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-                  <p className="text-sm font-bold text-slate-500">Джерело</p>
-                  <p className="mt-1 text-xl font-black text-white">
-                    {getSourceLabel(promo.source_type)}
+                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                  <p className="text-sm font-bold text-slate-500">Додано</p>
+                  <p className="mt-2 text-2xl font-black text-white">
+                    {formatDate(promo.created_at)}
+                  </p>
+                </div>
+
+                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+                  <p className="text-sm font-bold text-slate-500">
+                    Надійність
+                  </p>
+
+                  <p className="mt-2 text-2xl font-black text-white">
+                    {worksPercent === null ? "Ще немає" : `${worksPercent}%`}
                   </p>
                 </div>
               </div>
-            </aside>
+            </div>
           </div>
         </section>
 
@@ -452,174 +531,224 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
               messageType === "success"
                 ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                 : messageType === "error"
-                ? "border-red-400/30 bg-red-400/10 text-red-300"
-                : "border-slate-700 bg-slate-900 text-slate-300"
+                  ? "border-red-400/30 bg-red-400/10 text-red-300"
+                  : "border-slate-700 bg-slate-900 text-slate-300"
             }`}
           >
             {message}
           </div>
         )}
 
-        <section className="mt-8 grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-          <div className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-            <h2 className="text-3xl font-black">Чи працює код?</h2>
+        <section className="mt-8 grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+            <h2 className="text-3xl font-black">Перевірка промокоду</h2>
 
             <p className="mt-3 leading-7 text-slate-400">
-              Допоможи іншим користувачам: проголосуй, якщо промокод працює або
-              вже не працює.
+              Допоможи іншим користувачам зрозуміти, чи цей промокод ще працює.
             </p>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => vote("works")}
-                disabled={isVoting || isCheckingUser}
+                disabled={isVoting}
                 className={`rounded-2xl border px-5 py-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                  userVote === "works"
-                    ? "border-emerald-400 bg-emerald-400/10"
-                    : "border-slate-800 bg-slate-950 hover:border-emerald-400/40"
+                  myVote === "works"
+                    ? "border-emerald-400 bg-emerald-400 text-slate-950"
+                    : "border-emerald-400/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
                 }`}
               >
-                <p className="text-3xl">✅</p>
-                <p className="mt-2 text-2xl font-black text-emerald-300">
-                  Працює
-                </p>
-                <p className="mt-1 text-sm font-bold text-slate-500">
-                  {worksCount} голосів
-                </p>
+                <p className="text-3xl font-black">👍 {worksCount}</p>
+                <p className="mt-2 text-sm font-black">Працює</p>
               </button>
 
               <button
                 type="button"
                 onClick={() => vote("not_works")}
-                disabled={isVoting || isCheckingUser}
+                disabled={isVoting}
                 className={`rounded-2xl border px-5 py-5 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                  userVote === "not_works"
-                    ? "border-red-400 bg-red-400/10"
-                    : "border-slate-800 bg-slate-950 hover:border-red-400/40"
+                  myVote === "not_works"
+                    ? "border-red-400 bg-red-400 text-slate-950"
+                    : "border-red-400/30 bg-red-400/10 text-red-300 hover:bg-red-400/20"
                 }`}
               >
-                <p className="text-3xl">❌</p>
-                <p className="mt-2 text-2xl font-black text-red-300">
-                  Не працює
-                </p>
-                <p className="mt-1 text-sm font-bold text-slate-500">
-                  {notWorksCount} голосів
-                </p>
+                <p className="text-3xl font-black">👎 {notWorksCount}</p>
+                <p className="mt-2 text-sm font-black">Не працює</p>
               </button>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-              <div className="flex items-center justify-between gap-4">
-                <p className="font-black text-slate-300">Довіра</p>
-                <p className="font-black text-emerald-300">{worksPercent}%</p>
-              </div>
-
-              <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-800">
-                <div
-                  className="h-full rounded-full bg-emerald-400 transition-all"
-                  style={{ width: `${worksPercent}%` }}
-                />
-              </div>
-
-              <p className="mt-3 text-sm text-slate-500">
-                Усього голосів: {totalVotes}
-              </p>
             </div>
 
             {!user && (
-              <Link
-                href="/login"
-                className="mt-5 inline-flex rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Увійти, щоб голосувати
-              </Link>
+              <p className="mt-4 text-sm font-bold text-slate-500">
+                Щоб голосувати, потрібно{" "}
+                <Link href="/login" className="text-emerald-300">
+                  увійти
+                </Link>
+                .
+              </p>
             )}
-          </div>
 
-          <div className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-            <h2 className="text-3xl font-black">Поскаржитися</h2>
+            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
+              <p className="text-sm font-bold text-slate-500">
+                Всього перевірок
+              </p>
 
-            <p className="mt-3 leading-7 text-slate-400">
-              Якщо промокод неправильний, не працює або має погане джерело —
-              відправ скаргу на перевірку.
-            </p>
+              <p className="mt-2 text-3xl font-black text-white">
+                {worksCount + notWorksCount}
+              </p>
 
-            {!isReportOpen ? (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!user) {
-                    setMessage("Щоб поскаржитися, потрібно увійти.");
-                    setMessageType("error");
-                    return;
-                  }
+              {worksPercent !== null && (
+                <p className="mt-2 text-sm font-bold text-slate-400">
+                  {worksPercent}% користувачів кажуть, що промокод працює.
+                </p>
+              )}
+            </div>
+          </section>
 
-                  setIsReportOpen(true);
-                }}
-                className="mt-6 rounded-full border border-red-400/40 px-6 py-4 font-black text-red-300 transition hover:bg-red-400/10"
-              >
-                Поскаржитися на код
-              </button>
-            ) : (
-              <div className="mt-6 grid gap-4">
-                <label className="grid gap-2">
-                  <span className="text-sm font-black text-slate-300">
-                    Причина
-                  </span>
+          <section className="grid gap-8">
+            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+              <h2 className="text-3xl font-black">Додав користувач</h2>
 
-                  <select
-                    value={reportReason}
-                    onChange={(event) => setReportReason(event.target.value)}
-                    className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-                  >
-                    <option value="not_working">Не працює</option>
-                    <option value="expired">Закінчився термін</option>
-                    <option value="wrong_store">Не той магазин</option>
-                    <option value="bad_source">Погане джерело</option>
-                    <option value="spam">Спам</option>
-                    <option value="other">Інше</option>
-                  </select>
-                </label>
+              {isLoadingExtraData ? (
+                <div className="mt-5 h-28 animate-pulse rounded-2xl border border-slate-800 bg-slate-950" />
+              ) : authorProfile ? (
+                <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-5">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 text-2xl font-black text-emerald-300">
+                      {authorProfile.avatar_url ? (
+                        <img
+                          src={authorProfile.avatar_url}
+                          alt={getAuthorName(authorProfile)}
+                          className="h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <span>{getAuthorFallback(authorProfile)}</span>
+                      )}
+                    </div>
 
-                <label className="grid gap-2">
-                  <span className="text-sm font-black text-slate-300">
-                    Коментар
-                  </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-xl font-black text-white">
+                        {getAuthorName(authorProfile)}
+                      </p>
 
+                      {authorProfile.username && (
+                        <p className="mt-1 text-sm font-black text-emerald-300">
+                          @{authorProfile.username}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {authorProfile.bio && (
+                    <p className="mt-4 line-clamp-3 leading-7 text-slate-400">
+                      {authorProfile.bio}
+                    </p>
+                  )}
+
+                  {authorProfile.username && (
+                    <Link
+                      href={`/u/${authorProfile.username}`}
+                      className="mt-5 inline-flex rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                    >
+                      Відкрити профіль
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-5">
+                  <p className="font-black text-slate-300">
+                    Автор ще не налаштував публічний профіль
+                  </p>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    Коли користувач додасть нікнейм у профілі, тут зʼявиться
+                    посилання на його сторінку.
+                  </p>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+              <h2 className="text-3xl font-black">Поскаржитися</h2>
+
+              <p className="mt-3 leading-7 text-slate-400">
+                Якщо промокод не працює, веде не туди або має неправильний опис,
+                можна відправити репорт.
+              </p>
+
+              {!isReportOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setIsReportOpen(true)}
+                  className="mt-5 rounded-full border border-red-400/40 px-5 py-3 font-black text-red-300 transition hover:bg-red-400/10"
+                >
+                  Поскаржитися
+                </button>
+              ) : (
+                <div className="mt-5 grid gap-4">
                   <textarea
                     value={reportDescription}
                     onChange={(event) =>
                       setReportDescription(event.target.value)
                     }
                     rows={5}
-                    placeholder="Опиши проблему..."
-                    className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                    placeholder="Опиши проблему з промокодом..."
+                    className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-red-400"
                   />
-                </label>
 
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={submitReport}
-                    disabled={isReporting}
-                    className="rounded-full bg-red-400 px-6 py-4 font-black text-slate-950 transition hover:bg-red-300 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isReporting ? "Відправляю..." : "Відправити скаргу"}
-                  </button>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={submitReport}
+                      disabled={isReporting}
+                      className="rounded-full bg-red-400 px-5 py-3 font-black text-slate-950 transition hover:bg-red-300 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isReporting ? "Відправляю..." : "Відправити репорт"}
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsReportOpen(false)}
-                    className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                  >
-                    Скасувати
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsReportOpen(false);
+                        setReportDescription("");
+                      }}
+                      className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                    >
+                      Скасувати
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+
+              {!user && (
+                <p className="mt-4 text-sm font-bold text-slate-500">
+                  Щоб відправити репорт, потрібно{" "}
+                  <Link href="/login" className="text-emerald-300">
+                    увійти
+                  </Link>
+                  .
+                </p>
+              )}
+            </section>
+          </section>
         </section>
+
+        {allCategoryNames.length > 0 && (
+          <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+            <h2 className="text-3xl font-black">Категорії</h2>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {allCategoryNames.map((categoryName) => (
+                <span
+                  key={categoryName}
+                  className="rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black text-slate-300"
+                >
+                  {categoryName}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
       </section>
     </main>
   );

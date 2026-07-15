@@ -14,6 +14,12 @@ type PromoRoute = {
   created_at?: string | null;
 };
 
+type UserRoute = {
+  username: string;
+  updated_at?: string | null;
+  created_at?: string | null;
+};
+
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -62,6 +68,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.9,
+    },
+    {
+      url: makeUrl("/users"),
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.75,
     },
     {
       url: makeUrl("/stats"),
@@ -113,7 +125,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return staticRoutes;
   }
 
-  const [storesResult, promosResult] = await Promise.all([
+  const [storesResult, promosResult, usersResult] = await Promise.all([
     supabase
       .from("store_category_stats")
       .select("slug, created_at")
@@ -124,6 +136,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .from("promo_code_category_stats")
       .select("id, slug, created_at")
       .eq("status", "approved")
+      .limit(5000),
+
+    supabase
+      .from("profiles")
+      .select("username, created_at, updated_at")
+      .not("username", "is", null)
       .limit(5000),
   ]);
 
@@ -145,5 +163,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.75,
       }));
 
-  return [...staticRoutes, ...storeRoutes, ...promoRoutes];
+  const userRoutes: MetadataRoute.Sitemap = usersResult.error
+    ? []
+    : ((usersResult.data || []) as UserRoute[])
+        .filter((user) => Boolean(user.username))
+        .map((user) => ({
+          url: makeUrl(`/u/${user.username}`),
+          lastModified: getLastModified(user.updated_at || user.created_at),
+          changeFrequency: "daily",
+          priority: 0.55,
+        }));
+
+  return [...staticRoutes, ...storeRoutes, ...promoRoutes, ...userRoutes];
 }

@@ -17,6 +17,7 @@ const mainLinks: NavLink[] = [
   { href: "/codes", label: "Промокоди" },
   { href: "/deals", label: "Акції" },
   { href: "/stores", label: "Магазини" },
+  { href: "/users", label: "Спільнота" },
   { href: "/stats", label: "Статистика" },
   { href: "/add", label: "Додати" },
 ];
@@ -124,7 +125,7 @@ export default function SiteNav() {
           </div>
         </Link>
 
-        <nav className="hidden items-center gap-1 lg:flex">
+        <nav className="hidden items-center gap-1 xl:flex">
           {mainLinks.map((link) => {
             const isActive = isActivePath(pathname, link.href);
 
@@ -182,7 +183,7 @@ export default function SiteNav() {
           )}
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="hidden items-center gap-3 xl:flex">
           {isCheckingUser ? (
             <div className="h-11 w-28 animate-pulse rounded-full bg-slate-900" />
           ) : user ? (
@@ -219,7 +220,7 @@ export default function SiteNav() {
         <button
           type="button"
           onClick={() => setIsMobileMenuOpen((current) => !current)}
-          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-2xl font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 lg:hidden"
+          className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-2xl font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 xl:hidden"
           aria-label="Відкрити меню"
         >
           {isMobileMenuOpen ? "×" : "☰"}
@@ -227,7 +228,7 @@ export default function SiteNav() {
       </div>
 
       {isMobileMenuOpen && (
-        <div className="border-t border-slate-800 bg-slate-950 px-5 pb-5 lg:hidden">
+        <div className="border-t border-slate-800 bg-slate-950 px-5 pb-5 xl:hidden">
           <nav className="mx-auto grid max-w-7xl gap-2 pt-4">
             {mainLinks.map((link) => {
               const isActive = isActivePath(pathname, link.href);

@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
-
-type PromoStatus = "pending" | "approved" | "rejected";
+import { normalizeUrl } from "@/lib/searchAliases";
 
 type PromoCode = {
   id: string;
@@ -43,6 +42,22 @@ type StoreRequest = {
   submitted_by?: string | null;
   created_store_id?: string | null;
   created_at?: string | null;
+};
+
+type UserProfile = {
+  id: string;
+  email?: string | null;
+  username?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  bio?: string | null;
+  website_url?: string | null;
+  instagram_url?: string | null;
+  telegram_url?: string | null;
+  tiktok_url?: string | null;
+  youtube_url?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -123,14 +138,56 @@ function getPromoLink(promo: PromoCode) {
   return `/codes/${promo.slug || promo.id}`;
 }
 
+function normalizeUsername(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9а-яіїєґ_-]/gi, "")
+    .slice(0, 32);
+}
+
+function getProfileName(profile: UserProfile | null, user: User | null) {
+  return (
+    profile?.display_name ||
+    profile?.username ||
+    user?.email?.split("@")[0] ||
+    "Користувач"
+  );
+}
+
+function getAvatarFallback(profile: UserProfile | null, user: User | null) {
+  const name = getProfileName(profile, user).trim();
+
+  if (!name) return "🐦";
+
+  return name.slice(0, 1).toUpperCase();
+}
+
+function safeUrl(value: string) {
+  return normalizeUrl(value.trim()) || null;
+}
+
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [promos, setPromos] = useState<PromoCode[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
   const [storeRequests, setStoreRequests] = useState<StoreRequest[]>([]);
 
+  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [bio, setBio] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [telegramUrl, setTelegramUrl] = useState("");
+  const [tiktokUrl, setTiktokUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+
   const [isCheckingUser, setIsCheckingUser] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const [message, setMessage] = useState("");
@@ -154,6 +211,18 @@ export default function ProfilePage() {
     };
   }, [promos, storeRequests]);
 
+  function fillProfileForm(nextProfile: UserProfile | null) {
+    setUsername(nextProfile?.username || "");
+    setDisplayName(nextProfile?.display_name || "");
+    setAvatarUrl(nextProfile?.avatar_url || "");
+    setBio(nextProfile?.bio || "");
+    setWebsiteUrl(nextProfile?.website_url || "");
+    setInstagramUrl(nextProfile?.instagram_url || "");
+    setTelegramUrl(nextProfile?.telegram_url || "");
+    setTiktokUrl(nextProfile?.tiktok_url || "");
+    setYoutubeUrl(nextProfile?.youtube_url || "");
+  }
+
   async function checkUser() {
     setIsCheckingUser(true);
 
@@ -167,6 +236,7 @@ export default function ProfilePage() {
 
   async function loadData(currentUser: User | null) {
     if (!currentUser) {
+      setProfile(null);
       setPromos([]);
       setStores([]);
       setStoreRequests([]);
@@ -177,31 +247,50 @@ export default function ProfilePage() {
     setIsLoading(true);
     setMessage("");
 
-    const [promosResult, storesResult, storeRequestsResult] = await Promise.all([
-      supabase
-        .from("promo_codes")
-        .select(
-          "id, slug, code, store_id, discount_value, expires_at, status, source_type, source_url, description, created_at, submitted_by"
-        )
-        .eq("submitted_by", currentUser.id)
-        .order("created_at", { ascending: false })
-        .limit(300),
+    const [profileResult, promosResult, storesResult, storeRequestsResult] =
+      await Promise.all([
+        supabase
+          .from("profiles")
+          .select(
+            "id, email, username, display_name, avatar_url, bio, website_url, instagram_url, telegram_url, tiktok_url, youtube_url, created_at, updated_at"
+          )
+          .eq("id", currentUser.id)
+          .maybeSingle(),
 
-      supabase
-        .from("store_category_stats")
-        .select("id, name, slug, website_url, description, category_names")
-        .order("name", { ascending: true })
-        .limit(3000),
+        supabase
+          .from("promo_codes")
+          .select(
+            "id, slug, code, store_id, discount_value, expires_at, status, source_type, source_url, description, created_at, submitted_by"
+          )
+          .eq("submitted_by", currentUser.id)
+          .order("created_at", { ascending: false })
+          .limit(300),
 
-      supabase
-        .from("store_requests")
-        .select(
-          "id, store_name, name, website_url, url, description, comment, status, submitted_by, created_store_id, created_at"
-        )
-        .eq("submitted_by", currentUser.id)
-        .order("created_at", { ascending: false })
-        .limit(100),
-    ]);
+        supabase
+          .from("store_category_stats")
+          .select("id, name, slug, website_url, description, category_names")
+          .order("name", { ascending: true })
+          .limit(3000),
+
+        supabase
+          .from("store_requests")
+          .select(
+            "id, store_name, name, website_url, url, description, comment, status, submitted_by, created_store_id, created_at"
+          )
+          .eq("submitted_by", currentUser.id)
+          .order("created_at", { ascending: false })
+          .limit(100),
+      ]);
+
+    if (profileResult.error) {
+      setProfile(null);
+      fillProfileForm(null);
+    } else {
+      const nextProfile = profileResult.data as UserProfile | null;
+
+      setProfile(nextProfile);
+      fillProfileForm(nextProfile);
+    }
 
     if (promosResult.error) {
       setPromos([]);
@@ -251,6 +340,69 @@ export default function ProfilePage() {
     };
   }, []);
 
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!user) {
+      setMessage("Потрібно увійти.");
+      setMessageType("error");
+      return;
+    }
+
+    const finalUsername = normalizeUsername(username);
+
+    if (username.trim() && finalUsername.length < 3) {
+      setMessage("Нікнейм має містити мінімум 3 символи.");
+      setMessageType("error");
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setMessage("");
+
+    const payload = {
+      id: user.id,
+      email: user.email || null,
+      username: finalUsername || null,
+      display_name: displayName.trim() || null,
+      avatar_url: safeUrl(avatarUrl),
+      bio: bio.trim() || null,
+      website_url: safeUrl(websiteUrl),
+      instagram_url: safeUrl(instagramUrl),
+      telegram_url: safeUrl(telegramUrl),
+      tiktok_url: safeUrl(tiktokUrl),
+      youtube_url: safeUrl(youtubeUrl),
+    };
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert(payload, { onConflict: "id" })
+      .select(
+        "id, email, username, display_name, avatar_url, bio, website_url, instagram_url, telegram_url, tiktok_url, youtube_url, created_at, updated_at"
+      )
+      .single();
+
+    setIsSavingProfile(false);
+
+    if (error) {
+      if (error.message.toLowerCase().includes("duplicate")) {
+        setMessage("Такий нікнейм уже зайнятий. Обери інший.");
+      } else {
+        setMessage(`Не вдалося зберегти профіль: ${error.message}`);
+      }
+
+      setMessageType("error");
+      return;
+    }
+
+    const nextProfile = data as unknown as UserProfile;
+
+    setProfile(nextProfile);
+    fillProfileForm(nextProfile);
+    setMessage("Профіль оновлено.");
+    setMessageType("success");
+  }
+
   async function deletePromo(promo: PromoCode) {
     if (!user) return;
 
@@ -294,6 +446,7 @@ export default function ProfilePage() {
   async function signOut() {
     await supabase.auth.signOut();
     setUser(null);
+    setProfile(null);
     setPromos([]);
     setStoreRequests([]);
   }
@@ -361,18 +514,42 @@ export default function ProfilePage() {
                 Мій профіль
               </p>
 
-              <h1 className="break-words text-5xl font-black tracking-tight md:text-7xl">
-                Привіт 👋
-              </h1>
+              <div className="flex flex-wrap items-center gap-5">
+                <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-[2rem] border border-emerald-400/30 bg-slate-950 text-5xl font-black text-emerald-300">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={getProfileName(profile, user)}
+                      className="h-full w-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <span>{getAvatarFallback(profile, user)}</span>
+                  )}
+                </div>
 
-              <p className="mt-5 break-all text-lg font-bold text-slate-400">
-                {user.email}
-              </p>
+                <div className="min-w-0">
+                  <h1 className="break-words text-5xl font-black tracking-tight md:text-7xl">
+                    {getProfileName(profile, user)}
+                  </h1>
 
-              <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-400">
-                Тут зібрані твої промокоди, заявки магазинів і швидкі дії.
-                Пізніше сюди додамо аватарку, нікнейм і посилання на соцмережі.
-              </p>
+                  <p className="mt-3 break-all text-lg font-bold text-slate-400">
+                    {user.email}
+                  </p>
+
+                  {profile?.username && (
+                    <p className="mt-2 text-sm font-black text-emerald-300">
+                      @{profile.username}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {profile?.bio && (
+                <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+                  {profile.bio}
+                </p>
+              )}
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -452,6 +629,146 @@ export default function ProfilePage() {
             {message}
           </div>
         )}
+
+        <form
+          onSubmit={saveProfile}
+          className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6"
+        >
+          <h2 className="text-3xl font-black">Налаштування профілю</h2>
+
+          <p className="mt-2 leading-7 text-slate-400">
+            Вкажи, як тебе показувати на сайті. Поки що аватарка працює через
+            пряме посилання на зображення.
+          </p>
+
+          <div className="mt-6 grid gap-5 xl:grid-cols-2">
+            <label className="grid gap-2">
+              <span className="text-sm font-black text-slate-300">
+                Нікнейм
+              </span>
+
+              <input
+                value={username}
+                onChange={(event) =>
+                  setUsername(normalizeUsername(event.target.value))
+                }
+                placeholder="d00doser"
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+
+              <span className="text-xs font-bold text-slate-500">
+                Мінімум 3 символи. Можна латиницю, цифри, дефіс, підкреслення.
+              </span>
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-black text-slate-300">
+                Імʼя для показу
+              </span>
+
+              <input
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder="Наприклад: D00DOSER"
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+            </label>
+
+            <label className="grid gap-2 xl:col-span-2">
+              <span className="text-sm font-black text-slate-300">
+                Посилання на аватарку
+              </span>
+
+              <input
+                value={avatarUrl}
+                onChange={(event) => setAvatarUrl(event.target.value)}
+                placeholder="https://..."
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+            </label>
+
+            <label className="grid gap-2 xl:col-span-2">
+              <span className="text-sm font-black text-slate-300">
+                Короткий опис
+              </span>
+
+              <textarea
+                value={bio}
+                onChange={(event) => setBio(event.target.value)}
+                rows={4}
+                placeholder="Коротко про себе."
+                className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-black text-slate-300">Сайт</span>
+
+              <input
+                value={websiteUrl}
+                onChange={(event) => setWebsiteUrl(event.target.value)}
+                placeholder="https://..."
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-black text-slate-300">
+                Instagram
+              </span>
+
+              <input
+                value={instagramUrl}
+                onChange={(event) => setInstagramUrl(event.target.value)}
+                placeholder="https://instagram.com/..."
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-black text-slate-300">
+                Telegram
+              </span>
+
+              <input
+                value={telegramUrl}
+                onChange={(event) => setTelegramUrl(event.target.value)}
+                placeholder="https://t.me/..."
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+            </label>
+
+            <label className="grid gap-2">
+              <span className="text-sm font-black text-slate-300">TikTok</span>
+
+              <input
+                value={tiktokUrl}
+                onChange={(event) => setTiktokUrl(event.target.value)}
+                placeholder="https://tiktok.com/@..."
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+            </label>
+
+            <label className="grid gap-2 xl:col-span-2">
+              <span className="text-sm font-black text-slate-300">YouTube</span>
+
+              <input
+                value={youtubeUrl}
+                onChange={(event) => setYoutubeUrl(event.target.value)}
+                placeholder="https://youtube.com/..."
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              />
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSavingProfile}
+            className="mt-6 rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSavingProfile ? "Зберігаю..." : "Зберегти профіль"}
+          </button>
+        </form>
 
         <section className="mt-8 grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
           <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
