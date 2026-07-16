@@ -11,6 +11,7 @@ import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
 import UserLevelBadge from "@/components/UserLevelBadge";
+import LoginRequiredBox from "@/components/LoginRequiredBox";
 
 type VoteType = "works" | "not_works";
 
@@ -293,6 +294,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     "info"
   );
 
+  const promoPath = `/codes/${promo.slug || promo.id}`;
   const sourceUrl = normalizeOptionalUrl(promo.source_url);
   const storeWebsiteUrl = store?.website_url || "";
   const worksPercent = getWorksPercent(worksCount, notWorksCount);
@@ -551,8 +553,8 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
 
   async function vote(nextVote: VoteType) {
     if (!user) {
-      setMessage("Щоб голосувати, потрібно увійти.");
-      setMessageType("error");
+      setMessage("Щоб голосувати, увійди в акаунт.");
+      setMessageType("info");
       return;
     }
 
@@ -571,7 +573,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       setIsVoting(false);
 
       if (error) {
-        setMessage(`Не вдалося прибрати голос: ${getFriendlyErrorMessage(error)}`);
+        setMessage(
+          `Не вдалося прибрати голос: ${getFriendlyErrorMessage(error)}`
+        );
         setMessageType("error");
         return;
       }
@@ -630,8 +634,8 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
 
   async function toggleFavorite() {
     if (!user) {
-      setMessage("Щоб зберігати промокоди, потрібно увійти.");
-      setMessageType("error");
+      setMessage("Щоб зберігати промокоди, увійди в акаунт.");
+      setMessageType("info");
       return;
     }
 
@@ -650,7 +654,11 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       setIsTogglingFavorite(false);
 
       if (error) {
-        setMessage(`Не вдалося прибрати зі збережених: ${getFriendlyErrorMessage(error)}`);
+        setMessage(
+          `Не вдалося прибрати зі збережених: ${getFriendlyErrorMessage(
+            error
+          )}`
+        );
         setMessageType("error");
         return;
       }
@@ -673,7 +681,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setIsTogglingFavorite(false);
 
     if (error) {
-      setMessage(`Не вдалося зберегти промокод: ${getFriendlyErrorMessage(error)}`);
+      setMessage(
+        `Не вдалося зберегти промокод: ${getFriendlyErrorMessage(error)}`
+      );
       setMessageType("error");
       return;
     }
@@ -689,8 +699,8 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     event.preventDefault();
 
     if (!user) {
-      setMessage("Щоб надіслати репорт, потрібно увійти.");
-      setMessageType("error");
+      setMessage("Щоб надіслати репорт, увійди в акаунт.");
+      setMessageType("info");
       return;
     }
 
@@ -707,7 +717,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setIsReporting(false);
 
     if (error) {
-      setMessage(`Не вдалося надіслати репорт: ${getFriendlyErrorMessage(error)}`);
+      setMessage(
+        `Не вдалося надіслати репорт: ${getFriendlyErrorMessage(error)}`
+      );
       setMessageType("error");
       return;
     }
@@ -721,8 +733,8 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     event.preventDefault();
 
     if (!user) {
-      setMessage("Щоб писати коментарі, потрібно увійти.");
-      setMessageType("error");
+      setMessage("Щоб писати коментарі, увійди в акаунт.");
+      setMessageType("info");
       return;
     }
 
@@ -747,7 +759,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setIsAddingComment(false);
 
     if (error) {
-      setMessage(`Не вдалося додати коментар: ${getFriendlyErrorMessage(error)}`);
+      setMessage(
+        `Не вдалося додати коментар: ${getFriendlyErrorMessage(error)}`
+      );
       setMessageType("error");
       return;
     }
@@ -797,7 +811,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setIsUpdatingComment(false);
 
     if (error) {
-      setMessage(`Не вдалося оновити коментар: ${getFriendlyErrorMessage(error)}`);
+      setMessage(
+        `Не вдалося оновити коментар: ${getFriendlyErrorMessage(error)}`
+      );
       setMessageType("error");
       return;
     }
@@ -828,7 +844,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
     setDeletingCommentId(null);
 
     if (error) {
-      setMessage(`Не вдалося видалити коментар: ${getFriendlyErrorMessage(error)}`);
+      setMessage(
+        `Не вдалося видалити коментар: ${getFriendlyErrorMessage(error)}`
+      );
       setMessageType("error");
       return;
     }
@@ -932,6 +950,17 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                   </Link>
                 )}
               </div>
+
+              {!user && (
+                <div className="mt-6">
+                  <LoginRequiredBox
+                    compact
+                    title="Хочеш зберегти або перевірити код?"
+                    description="Увійди, щоб додати промокод у збережені, проголосувати, написати коментар або надіслати репорт."
+                    nextPath={promoPath}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="grid gap-4">
@@ -1044,13 +1073,14 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
               </div>
 
               {!user && (
-                <p className="mt-4 text-sm font-bold text-slate-500">
-                  Щоб голосувати, зберігати коди та писати коментарі, потрібно{" "}
-                  <Link href="/login" className="text-emerald-300">
-                    увійти
-                  </Link>
-                  .
-                </p>
+                <div className="mt-4">
+                  <LoginRequiredBox
+                    compact
+                    title="Хочеш проголосувати?"
+                    description="Увійди, щоб позначити, працює промокод чи ні. Так ти допоможеш іншим користувачам."
+                    nextPath={promoPath}
+                  />
+                </div>
               )}
             </section>
 
@@ -1180,14 +1210,12 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                   </button>
                 </form>
               ) : (
-                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="font-bold text-slate-300">
-                    Щоб писати коментарі, потрібно{" "}
-                    <Link href="/login" className="text-emerald-300">
-                      увійти
-                    </Link>
-                    .
-                  </p>
+                <div className="mt-6">
+                  <LoginRequiredBox
+                    title="Хочеш написати коментар?"
+                    description="Увійди, щоб додати уточнення, поділитися досвідом або написати умови використання промокоду."
+                    nextPath={promoPath}
+                  />
                 </div>
               )}
 
@@ -1230,7 +1258,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                                   referrerPolicy="no-referrer"
                                 />
                               ) : (
-                                <span>{getAvatarFallback(commentProfile)}</span>
+                                <span>
+                                  {getAvatarFallback(commentProfile)}
+                                </span>
                               )}
                             </div>
 
@@ -1279,7 +1309,10 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                         </div>
 
                         {isEditing ? (
-                          <form onSubmit={updateComment} className="mt-4 grid gap-3">
+                          <form
+                            onSubmit={updateComment}
+                            className="mt-4 grid gap-3"
+                          >
                             <textarea
                               value={editingCommentBody}
                               onChange={(event) =>
@@ -1350,14 +1383,12 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                   </button>
                 </form>
               ) : (
-                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
-                  <p className="font-bold text-slate-300">
-                    Щоб надіслати репорт, потрібно{" "}
-                    <Link href="/login" className="text-emerald-300">
-                      увійти
-                    </Link>
-                    .
-                  </p>
+                <div className="mt-6">
+                  <LoginRequiredBox
+                    title="Хочеш надіслати репорт?"
+                    description="Увійди, щоб повідомити про неправильний опис, неробочий код або сумнівне джерело."
+                    nextPath={promoPath}
+                  />
                 </div>
               )}
             </section>
