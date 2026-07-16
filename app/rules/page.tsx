@@ -1,120 +1,146 @@
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 
-export const metadata = {
-  title: "Правила користування — ПромоПтаха",
+export const metadata: Metadata = {
+  title: "Правила сайту",
   description:
-    "Правила користування сайтом ПромоПтаха: додавання промокодів, перевірка актуальності та відповідальність користувачів.",
+    "Правила ПромоПтахи: як додавати промокоди, коментарі, заявки магазинів і що заборонено.",
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
+
+const rules = [
+  {
+    title: "1. Додавай тільки реальні промокоди",
+    items: [
+      "Промокод має бути справжнім або взятим із джерела, яке можна перевірити.",
+      "Не додавай випадкові набори символів, фейкові коди або коди, які точно не працюють.",
+      "Якщо знаєш умови промокоду, вкажи їх в описі: мінімальна сума, категорія товарів, строк дії, обмеження.",
+    ],
+  },
+  {
+    title: "2. Вказуй джерело",
+    items: [
+      "Джерелом може бути YouTube, Telegram, Instagram, сайт магазину, email-розсилка або інше місце, де ти знайшов код.",
+      "Не додавай посилання на шахрайські, небезпечні або фішингові сайти.",
+      "Якщо джерело недоступне, все одно опиши, звідки приблизно взято код.",
+    ],
+  },
+  {
+    title: "3. Не вводь людей в оману",
+    items: [
+      "Не пиши “100% працює”, “гарантовано”, “офіційно”, якщо це не підтверджено магазином.",
+      "Не перебільшуй розмір знижки.",
+      "Не приховуй важливі умови використання промокоду, якщо вони тобі відомі.",
+    ],
+  },
+  {
+    title: "4. Коментарі",
+    items: [
+      "Коментарі мають допомагати іншим користувачам зрозуміти, працює код чи ні.",
+      "Заборонені образи, спам, погрози, дискримінація, шахрайство та реклама сторонніх сумнівних сервісів.",
+      "Адміністрація може приховати або видалити коментар, який порушує правила.",
+    ],
+  },
+  {
+    title: "5. Заявки магазинів",
+    items: [
+      "Пропонуй магазини, які реально існують і мають сайт або публічну сторінку.",
+      "Не додавай копії одного й того самого магазину.",
+      "Не додавай магазини, які продають незаконні або небезпечні товари.",
+    ],
+  },
+  {
+    title: "6. Заборонений контент",
+    items: [
+      "Заборонено додавати незаконний, шахрайський, фішинговий, порнографічний, екстремістський або шкідливий контент.",
+      "Заборонено публікувати чужі персональні дані без дозволу.",
+      "Заборонено масово спамити, накручувати голосування або створювати акаунти для обходу обмежень.",
+    ],
+  },
+  {
+    title: "7. Модерація",
+    items: [
+      "Промокоди можуть проходити модерацію перед публікацією.",
+      "Адміністрація може схвалити, відхилити, приховати або видалити матеріали, які порушують правила.",
+      "Причина відхилення може відображатися в профілі користувача.",
+    ],
+  },
+];
 
 export default function RulesPage() {
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-10 text-white">
-      <section className="mx-auto w-full max-w-5xl">
-        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
-          <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
-            Правила
+    <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
+      <div className="mx-auto max-w-4xl">
+        <div className="rounded-[2rem] border border-emerald-400/20 bg-emerald-400/10 p-6 sm:p-8">
+          <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+            Спільнота
           </p>
 
-          <h1 className="text-5xl font-black tracking-tight">
-            Правила користування
+          <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
+            Правила сайту
           </h1>
 
-          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
-            ПромоПтаха — це спільна база промокодів. Коди додають користувачі,
-            а їхню актуальність допомагає перевіряти спільнота.
+          <p className="mt-4 max-w-2xl text-sm font-bold leading-6 text-emerald-100/80 sm:text-base">
+            Правила потрібні, щоб ПромоПтаха залишалась корисною базою
+            промокодів, а не смітником фейкових кодів і спаму.
           </p>
 
-          <div className="mt-10 space-y-5">
-            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-6">
-              <h2 className="text-2xl font-black">1. Додавання промокодів</h2>
+          <p className="mt-5 text-xs font-bold text-emerald-100/60">
+            Останнє оновлення: 16 липня 2026
+          </p>
+        </div>
 
-              <p className="mt-4 leading-8 text-slate-400">
-                Користувач може додати промокод, якщо він знайшов його у
-                відкритому джерелі: на сайті магазину, у відео, Telegram,
-                Instagram, TikTok, email-розсилці або іншому джерелі.
-              </p>
-            </div>
+        <div className="mt-8 rounded-[2rem] border border-yellow-400/20 bg-yellow-400/10 p-5 text-sm font-bold leading-6 text-yellow-100/90">
+          Промокоди додаються користувачами. Перед покупкою завжди перевіряй
+          умови промокоду, строк дії та остаточну ціну на сайті магазину.
+        </div>
 
-            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-6">
-              <h2 className="text-2xl font-black">2. Модерація</h2>
+        <div className="mt-8 space-y-5">
+          {rules.map((rule) => (
+            <section
+              key={rule.title}
+              className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6"
+            >
+              <h2 className="text-xl font-black text-white">{rule.title}</h2>
 
-              <p className="mt-4 leading-8 text-slate-400">
-                Нові промокоди можуть проходити перевірку перед публікацією.
-                Адміністрація сайту може схвалити, відхилити або видалити код,
-                якщо він некоректний, дублюється або має сумнівне джерело.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-6">
-              <h2 className="text-2xl font-black">3. Актуальність кодів</h2>
-
-              <p className="mt-4 leading-8 text-slate-400">
-                Сайт не гарантує, що кожен промокод буде працювати в момент
-                використання. Магазини можуть змінювати умови, завершувати
-                акції або обмежувати дію кодів без попередження.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-6">
-              <h2 className="text-2xl font-black">4. Голосування</h2>
-
-              <p className="mt-4 leading-8 text-slate-400">
-                Користувачі можуть позначати, чи промокод працює. Ці голоси
-                допомагають іншим швидше зрозуміти, чи варто пробувати код.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-6">
-              <h2 className="text-2xl font-black">5. Повідомлення про проблему</h2>
-
-              <p className="mt-4 leading-8 text-slate-400">
-                Якщо промокод не працює, має неправильний опис, веде на
-                сумнівне джерело або порушує правила, користувач може
-                надіслати репорт через кнопку повідомлення про проблему.
-              </p>
-            </div>
-
-            <div className="rounded-3xl border border-slate-800 bg-slate-950 p-6">
-              <h2 className="text-2xl font-black">6. Заборонено</h2>
-
-              <ul className="mt-4 list-disc space-y-3 pl-6 leading-8 text-slate-400">
-                <li>Додавати фейкові або вигадані промокоди.</li>
-                <li>Додавати шкідливі, шахрайські або підозрілі посилання.</li>
-                <li>Спамити однаковими кодами або заявками.</li>
-                <li>Видавати себе за офіційного представника магазину без підстав.</li>
+              <ul className="mt-4 space-y-3">
+                {rule.items.map((item) => (
+                  <li
+                    key={item}
+                    className="flex gap-3 text-sm font-bold leading-7 text-slate-300"
+                  >
+                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+                    <span>{item}</span>
+                  </li>
+                ))}
               </ul>
-            </div>
+            </section>
+          ))}
+        </div>
 
-            <div className="rounded-3xl border border-emerald-400/20 bg-emerald-400/10 p-6">
-              <h2 className="text-2xl font-black text-emerald-300">
-                Головний принцип
-              </h2>
+        <div className="mt-8 rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6">
+          <h2 className="text-xl font-black text-white">Юридичні сторінки</h2>
 
-              <p className="mt-4 leading-8 text-slate-300">
-                Додавай тільки ті промокоди, які сам вважаєш реальними та
-                корисними. ПромоПтаха має допомагати людям економити, а не
-                витрачати час на сміття.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-10 flex flex-wrap gap-4">
+          <div className="mt-4 flex flex-wrap gap-3">
             <Link
-              href="/codes"
-              className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+              href="/terms"
+              className="rounded-full border border-slate-700 px-4 py-2 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
             >
-              До промокодів
+              Умови використання
             </Link>
 
             <Link
-              href="/add"
-              className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              href="/privacy"
+              className="rounded-full border border-slate-700 px-4 py-2 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
             >
-              Додати промокод
+              Політика приватності
             </Link>
           </div>
-        </section>
-      </section>
+        </div>
+      </div>
     </main>
   );
 }

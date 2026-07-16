@@ -10,6 +10,7 @@
   "/about",
   "/rules",
   "/privacy",
+  "/terms",
   "/contact",
   "/add",
   "/request-store",
