@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createClient, type User } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
+import LoginRequiredBox from "@/components/LoginRequiredBox";
 import { getHostName, normalizeUrl } from "@/lib/searchAliases";
 
 type Store = {
@@ -196,7 +197,9 @@ export default function RequestStorePage() {
     if (storesResult.error) {
       setStores([]);
       setMessage(
-        `Не вдалося завантажити магазини: ${getFriendlyErrorMessage(storesResult.error)}`
+        `Не вдалося завантажити магазини: ${getFriendlyErrorMessage(
+          storesResult.error
+        )}`
       );
       setMessageType("error");
     } else {
@@ -250,8 +253,8 @@ export default function RequestStorePage() {
     event.preventDefault();
 
     if (!user) {
-      setMessage("Щоб запропонувати магазин, потрібно увійти.");
-      setMessageType("error");
+      setMessage("Щоб запропонувати магазин, увійди в акаунт.");
+      setMessageType("info");
       return;
     }
 
@@ -288,7 +291,9 @@ export default function RequestStorePage() {
     setIsSubmitting(false);
 
     if (error) {
-      setMessage(`Не вдалося відправити заявку: ${getFriendlyErrorMessage(error)}`);
+      setMessage(
+        `Не вдалося відправити заявку: ${getFriendlyErrorMessage(error)}`
+      );
       setMessageType("error");
       return;
     }
@@ -322,34 +327,58 @@ export default function RequestStorePage() {
     return (
       <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
         <section className="mx-auto w-full max-w-5xl">
-          <div className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center">
-            <div className="text-6xl">🔐</div>
+          <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+            <Link href="/" className="hover:text-emerald-300">
+              Головна
+            </Link>
+            <span>/</span>
 
-            <h1 className="mt-5 text-4xl font-black">
-              Увійди, щоб запропонувати магазин
-            </h1>
+            <Link href="/stores" className="hover:text-emerald-300">
+              Магазини
+            </Link>
 
-            <p className="mx-auto mt-4 max-w-xl leading-7 text-slate-400">
-              Заявки магазинів привʼязуються до акаунта, щоб ти міг бачити
-              їхній статус у профілі.
+            <span>/</span>
+            <span className="text-slate-300">Запропонувати магазин</span>
+          </div>
+
+          <section className="overflow-hidden rounded-[2.5rem] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.16),_transparent_36%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(2,6,23,0.98))] p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
+            <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+              Заявка магазину
             </p>
 
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link
-                href="/login"
-                className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
-              >
-                Увійти
-              </Link>
+            <h1 className="max-w-3xl text-5xl font-black tracking-tight md:text-7xl">
+              Запропонувати магазин можуть авторизовані користувачі
+            </h1>
 
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+              Увійди в акаунт, щоб запропонувати новий магазин, бачити статус
+              заявки у профілі та після схвалення додавати до нього промокоди.
+            </p>
+
+            <div className="mt-8">
+              <LoginRequiredBox
+                title="Щоб запропонувати магазин, увійди в акаунт"
+                description="Після входу ми повернемо тебе на цю сторінку, і ти зможеш одразу заповнити заявку магазину."
+                nextPath="/request-store"
+              />
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href="/stores"
                 className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
               >
                 Переглянути магазини
               </Link>
+
+              <Link
+                href="/guest"
+                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              >
+                Гостьовий режим
+              </Link>
             </div>
-          </div>
+          </section>
         </section>
       </main>
     );
