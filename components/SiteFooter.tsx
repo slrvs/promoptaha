@@ -33,11 +33,11 @@ const mainLinks = [
 
 const serviceLinks = [
   {
-    href: "/add",
+    href: "/login?next=/add",
     label: "Додати промокод",
   },
   {
-    href: "/request-store",
+    href: "/login?next=/request-store",
     label: "Запропонувати магазин",
   },
   {
@@ -45,7 +45,7 @@ const serviceLinks = [
     label: "Увійти",
   },
   {
-    href: "/profile",
+    href: "/login?next=/profile",
     label: "Профіль",
   },
 ];
@@ -102,6 +102,13 @@ export default function SiteFooter() {
               className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 text-sm font-black text-emerald-300 transition hover:bg-emerald-400 hover:text-slate-950"
             >
               Гостьовий режим
+            </Link>
+
+            <Link
+              href="/login?next=/add"
+              className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+            >
+              Додати промокод
             </Link>
 
             <Link

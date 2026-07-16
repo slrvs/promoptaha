@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 
 type AuthMode = "login" | "signup";
 
@@ -20,7 +21,8 @@ function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 
-function getAuthErrorMessage(message: string) {
+function getAuthErrorMessage(error: unknown) {
+  const message = getFriendlyErrorMessage(error);
   const lowerMessage = message.toLowerCase();
 
   if (lowerMessage.includes("invalid login credentials")) {
@@ -46,10 +48,29 @@ function getAuthErrorMessage(message: string) {
   return message || "Сталася помилка авторизації.";
 }
 
+function sanitizeNextPath(value: string | null) {
+  if (!value) return "/profile";
+
+  const decodedValue = decodeURIComponent(value).trim();
+
+  if (!decodedValue.startsWith("/")) return "/profile";
+  if (decodedValue.startsWith("//")) return "/profile";
+  if (decodedValue.startsWith("/login")) return "/profile";
+  if (decodedValue.startsWith("/auth")) return "/profile";
+
+  return decodedValue;
+}
+
+function getRedirectUrl(nextPath: string) {
+  return `${siteUrl}/login?next=${encodeURIComponent(nextPath)}`;
+}
+
 export default function LoginPage() {
   const router = useRouter();
 
   const [mode, setMode] = useState<AuthMode>("login");
+  const [redirectPath, setRedirectPath] = useState("/profile");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordRepeat, setPasswordRepeat] = useState("");
@@ -74,6 +95,24 @@ export default function LoginPage() {
 
     return isSignup ? "Зареєструватися" : "Увійти";
   }, [isSubmitting, isSignup]);
+
+  const redirectLabel = useMemo(() => {
+    if (redirectPath === "/profile") return "профіль";
+    if (redirectPath === "/add") return "додавання промокоду";
+    if (redirectPath === "/request-store") return "заявку магазину";
+    if (redirectPath.startsWith("/codes/")) return "сторінку промокоду";
+    if (redirectPath.startsWith("/stores/")) return "сторінку магазину";
+    if (redirectPath.startsWith("/admin")) return "адмінку";
+
+    return "потрібну сторінку";
+  }, [redirectPath]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const nextPath = sanitizeNextPath(params.get("next"));
+
+    setRedirectPath(nextPath);
+  }, []);
 
   function switchMode(nextMode: AuthMode) {
     setMode(nextMode);
@@ -113,6 +152,11 @@ export default function LoginPage() {
     );
   }
 
+  function goToRedirectPath() {
+    router.push(redirectPath);
+    router.refresh();
+  }
+
   async function handleLogin(finalEmail: string) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: finalEmail,
@@ -127,12 +171,11 @@ export default function LoginPage() {
       await createProfileIfNeeded(data.user.id, finalEmail);
     }
 
-    setMessage("Вхід виконано. Перенаправляю в профіль...");
+    setMessage(`Вхід виконано. Перенаправляю на ${redirectLabel}...`);
     setMessageType("success");
 
     window.setTimeout(() => {
-      router.push("/profile");
-      router.refresh();
+      goToRedirectPath();
     }, 500);
   }
 
@@ -141,7 +184,7 @@ export default function LoginPage() {
       email: finalEmail,
       password,
       options: {
-        emailRedirectTo: `${siteUrl}/profile`,
+        emailRedirectTo: getRedirectUrl(redirectPath),
       },
     });
 
@@ -154,12 +197,11 @@ export default function LoginPage() {
     }
 
     if (data.session) {
-      setMessage("Акаунт створено. Перенаправляю в профіль...");
+      setMessage(`Акаунт створено. Перенаправляю на ${redirectLabel}...`);
       setMessageType("success");
 
       window.setTimeout(() => {
-        router.push("/profile");
-        router.refresh();
+        goToRedirectPath();
       }, 500);
 
       return;
@@ -196,10 +238,7 @@ export default function LoginPage() {
         await handleLogin(finalEmail);
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Сталася помилка.";
-
-      setMessage(getAuthErrorMessage(errorMessage));
+      setMessage(getAuthErrorMessage(error));
       setMessageType("error");
     } finally {
       setIsSubmitting(false);
@@ -297,6 +336,18 @@ export default function LoginPage() {
           <div className="mt-7">
             <h2 className="text-4xl font-black">{title}</h2>
             <p className="mt-3 leading-7 text-slate-400">{subtitle}</p>
+
+            {redirectPath !== "/profile" && (
+              <div className="mt-5 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4">
+                <p className="font-black text-emerald-300">
+                  Після входу повернемо тебе на {redirectLabel}.
+                </p>
+
+                <p className="mt-2 break-all text-sm font-bold text-emerald-100/80">
+                  {redirectPath}
+                </p>
+              </div>
+            )}
           </div>
 
           {message && (
@@ -392,6 +443,18 @@ export default function LoginPage() {
                 </button>
               </p>
             )}
+
+            <p className="mt-3 text-sm leading-6 text-slate-500">
+              Можеш користуватись сайтом і без акаунта: переглядати промокоди,
+              магазини, акції та спільноту.
+            </p>
+
+            <Link
+              href="/guest"
+              className="mt-4 inline-flex text-sm font-black text-emerald-300 transition hover:text-emerald-200"
+            >
+              Що доступно гостю →
+            </Link>
           </div>
         </section>
       </section>
