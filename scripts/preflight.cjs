@@ -8,6 +8,7 @@ const requiredFiles = [
   "app/page.tsx",
   "app/sitemap.ts",
   "app/robots.ts",
+  "app/terms/page.tsx",
   "next.config.ts",
   "package.json",
   "components/SiteNav.tsx",
