@@ -8,7 +8,8 @@
     "smoke": "node scripts/smokeTestLocal.cjs",
     "smoke:local": "node scripts/smokeTestLocal.cjs",
     "smoke:dev": "node scripts/smokeWithDev.cjs",
-    "preflight": "node scripts/preflight.cjs"
+    "preflight": "node scripts/preflight.cjs",
+    "launch:check": "npm run preflight && npm run build && npm run smoke:dev"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.1",
