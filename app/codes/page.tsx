@@ -77,7 +77,7 @@ function normalizeText(value: string) {
   return value
     .toLowerCase()
     .trim()
-    .replace(/[ʼ’`]/g, "'")
+    .replace(/[’`]/g, "'")
     .replace(/\s+/g, " ");
 }
 
@@ -152,7 +152,7 @@ function getUserName(profile: UserProfile | null | undefined) {
 function getAvatarFallback(profile: UserProfile | null | undefined) {
   const name = getUserName(profile).trim();
 
-  if (!name) return "🐦";
+  if (!name) return "П";
 
   return name.slice(0, 1).toUpperCase();
 }
@@ -210,6 +210,7 @@ function promoMatchesExpiry(promo: Promo, expiryFilter: ExpiryFilter) {
 
   if (expiryFilter === "no_expiry") return daysLeft === null;
   if (expiryFilter === "expired") return daysLeft !== null && daysLeft < 0;
+
   if (expiryFilter === "ending") {
     return daysLeft !== null && daysLeft >= 0 && daysLeft <= 7;
   }
@@ -249,7 +250,10 @@ function sortPromos(promos: Promo[], sortMode: SortMode) {
     }
 
     if (sortMode === "works") {
-      return Number(secondPromo.works_count || 0) - Number(firstPromo.works_count || 0);
+      return (
+        Number(secondPromo.works_count || 0) -
+        Number(firstPromo.works_count || 0)
+      );
     }
 
     if (sortMode === "store") {
@@ -263,6 +267,209 @@ function sortPromos(promos: Promo[], sortMode: SortMode) {
       new Date(firstPromo.created_at || 0).getTime()
     );
   });
+}
+
+function MobilePromoTile({
+  promo,
+  websiteUrl,
+}: {
+  promo: Promo;
+  websiteUrl?: string | null;
+}) {
+  return (
+    <Link
+      href={`/codes/${promo.slug || promo.id}`}
+      className="group flex min-h-[190px] flex-col rounded-[1.5rem] border border-slate-800 bg-slate-950 p-3 transition hover:border-emerald-400/40"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <StoreLogo
+          name={promo.store_name || "Магазин"}
+          websiteUrl={websiteUrl}
+          size="sm"
+        />
+
+        <span
+          className={`rounded-full border px-2 py-1 text-[10px] font-black ${getExpiryClass(
+            promo.expires_at
+          )}`}
+        >
+          {getExpiryLabel(promo.expires_at)}
+        </span>
+      </div>
+
+      <div className="mt-4 min-w-0">
+        <p
+          className="truncate text-lg font-black leading-tight text-white transition group-hover:text-emerald-300"
+          title={promo.code}
+        >
+          {promo.code}
+        </p>
+
+        <p className="mt-1 truncate text-base font-black text-emerald-300">
+          {promo.discount_value || "Знижка"}
+        </p>
+
+        <p className="mt-3 truncate text-xs font-black text-slate-400">
+          {promo.store_name || "Магазин"}
+        </p>
+
+        {promo.category_name && (
+          <p className="mt-1 truncate text-[11px] font-bold text-slate-500">
+            {promo.category_name}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-auto pt-4">
+        <span className="inline-flex w-full justify-center rounded-full bg-emerald-400 px-3 py-2 text-xs font-black text-slate-950 transition group-hover:bg-emerald-300">
+          Відкрити
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function DesktopPromoCard({
+  promo,
+  websiteUrl,
+  author,
+  authorApprovedCount,
+}: {
+  promo: Promo;
+  websiteUrl?: string | null;
+  author?: UserProfile | null;
+  authorApprovedCount: number;
+}) {
+  const worksPercent = getWorksPercent(promo);
+
+  return (
+    <article className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5 transition hover:border-emerald-400/40">
+      <div className="flex items-start justify-between gap-5">
+        <div className="flex min-w-0 items-start gap-4">
+          <StoreLogo
+            name={promo.store_name || "Магазин"}
+            websiteUrl={websiteUrl}
+            size="sm"
+          />
+
+          <div className="min-w-0">
+            <Link
+              href={`/codes/${promo.slug || promo.id}`}
+              className="block truncate text-4xl font-black text-white transition hover:text-emerald-300"
+              title={promo.code}
+            >
+              {promo.code}
+            </Link>
+
+            <p className="mt-2 text-xl font-black text-emerald-300">
+              {promo.discount_value || "Знижка не вказана"}
+            </p>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              {promo.store_slug ? (
+                <Link
+                  href={`/stores/${promo.store_slug}`}
+                  className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                >
+                  {promo.store_name || "Магазин"}
+                </Link>
+              ) : (
+                <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                  {promo.store_name || "Магазин"}
+                </span>
+              )}
+
+              {promo.category_name && (
+                <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                  {promo.category_name}
+                </span>
+              )}
+
+              <span
+                className={`rounded-full border px-3 py-1 text-xs font-black ${getExpiryClass(
+                  promo.expires_at
+                )}`}
+              >
+                {getExpiryLabel(promo.expires_at)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <Link
+          href={`/codes/${promo.slug || promo.id}`}
+          className="shrink-0 rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+        >
+          Відкрити
+        </Link>
+      </div>
+
+      {promo.description && (
+        <p className="mt-4 line-clamp-3 leading-7 text-slate-400">
+          {promo.description}
+        </p>
+      )}
+
+      <div className="mt-5 grid gap-4 border-t border-slate-800 pt-5 lg:grid-cols-[1fr_auto]">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 text-sm font-black text-emerald-300">
+            {author?.avatar_url ? (
+              <img
+                src={author.avatar_url}
+                alt={getUserName(author)}
+                className="h-full w-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <span>{getAvatarFallback(author)}</span>
+            )}
+          </div>
+
+          <div className="min-w-0">
+            {author?.username ? (
+              <Link
+                href={`/u/${author.username}`}
+                className="block truncate font-black text-emerald-300 transition hover:text-emerald-200"
+              >
+                {getUserName(author)}
+              </Link>
+            ) : (
+              <p className="truncate font-black text-slate-300">
+                {getUserName(author)}
+              </p>
+            )}
+
+            <div className="mt-1">
+              <UserLevelBadge approvedPromos={authorApprovedCount} size="sm" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
+            <p className="text-xs font-bold text-slate-500">Надійність</p>
+            <p className="mt-1 font-black text-slate-200">
+              {worksPercent === null ? "Немає" : `${worksPercent}%`}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
+            <p className="text-xs font-bold text-slate-500">Працює</p>
+            <p className="mt-1 font-black text-emerald-300">
+              {Number(promo.works_count || 0)}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
+            <p className="text-xs font-bold text-slate-500">Додано</p>
+            <p className="mt-1 font-black text-slate-200">
+              {formatDate(promo.created_at)}
+            </p>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 export default function CodesPage() {
@@ -302,9 +509,12 @@ export default function CodesPage() {
   const stats = useMemo(() => {
     return {
       total: promos.length,
-      active: promos.filter((promo) => promoMatchesExpiry(promo, "active")).length,
-      ending: promos.filter((promo) => promoMatchesExpiry(promo, "ending")).length,
-      expired: promos.filter((promo) => promoMatchesExpiry(promo, "expired")).length,
+      active: promos.filter((promo) => promoMatchesExpiry(promo, "active"))
+        .length,
+      ending: promos.filter((promo) => promoMatchesExpiry(promo, "ending"))
+        .length,
+      expired: promos.filter((promo) => promoMatchesExpiry(promo, "expired"))
+        .length,
       found: filteredPromos.length,
     };
   }, [promos, filteredPromos]);
@@ -338,7 +548,9 @@ export default function CodesPage() {
           .limit(5000),
       ]);
 
-    const nextPromos = promosResult.error ? [] : ((promosResult.data || []) as Promo[]);
+    const nextPromos = promosResult.error
+      ? []
+      : ((promosResult.data || []) as Promo[]);
     const nextCategories = categoriesResult.error
       ? []
       : ((categoriesResult.data || []) as Category[]);
@@ -377,7 +589,9 @@ export default function CodesPage() {
     if (authorIds.length > 0) {
       const { data } = await supabase
         .from("profiles")
-        .select("id, email, username, display_name, avatar_url, bio, created_at, updated_at")
+        .select(
+          "id, email, username, display_name, avatar_url, bio, created_at, updated_at"
+        )
         .in("id", authorIds);
 
       nextProfiles = (data || []) as UserProfile[];
@@ -419,12 +633,15 @@ export default function CodesPage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+      <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
         <section className="mx-auto w-full max-w-7xl">
-          <div className="h-[420px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
-          <div className="mt-8 grid gap-5 md:grid-cols-2">
-            <div className="h-80 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900" />
-            <div className="h-80 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900" />
+          <div className="h-[360px] animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900 sm:h-[420px] sm:rounded-[2.5rem]" />
+
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-8 md:grid-cols-2 md:gap-5">
+            <div className="h-48 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-900 sm:h-80 sm:rounded-[2rem]" />
+            <div className="h-48 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-900 sm:h-80 sm:rounded-[2rem]" />
+            <div className="h-48 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-900 sm:h-80 sm:rounded-[2rem]" />
+            <div className="h-48 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-900 sm:h-80 sm:rounded-[2rem]" />
           </div>
         </section>
       </main>
@@ -432,9 +649,9 @@ export default function CodesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
       <section className="mx-auto w-full max-w-7xl">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:mb-6 sm:gap-3 sm:text-sm">
           <Link href="/" className="hover:text-emerald-300">
             Головна
           </Link>
@@ -442,153 +659,177 @@ export default function CodesPage() {
           <span className="text-slate-300">Промокоди</span>
         </div>
 
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
+        <section className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20 sm:rounded-[2.5rem]">
+          <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
             <div>
-              <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300 sm:mb-5 sm:px-4 sm:text-sm">
                 База промокодів
               </p>
 
-              <h1 className="text-5xl font-black tracking-tight md:text-7xl">
+              <h1 className="text-3xl font-black leading-tight tracking-tight sm:text-5xl md:text-7xl">
                 Перевірені промокоди
               </h1>
 
-              <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+              <p className="mt-4 max-w-3xl text-sm font-bold leading-7 text-slate-400 sm:mt-6 sm:text-lg sm:font-normal sm:leading-8">
                 Шукай коди за магазином, категорією, джерелом або описом.
-                Бейдж автора показує, наскільки активний користувач у спільноті.
+                На телефоні сторінка показує коди компактними плитками.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:flex sm:flex-wrap">
                 <Link
                   href="/add"
-                  className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+                  className="inline-flex justify-center rounded-full bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 sm:px-6 sm:py-4 sm:text-base"
                 >
-                  Додати промокод
+                  Додати код
                 </Link>
 
                 <Link
                   href="/stores"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  className="inline-flex justify-center rounded-full border border-slate-700 px-4 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:px-6 sm:py-4 sm:text-base"
                 >
                   Магазини
                 </Link>
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">{stats.total}</p>
-                <p className="mt-2 text-sm font-bold text-slate-500">всього</p>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                <p className="text-3xl font-black text-white sm:text-4xl">
+                  {stats.total}
+                </p>
+                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
+                  всього
+                </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-emerald-300">
+              <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                <p className="text-3xl font-black text-emerald-300 sm:text-4xl">
                   {stats.active}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">активні</p>
+                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
+                  активні
+                </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-yellow-300">
+              <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                <p className="text-3xl font-black text-yellow-300 sm:text-4xl">
                   {stats.ending}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
-                  скоро закінчаться
+                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
+                  скоро кінець
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">{stats.found}</p>
-                <p className="mt-2 text-sm font-bold text-slate-500">знайдено</p>
+              <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                <p className="text-3xl font-black text-white sm:text-4xl">
+                  {stats.found}
+                </p>
+                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
+                  знайдено
+                </p>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-          <div className="grid gap-4 lg:grid-cols-[1.3fr_0.8fr_0.8fr_0.8fr_auto]">
+        <section className="mt-5 rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:mt-8 sm:rounded-[2.5rem] sm:p-6">
+          <div className="grid gap-3 lg:grid-cols-[1.3fr_0.8fr_0.8fr_0.8fr_auto] lg:gap-4">
             <label className="grid gap-2">
               <span className="text-sm font-black text-slate-300">Пошук</span>
 
               <input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Rozetka, комфі, техніка, -10%, YouTube..."
-                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                placeholder="Rozetka, техніка, -10%..."
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
               />
             </label>
 
-            <label className="grid gap-2">
-              <span className="text-sm font-black text-slate-300">Категорія</span>
+            <div className="grid grid-cols-2 gap-3 lg:contents">
+              <label className="grid gap-2">
+                <span className="text-sm font-black text-slate-300">
+                  Категорія
+                </span>
 
-              <select
-                value={selectedCategorySlug}
-                onChange={(event) => setSelectedCategorySlug(event.target.value)}
-                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-              >
-                <option value="all">Всі категорії</option>
+                <select
+                  value={selectedCategorySlug}
+                  onChange={(event) =>
+                    setSelectedCategorySlug(event.target.value)
+                  }
+                  className="min-w-0 rounded-2xl border border-slate-800 bg-slate-950 px-3 py-3 text-sm text-white outline-none transition focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
+                >
+                  <option value="all">Всі</option>
 
-                {categories.map((category) => (
-                  <option key={category.id} value={category.slug}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.slug}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="grid gap-2">
-              <span className="text-sm font-black text-slate-300">Термін</span>
+              <label className="grid gap-2">
+                <span className="text-sm font-black text-slate-300">
+                  Термін
+                </span>
 
-              <select
-                value={expiryFilter}
-                onChange={(event) =>
-                  setExpiryFilter(event.target.value as ExpiryFilter)
-                }
-                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-              >
-                <option value="all">Всі</option>
-                <option value="active">Активні</option>
-                <option value="ending">Скоро закінчуються</option>
-                <option value="no_expiry">Без терміну</option>
-                <option value="expired">Закінчені</option>
-              </select>
-            </label>
+                <select
+                  value={expiryFilter}
+                  onChange={(event) =>
+                    setExpiryFilter(event.target.value as ExpiryFilter)
+                  }
+                  className="min-w-0 rounded-2xl border border-slate-800 bg-slate-950 px-3 py-3 text-sm text-white outline-none transition focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
+                >
+                  <option value="all">Всі</option>
+                  <option value="active">Активні</option>
+                  <option value="ending">Скоро кінець</option>
+                  <option value="no_expiry">Без терміну</option>
+                  <option value="expired">Завершені</option>
+                </select>
+              </label>
+            </div>
 
-            <label className="grid gap-2">
-              <span className="text-sm font-black text-slate-300">Сортування</span>
+            <div className="grid grid-cols-2 gap-3 lg:contents">
+              <label className="grid gap-2">
+                <span className="text-sm font-black text-slate-300">
+                  Сортування
+                </span>
 
-              <select
-                value={sortMode}
-                onChange={(event) => setSortMode(event.target.value as SortMode)}
-                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-              >
-                <option value="newest">Нові спочатку</option>
-                <option value="oldest">Старі спочатку</option>
-                <option value="ending">За терміном</option>
-                <option value="reliable">Надійніші</option>
-                <option value="works">Більше “працює”</option>
-                <option value="store">За магазином</option>
-              </select>
-            </label>
+                <select
+                  value={sortMode}
+                  onChange={(event) => setSortMode(event.target.value as SortMode)}
+                  className="min-w-0 rounded-2xl border border-slate-800 bg-slate-950 px-3 py-3 text-sm text-white outline-none transition focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
+                >
+                  <option value="newest">Нові</option>
+                  <option value="oldest">Старі</option>
+                  <option value="ending">За терміном</option>
+                  <option value="reliable">Надійні</option>
+                  <option value="works">Працює</option>
+                  <option value="store">Магазин</option>
+                </select>
+              </label>
 
-            <div className="flex items-end">
-              <button
-                type="button"
-                onClick={resetFilters}
-                className="w-full rounded-2xl border border-slate-700 px-5 py-4 font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-              >
-                Скинути
-              </button>
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="w-full rounded-2xl border border-slate-700 px-4 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 sm:px-5 sm:py-4 sm:text-base"
+                >
+                  Скинути
+                </button>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+        <section className="mt-5 rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:mt-8 sm:rounded-[2.5rem] sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-6">
             <div>
-              <h2 className="text-3xl font-black">Список промокодів</h2>
+              <h2 className="text-2xl font-black sm:text-3xl">
+                Список промокодів
+              </h2>
 
-              <p className="mt-2 leading-7 text-slate-400">
+              <p className="mt-1 text-sm font-bold leading-6 text-slate-400 sm:mt-2 sm:text-base sm:font-normal">
                 Показано: {filteredPromos.length} / {promos.length}
               </p>
             </div>
@@ -596,179 +837,66 @@ export default function CodesPage() {
             <button
               type="button"
               onClick={loadCodesPage}
-              className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+              className="rounded-full border border-slate-700 px-4 py-2 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 sm:px-5 sm:py-3 sm:text-sm"
             >
               Оновити
             </button>
           </div>
 
           {filteredPromos.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
-              <div className="text-5xl">🎟️</div>
+            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center sm:p-8">
+              <div className="text-4xl sm:text-5xl">🎟️</div>
 
-              <h3 className="mt-4 text-2xl font-black">
+              <h3 className="mt-4 text-xl font-black sm:text-2xl">
                 Промокодів не знайдено
               </h3>
 
-              <p className="mx-auto mt-3 max-w-md leading-7 text-slate-400">
+              <p className="mx-auto mt-3 max-w-md text-sm font-bold leading-6 text-slate-400 sm:text-base sm:font-normal sm:leading-7">
                 Спробуй змінити пошук, категорію або фільтр терміну.
               </p>
             </div>
           ) : (
-            <div className="mt-6 grid gap-5">
-              {filteredPromos.map((promo) => {
-                const author = promo.submitted_by
-                  ? profilesMap.get(promo.submitted_by)
-                  : null;
-                const authorApprovedCount = promo.submitted_by
-                  ? approvedStatsMap.get(promo.submitted_by) || 0
-                  : 0;
-                const websiteUrl = promo.store_id
-                  ? storeWebsiteMap.get(promo.store_id)
-                  : null;
-                const worksPercent = getWorksPercent(promo);
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:hidden">
+                {filteredPromos.map((promo) => {
+                  const websiteUrl = promo.store_id
+                    ? storeWebsiteMap.get(promo.store_id)
+                    : null;
 
-                return (
-                  <article
-                    key={promo.id}
-                    className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5 transition hover:border-emerald-400/40"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-5">
-                      <div className="flex min-w-0 items-start gap-4">
-                        <StoreLogo
-                          name={promo.store_name || "Магазин"}
-                          websiteUrl={websiteUrl}
-                          size="sm"
-                        />
+                  return (
+                    <MobilePromoTile
+                      key={promo.id}
+                      promo={promo}
+                      websiteUrl={websiteUrl}
+                    />
+                  );
+                })}
+              </div>
 
-                        <div className="min-w-0">
-                          <Link
-                            href={`/codes/${promo.slug || promo.id}`}
-                            className="break-all text-4xl font-black text-white transition hover:text-emerald-300"
-                          >
-                            {promo.code}
-                          </Link>
+              <div className="hidden gap-5 sm:grid">
+                {filteredPromos.map((promo) => {
+                  const author = promo.submitted_by
+                    ? profilesMap.get(promo.submitted_by)
+                    : null;
+                  const authorApprovedCount = promo.submitted_by
+                    ? approvedStatsMap.get(promo.submitted_by) || 0
+                    : 0;
+                  const websiteUrl = promo.store_id
+                    ? storeWebsiteMap.get(promo.store_id)
+                    : null;
 
-                          <p className="mt-2 text-xl font-black text-emerald-300">
-                            {promo.discount_value || "Знижка не вказана"}
-                          </p>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {promo.store_slug ? (
-                              <Link
-                                href={`/stores/${promo.store_slug}`}
-                                className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
-                              >
-                                {promo.store_name || "Магазин"}
-                              </Link>
-                            ) : (
-                              <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
-                                {promo.store_name || "Магазин"}
-                              </span>
-                            )}
-
-                            {promo.category_name && (
-                              <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
-                                {promo.category_name}
-                              </span>
-                            )}
-
-                            <span
-                              className={`rounded-full border px-3 py-1 text-xs font-black ${getExpiryClass(
-                                promo.expires_at
-                              )}`}
-                            >
-                              {getExpiryLabel(promo.expires_at)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <Link
-                        href={`/codes/${promo.slug || promo.id}`}
-                        className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-                      >
-                        Відкрити
-                      </Link>
-                    </div>
-
-                    {promo.description && (
-                      <p className="mt-4 line-clamp-3 leading-7 text-slate-400">
-                        {promo.description}
-                      </p>
-                    )}
-
-                    <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_auto]">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 text-sm font-black text-emerald-300">
-                          {author?.avatar_url ? (
-                            <img
-                              src={author.avatar_url}
-                              alt={getUserName(author)}
-                              className="h-full w-full object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <span>{getAvatarFallback(author)}</span>
-                          )}
-                        </div>
-
-                        <div className="min-w-0">
-                          {author?.username ? (
-                            <Link
-                              href={`/u/${author.username}`}
-                              className="truncate font-black text-emerald-300 transition hover:text-emerald-200"
-                            >
-                              {getUserName(author)}
-                            </Link>
-                          ) : (
-                            <p className="truncate font-black text-slate-300">
-                              {getUserName(author)}
-                            </p>
-                          )}
-
-                          <div className="mt-1">
-                            <UserLevelBadge
-                              approvedPromos={authorApprovedCount}
-                              size="sm"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-3">
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
-                          <p className="text-xs font-bold text-slate-500">
-                            Надійність
-                          </p>
-                          <p className="mt-1 font-black text-slate-200">
-                            {worksPercent === null ? "Немає" : `${worksPercent}%`}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
-                          <p className="text-xs font-bold text-slate-500">
-                            Працює
-                          </p>
-                          <p className="mt-1 font-black text-emerald-300">
-                            {Number(promo.works_count || 0)}
-                          </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
-                          <p className="text-xs font-bold text-slate-500">
-                            Додано
-                          </p>
-                          <p className="mt-1 font-black text-slate-200">
-                            {formatDate(promo.created_at)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                  return (
+                    <DesktopPromoCard
+                      key={promo.id}
+                      promo={promo}
+                      websiteUrl={websiteUrl}
+                      author={author}
+                      authorApprovedCount={authorApprovedCount}
+                    />
+                  );
+                })}
+              </div>
+            </>
           )}
         </section>
       </section>

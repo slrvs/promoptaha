@@ -25,6 +25,9 @@ const recommendedFiles = [
   "app/admin/launch-check/page.tsx",
   "app/admin/activity/page.tsx",
   "lib/friendlyError.ts",
+  "docs/legal-checklist.md",
+  "docs/market-analysis.md",
+  "docs/mobile-qa-checklist.md",
 ];
 
 const requiredEnv = [

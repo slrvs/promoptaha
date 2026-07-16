@@ -66,3 +66,63 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+/* PromoPtaha mobile hardening */
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+body {
+  min-height: 100vh;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+img,
+video {
+  height: auto;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
+pre,
+code {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  h1,
+  h2,
+  h3,
+  p,
+  a,
+  button,
+  span,
+  div {
+    overflow-wrap: anywhere;
+  }
+}
