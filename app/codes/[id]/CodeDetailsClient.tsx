@@ -1,5 +1,7 @@
 "use client";
 
+import LegalDisclaimerBox from "@/components/LegalDisclaimerBox";
+
 import { getFriendlyErrorMessage } from "@/lib/friendlyError";
 import {
   useEffect,
@@ -1412,6 +1414,11 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
           </section>
         </section>
       </section>
+        <LegalDisclaimerBox
+          variant="promo"
+          className="mx-auto mt-8 max-w-6xl"
+        />
+
     </main>
   );
 }

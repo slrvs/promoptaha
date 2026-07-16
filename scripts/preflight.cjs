@@ -14,6 +14,7 @@ const requiredFiles = [
   "components/SiteNav.tsx",
   "components/SiteFooter.tsx",
   "components/LoginRequiredBox.tsx",
+  "components/LegalDisclaimerBox.tsx",
   "scripts/smokeTestLocal.cjs",
 ];
 

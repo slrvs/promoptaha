@@ -1,5 +1,7 @@
 "use client";
 
+import LegalDisclaimerBox from "@/components/LegalDisclaimerBox";
+
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
@@ -372,6 +374,11 @@ export default function StoreDetailsClient({ store }: StoreDetailsClientProps) {
           <div className="h-[420px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
           <div className="mt-8 h-96 animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
         </section>
+        <LegalDisclaimerBox
+          variant="store"
+          className="mx-auto mt-8 max-w-6xl"
+        />
+
       </main>
     );
   }
