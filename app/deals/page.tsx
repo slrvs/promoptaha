@@ -46,8 +46,7 @@ function normalizeText(value: string) {
   return value
     .toLowerCase()
     .trim()
-    .replace(/ё/g, "е")
-    .replace(/ґ/g, "г")
+    .replace(/[’`]/g, "'")
     .replace(/\s+/g, " ");
 }
 
@@ -79,8 +78,53 @@ function isEndingSoon(date: string | null | undefined) {
   return daysLeft >= 0 && daysLeft <= 7;
 }
 
+function getEndingLabel(date: string | null | undefined) {
+  const daysLeft = getDaysLeft(date);
+
+  if (daysLeft === null) return "Без дати";
+  if (daysLeft < 0) return "Завершено";
+  if (daysLeft === 0) return "Сьогодні";
+  if (daysLeft === 1) return "Завтра";
+
+  return `${daysLeft} дн.`;
+}
+
+function getEndingClass(date: string | null | undefined) {
+  const daysLeft = getDaysLeft(date);
+
+  if (daysLeft === null) {
+    return "border-slate-700 bg-slate-900 text-slate-300";
+  }
+
+  if (daysLeft < 0) {
+    return "border-red-400/30 bg-red-400/10 text-red-300";
+  }
+
+  if (daysLeft <= 7) {
+    return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
+  }
+
+  return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
+}
+
 function getDealUrl(deal: Deal) {
   return normalizeUrl(deal.deal_url || deal.store_website_url || "") || "";
+}
+
+function getDealHref(deal: Deal) {
+  const dealUrl = getDealUrl(deal);
+
+  if (dealUrl) {
+    return {
+      href: dealUrl,
+      isExternal: true,
+    };
+  }
+
+  return {
+    href: `/stores/${deal.store_slug}`,
+    isExternal: false,
+  };
 }
 
 function dealMatchesSearch(deal: Deal, search: string) {
@@ -101,6 +145,177 @@ function dealMatchesSearch(deal: Deal, search: string) {
   );
 
   return haystack.includes(query);
+}
+
+function MobileDealTile({ deal }: { deal: Deal }) {
+  const { href, isExternal } = getDealHref(deal);
+
+  return (
+    <a
+      href={href}
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noreferrer" : undefined}
+      className="group flex min-h-[190px] flex-col rounded-[1.5rem] border border-slate-800 bg-slate-950 p-3 transition hover:border-emerald-400/40"
+    >
+      <div className="flex items-start justify-between gap-2">
+        {deal.image_url ? (
+          <div className="h-11 w-11 shrink-0 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
+            <img
+              src={deal.image_url}
+              alt={deal.title}
+              className="h-full w-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        ) : (
+          <StoreLogo
+            name={deal.store_name}
+            websiteUrl={deal.store_website_url}
+            size="sm"
+          />
+        )}
+
+        <span
+          className={`rounded-full border px-2 py-1 text-[10px] font-black ${getEndingClass(
+            deal.ends_at
+          )}`}
+        >
+          {getEndingLabel(deal.ends_at)}
+        </span>
+      </div>
+
+      <div className="mt-4 min-w-0">
+        <p className="line-clamp-3 text-sm font-black leading-5 text-white transition group-hover:text-emerald-300">
+          {deal.title}
+        </p>
+
+        <p className="mt-3 truncate text-xs font-black text-emerald-300">
+          {deal.store_name || "Магазин"}
+        </p>
+
+        {deal.category_name && (
+          <p className="mt-1 truncate text-[11px] font-bold text-slate-500">
+            {deal.category_name}
+          </p>
+        )}
+      </div>
+
+      <div className="mt-auto pt-4">
+        <span className="inline-flex w-full justify-center rounded-full bg-emerald-400 px-3 py-2 text-xs font-black text-slate-950 transition group-hover:bg-emerald-300">
+          Відкрити
+        </span>
+      </div>
+    </a>
+  );
+}
+
+function DesktopDealCard({ deal }: { deal: Deal }) {
+  const daysLeft = getDaysLeft(deal.ends_at);
+  const dealUrl = getDealUrl(deal);
+
+  return (
+    <article className="flex flex-col overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-xl shadow-black/20">
+      {deal.image_url ? (
+        <div className="aspect-[16/9] overflow-hidden border-b border-slate-800 bg-slate-950">
+          <img
+            src={deal.image_url}
+            alt={deal.title}
+            className="h-full w-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      ) : (
+        <div className="flex aspect-[16/9] items-center justify-center border-b border-slate-800 bg-slate-950">
+          <StoreLogo
+            name={deal.store_name}
+            websiteUrl={deal.store_website_url}
+            size="lg"
+          />
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex flex-wrap gap-2">
+          {deal.category_name && (
+            <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
+              {deal.category_name}
+            </span>
+          )}
+
+          {isEndingSoon(deal.ends_at) && (
+            <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-300">
+              Скоро завершується
+            </span>
+          )}
+        </div>
+
+        <h2 className="mt-4 line-clamp-3 text-2xl font-black text-white">
+          {deal.title}
+        </h2>
+
+        <Link
+          href={`/stores/${deal.store_slug}`}
+          className="mt-3 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-3 transition hover:border-emerald-400"
+        >
+          <StoreLogo
+            name={deal.store_name}
+            websiteUrl={deal.store_website_url}
+            size="sm"
+          />
+
+          <div className="min-w-0">
+            <p className="truncate font-black text-slate-200">
+              {deal.store_name}
+            </p>
+            <p className="truncate text-xs font-bold text-slate-500">
+              /stores/{deal.store_slug}
+            </p>
+          </div>
+        </Link>
+
+        {deal.description && (
+          <p className="mt-4 line-clamp-4 leading-7 text-slate-400">
+            {deal.description}
+          </p>
+        )}
+
+        <div className="mt-5 grid gap-3">
+          <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+            <p className="text-xs font-bold text-slate-500">Діє до</p>
+            <p className="mt-1 font-black text-slate-200">
+              {formatDate(deal.ends_at)}
+            </p>
+
+            {daysLeft !== null && daysLeft >= 0 && (
+              <p className="mt-1 text-sm font-bold text-slate-500">
+                Залишилось днів: {daysLeft}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-auto flex flex-wrap gap-3 pt-5">
+          {dealUrl && (
+            <a
+              href={dealUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+            >
+              Відкрити акцію
+            </a>
+          )}
+
+          <Link
+            href={`/stores/${deal.store_slug}`}
+            className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+          >
+            Магазин
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 export default function DealsPage() {
@@ -223,9 +438,9 @@ export default function DealsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
       <section className="mx-auto w-full max-w-7xl">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:mb-6 sm:gap-3 sm:text-sm">
           <Link href="/" className="hover:text-emerald-300">
             Головна
           </Link>
@@ -233,71 +448,72 @@ export default function DealsPage() {
           <span className="text-slate-300">Акції</span>
         </div>
 
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-10">
+        <section className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20 sm:rounded-[2.5rem]">
+          <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[1.2fr_0.8fr] lg:p-10">
             <div>
-              <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300 sm:mb-5 sm:px-4 sm:text-sm">
                 Акції магазинів
               </p>
 
-              <h1 className="text-5xl font-black tracking-tight md:text-7xl">
+              <h1 className="text-3xl font-black leading-tight tracking-tight sm:text-5xl md:text-7xl">
                 Знижки без промокоду
               </h1>
 
-              <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
-                Тут будуть актуальні акції магазинів, розпродажі, сезонні
-                пропозиції та спецціни. Промокоди залишаються в окремому
-                розділі, а тут — саме акційні пропозиції.
+              <p className="mt-4 max-w-3xl text-sm font-bold leading-7 text-slate-400 sm:mt-6 sm:text-lg sm:font-normal sm:leading-8">
+                Тут зібрані розпродажі, сезонні пропозиції та акції магазинів.
+                На телефоні акції показані компактними плитками.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:flex sm:flex-wrap">
                 <Link
                   href="/codes"
-                  className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+                  className="inline-flex justify-center rounded-full bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 sm:px-6 sm:py-4 sm:text-base"
                 >
                   Промокоди
                 </Link>
 
                 <Link
                   href="/stores"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  className="inline-flex justify-center rounded-full border border-slate-700 px-4 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:px-6 sm:py-4 sm:text-base"
                 >
                   Магазини
                 </Link>
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">{stats.total}</p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
-                  активних акцій
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                <p className="text-3xl font-black text-white sm:text-4xl">
+                  {stats.total}
+                </p>
+                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
+                  акцій
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-yellow-300">
+              <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                <p className="text-3xl font-black text-yellow-300 sm:text-4xl">
                   {stats.endingSoon}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
-                  скоро завершуються
+                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
+                  скоро кінець
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-emerald-300">
+              <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                <p className="text-3xl font-black text-emerald-300 sm:text-4xl">
                   {stats.stores}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
+                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
                   магазинів
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">
+              <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                <p className="text-3xl font-black text-white sm:text-4xl">
                   {stats.categories}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
+                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
                   категорій
                 </p>
               </div>
@@ -306,209 +522,111 @@ export default function DealsPage() {
         </section>
 
         {message && (
-          <div className="mt-6 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 font-bold text-red-300">
+          <div className="mt-5 rounded-2xl border border-red-400/30 bg-red-400/10 p-4 text-sm font-bold text-red-300 sm:mt-6 sm:text-base">
             {message}
           </div>
         )}
 
-        <section className="mt-8 rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4">
-          <div className="grid gap-4 xl:grid-cols-[1fr_auto_auto_auto]">
+        <section className="mt-5 rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:mt-8">
+          <div className="grid gap-3 xl:grid-cols-[1fr_auto_auto_auto] xl:gap-4">
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Пошук акції, магазину або категорії..."
-              className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              placeholder="Пошук акції або магазину..."
+              className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
             />
 
-            <select
-              value={categorySlug}
-              onChange={(event) => setCategorySlug(event.target.value)}
-              className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-            >
-              <option value="all">Усі категорії</option>
-              {categories.map((category) => (
-                <option key={category.slug} value={category.slug}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <div className="grid grid-cols-2 gap-3 xl:contents">
+              <select
+                value={categorySlug}
+                onChange={(event) => setCategorySlug(event.target.value)}
+                className="min-w-0 rounded-2xl border border-slate-800 bg-slate-950 px-3 py-3 text-sm text-white outline-none transition focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
+              >
+                <option value="all">Категорії</option>
+                {categories.map((category) => (
+                  <option key={category.slug} value={category.slug}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
 
-            <select
-              value={endingFilter}
-              onChange={(event) =>
-                setEndingFilter(event.target.value as EndingFilter)
-              }
-              className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
-            >
-              <option value="all">Усі акції</option>
-              <option value="soon">Скоро завершуються</option>
-              <option value="noDate">Без дати завершення</option>
-            </select>
+              <select
+                value={endingFilter}
+                onChange={(event) =>
+                  setEndingFilter(event.target.value as EndingFilter)
+                }
+                className="min-w-0 rounded-2xl border border-slate-800 bg-slate-950 px-3 py-3 text-sm text-white outline-none transition focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
+              >
+                <option value="all">Усі акції</option>
+                <option value="soon">Скоро кінець</option>
+                <option value="noDate">Без дати</option>
+              </select>
+            </div>
 
             <select
               value={sortMode}
               onChange={(event) => setSortMode(event.target.value as SortMode)}
-              className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
+              className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
             >
-              <option value="newest">Спочатку нові</option>
-              <option value="ending">За датою завершення</option>
+              <option value="newest">Нові</option>
+              <option value="ending">За датою</option>
               <option value="store">За магазином</option>
             </select>
           </div>
         </section>
 
         {isLoading ? (
-          <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          <section className="mt-5 grid grid-cols-2 gap-3 sm:mt-8 md:grid-cols-2 md:gap-5 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
               <div
                 key={index}
-                className="h-80 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900"
+                className="h-48 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-900 sm:h-80 sm:rounded-[2rem]"
               />
             ))}
           </section>
         ) : filteredDeals.length === 0 ? (
-          <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center">
-            <div className="text-6xl">🛍️</div>
+          <section className="mt-5 rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6 text-center sm:mt-8 sm:rounded-[2.5rem] sm:p-8">
+            <div className="text-5xl sm:text-6xl">🛍️</div>
 
-            <h2 className="mt-5 text-4xl font-black">Акцій поки немає</h2>
+            <h2 className="mt-5 text-2xl font-black sm:text-4xl">
+              Акцій поки немає
+            </h2>
 
-            <p className="mx-auto mt-4 max-w-xl leading-7 text-slate-400">
-              Ми вже підготували базу для акцій. Далі додамо адмінку для
-              ручного додавання та імпорт із сайтів/джерел.
+            <p className="mx-auto mt-4 max-w-xl text-sm font-bold leading-6 text-slate-400 sm:text-base sm:font-normal sm:leading-7">
+              Спробуй змінити пошук або фільтри. Промокоди залишаються в
+              окремому розділі.
             </p>
 
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:flex sm:flex-wrap sm:justify-center">
               <Link
                 href="/codes"
-                className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+                className="inline-flex justify-center rounded-full bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 sm:px-6 sm:py-4 sm:text-base"
               >
-                Дивитись промокоди
+                Промокоди
               </Link>
 
               <Link
                 href="/stores"
-                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                className="inline-flex justify-center rounded-full border border-slate-700 px-4 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:px-6 sm:py-4 sm:text-base"
               >
                 Магазини
               </Link>
             </div>
           </section>
         ) : (
-          <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {filteredDeals.map((deal) => {
-              const daysLeft = getDaysLeft(deal.ends_at);
-              const dealUrl = getDealUrl(deal);
+          <>
+            <section className="mt-5 grid grid-cols-2 gap-3 sm:hidden">
+              {filteredDeals.map((deal) => (
+                <MobileDealTile key={deal.id} deal={deal} />
+              ))}
+            </section>
 
-              return (
-                <article
-                  key={deal.id}
-                  className="flex flex-col overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-xl shadow-black/20"
-                >
-                  {deal.image_url ? (
-                    <div className="aspect-[16/9] overflow-hidden border-b border-slate-800 bg-slate-950">
-                      <img
-                        src={deal.image_url}
-                        alt={deal.title}
-                        className="h-full w-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex aspect-[16/9] items-center justify-center border-b border-slate-800 bg-slate-950">
-                      <StoreLogo
-                        name={deal.store_name}
-                        websiteUrl={deal.store_website_url}
-                        size="lg"
-                      />
-                    </div>
-                  )}
-
-                  <div className="flex flex-1 flex-col p-5">
-                    <div className="flex flex-wrap gap-2">
-                      {deal.category_name && (
-                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
-                          {deal.category_name}
-                        </span>
-                      )}
-
-                      {isEndingSoon(deal.ends_at) && (
-                        <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-300">
-                          Скоро завершується
-                        </span>
-                      )}
-                    </div>
-
-                    <h2 className="mt-4 line-clamp-3 text-2xl font-black text-white">
-                      {deal.title}
-                    </h2>
-
-                    <Link
-                      href={`/stores/${deal.store_slug}`}
-                      className="mt-3 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950 p-3 transition hover:border-emerald-400"
-                    >
-                      <StoreLogo
-                        name={deal.store_name}
-                        websiteUrl={deal.store_website_url}
-                        size="sm"
-                      />
-
-                      <div className="min-w-0">
-                        <p className="truncate font-black text-slate-200">
-                          {deal.store_name}
-                        </p>
-                        <p className="truncate text-xs font-bold text-slate-500">
-                          /stores/{deal.store_slug}
-                        </p>
-                      </div>
-                    </Link>
-
-                    {deal.description && (
-                      <p className="mt-4 line-clamp-4 leading-7 text-slate-400">
-                        {deal.description}
-                      </p>
-                    )}
-
-                    <div className="mt-5 grid gap-3">
-                      <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-                        <p className="text-xs font-bold text-slate-500">
-                          Діє до
-                        </p>
-                        <p className="mt-1 font-black text-slate-200">
-                          {formatDate(deal.ends_at)}
-                        </p>
-
-                        {daysLeft !== null && daysLeft >= 0 && (
-                          <p className="mt-1 text-sm font-bold text-slate-500">
-                            Залишилось днів: {daysLeft}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-auto flex flex-wrap gap-3 pt-5">
-                      {dealUrl && (
-                        <a
-                          href={dealUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
-                        >
-                          Відкрити акцію
-                        </a>
-                      )}
-
-                      <Link
-                        href={`/stores/${deal.store_slug}`}
-                        className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
-                      >
-                        Магазин
-                      </Link>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-          </section>
+            <section className="mt-8 hidden gap-5 sm:grid md:grid-cols-2 xl:grid-cols-3">
+              {filteredDeals.map((deal) => (
+                <DesktopDealCard key={deal.id} deal={deal} />
+              ))}
+            </section>
+          </>
         )}
       </section>
     </main>

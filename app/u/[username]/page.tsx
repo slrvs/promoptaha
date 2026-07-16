@@ -293,10 +293,10 @@ export default function UserPublicProfilePage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+      <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
         <section className="mx-auto w-full max-w-7xl">
-          <div className="h-[420px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
-          <div className="mt-8 h-96 animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
+          <div className="h-64 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900 sm:h-[420px] sm:rounded-[2.5rem]" />
+          <div className="mt-5 h-72 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900 sm:mt-8 sm:h-96 sm:rounded-[2.5rem]" />
         </section>
       </main>
     );
@@ -304,28 +304,28 @@ export default function UserPublicProfilePage() {
 
   if (!profile) {
     return (
-      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
-        <section className="mx-auto w-full max-w-3xl rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center">
-          <div className="text-6xl">👤</div>
+      <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
+        <section className="mx-auto w-full max-w-3xl rounded-[2rem] border border-slate-800 bg-slate-900/80 p-5 text-center sm:rounded-[2.5rem] sm:p-8">
+          <div className="text-5xl sm:text-6xl">👤</div>
 
-          <h1 className="mt-5 text-4xl font-black">Профіль не знайдено</h1>
+          <h1 className="mt-4 text-2xl font-black sm:mt-5 sm:text-4xl">Профіль не знайдено</h1>
 
-          <p className="mt-4 leading-7 text-slate-400">
+          <p className="mt-3 text-sm font-bold leading-6 text-slate-400 sm:mt-4 sm:text-base sm:font-normal sm:leading-7">
             {message ||
               `Не вдалося знайти користувача за адресою /u/${profileIdentifier}.`}
           </p>
 
-          <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:mt-8 sm:flex sm:flex-wrap sm:justify-center sm:gap-3">
             <Link
               href="/users"
-              className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+              className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-emerald-400 px-3 py-2 text-center text-sm font-black text-slate-950 transition hover:bg-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
             >
               До спільноти
             </Link>
 
             <Link
               href="/profile"
-              className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:bg-transparent sm:px-6 sm:py-4 sm:text-base"
             >
               Мій профіль
             </Link>
@@ -336,9 +336,9 @@ export default function UserPublicProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
       <section className="mx-auto w-full max-w-7xl">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:mb-6 sm:gap-3 sm:text-sm">
           <Link href="/" className="hover:text-emerald-300">
             Головна
           </Link>
@@ -352,15 +352,15 @@ export default function UserPublicProfilePage() {
           <span className="text-slate-300">{profileName}</span>
         </div>
 
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
+        <section className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-xl shadow-emerald-950/10 sm:rounded-[2.5rem] sm:shadow-2xl sm:shadow-emerald-950/20">
+          <div className="grid gap-4 p-4 sm:p-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-8 lg:p-10">
             <div>
-              <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+              <p className="mb-3 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-bold text-emerald-300 sm:mb-5 sm:px-4 sm:py-2 sm:text-sm">
                 Публічний профіль
               </p>
 
-              <div className="flex flex-wrap items-center gap-5">
-                <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-[2rem] border border-emerald-400/30 bg-slate-950 text-5xl font-black text-emerald-300">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-5">
+                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-950 text-3xl font-black text-emerald-300 sm:h-28 sm:w-28 sm:rounded-[2rem] sm:text-5xl">
                   {profile.avatar_url ? (
                     <img
                       src={profile.avatar_url}
@@ -374,41 +374,41 @@ export default function UserPublicProfilePage() {
                 </div>
 
                 <div className="min-w-0">
-                  <div className="mb-3 flex flex-wrap gap-2">
+                  <div className="mb-2 flex flex-wrap gap-2 sm:mb-3">
                     <UserLevelBadge approvedPromos={promos.length} size="md" />
 
                     {profile.username && (
-                      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-black text-emerald-300">
+                      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1.5 text-[11px] font-black text-emerald-300 sm:px-3 sm:py-2 sm:text-xs">
                         @{profile.username}
                       </span>
                     )}
                   </div>
 
-                  <h1 className="break-words text-5xl font-black tracking-tight md:text-7xl">
+                  <h1 className="break-words text-3xl font-black leading-tight tracking-tight sm:text-5xl md:text-7xl">
                     {profileName}
                   </h1>
 
-                  <p className="mt-3 text-sm font-bold text-slate-500">
+                  <p className="mt-2 text-xs font-bold text-slate-500 sm:mt-3 sm:text-sm">
                     На ПромоПтасі з {formatDate(profile.created_at)}
                   </p>
                 </div>
               </div>
 
               {profile.bio && (
-                <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+                <p className="mt-3 max-w-3xl text-sm font-bold leading-6 text-slate-400 sm:mt-6 sm:text-lg sm:font-normal sm:leading-8">
                   {profile.bio}
                 </p>
               )}
 
               {socialLinks.length > 0 && (
-                <div className="mt-8 flex flex-wrap gap-3">
+                <div className="mt-4 flex flex-wrap gap-2 sm:mt-8 sm:gap-3">
                   {socialLinks.map((link) => (
                     <a
                       key={link.label}
                       href={link.href}
                       target="_blank"
                       rel="noreferrer"
-                      className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                      className="rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:bg-transparent sm:px-5 sm:py-3 sm:text-sm"
                     >
                       {link.label}
                     </a>
@@ -417,85 +417,85 @@ export default function UserPublicProfilePage() {
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-emerald-300">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                <p className="text-2xl font-black text-emerald-300 sm:text-4xl">
                   {promos.length}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
+                <p className="mt-1 text-[11px] font-bold leading-4 text-slate-500 sm:mt-2 sm:text-sm sm:leading-normal">
                   схвалених промокодів
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                <p className="text-2xl font-black text-white sm:text-4xl">
                   {uniqueStoresCount}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
+                <p className="mt-1 text-[11px] font-bold leading-4 text-slate-500 sm:mt-2 sm:text-sm sm:leading-normal">
                   магазинів
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-yellow-300">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                <p className="text-2xl font-black text-yellow-300 sm:text-4xl">
                   {totalWorks}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
+                <p className="mt-1 text-[11px] font-bold leading-4 text-slate-500 sm:mt-2 sm:text-sm sm:leading-normal">
                   підтверджень “працює”
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                <p className="text-2xl font-black text-white sm:text-4xl">
                   {averageReliability === null
                     ? "—"
                     : `${averageReliability}%`}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
+                <p className="mt-1 text-[11px] font-bold leading-4 text-slate-500 sm:mt-2 sm:text-sm sm:leading-normal">
                   середня надійність
                 </p>
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="hidden sm:col-span-2 sm:block">
                 <UserLevelProgress approvedPromos={promos.length} />
               </div>
             </div>
           </div>
         </section>
 
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+        <section className="mt-5 rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:mt-8 sm:rounded-[2.5rem] sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
             <div>
-              <h2 className="text-3xl font-black">Промокоди автора</h2>
+              <h2 className="text-2xl font-black sm:text-3xl">Промокоди автора</h2>
 
-              <p className="mt-2 leading-7 text-slate-400">
+              <p className="mt-1 text-sm font-bold leading-6 text-slate-400 sm:mt-2 sm:text-base sm:font-normal sm:leading-7">
                 Схвалені промокоди, які додав цей користувач.
               </p>
             </div>
 
             <Link
               href="/users"
-              className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              className="rounded-2xl border border-slate-700 bg-slate-950/50 px-4 py-2.5 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:bg-transparent sm:px-5 sm:py-3"
             >
               До спільноти
             </Link>
           </div>
 
           {promos.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
-              <div className="text-5xl">🎟️</div>
+            <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950 p-5 text-center sm:mt-6 sm:p-8">
+              <div className="text-4xl sm:text-5xl">🎟️</div>
 
-              <h3 className="mt-4 text-2xl font-black">
+              <h3 className="mt-3 text-xl font-black sm:mt-4 sm:text-2xl">
                 Схвалених промокодів поки немає
               </h3>
 
-              <p className="mx-auto mt-3 max-w-md leading-7 text-slate-400">
+              <p className="mx-auto mt-2 max-w-md text-sm font-bold leading-6 text-slate-400 sm:mt-3 sm:text-base sm:font-normal sm:leading-7">
                 Коли промокоди користувача пройдуть модерацію, вони зʼявляться
                 тут.
               </p>
             </div>
           ) : (
-            <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:mt-6 md:grid-cols-2 md:gap-5 xl:grid-cols-3">
               {promos.map((promo) => {
                 const websiteUrl = promo.store_id
                   ? storeWebsiteMap.get(promo.store_id)
@@ -505,9 +505,9 @@ export default function UserPublicProfilePage() {
                 return (
                   <article
                     key={promo.id}
-                    className="flex flex-col rounded-[2rem] border border-slate-800 bg-slate-950 p-5 transition hover:border-emerald-400/40"
+                    className="flex flex-col rounded-[1.5rem] border border-slate-800 bg-slate-950 p-3 transition hover:border-emerald-400/40 sm:rounded-[2rem] sm:p-5"
                   >
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-2 sm:gap-4">
                       <StoreLogo
                         name={promo.store_name || "Магазин"}
                         websiteUrl={websiteUrl}
@@ -517,61 +517,61 @@ export default function UserPublicProfilePage() {
                       <div className="min-w-0">
                         <Link
                           href={`/codes/${promo.slug || promo.id}`}
-                          className="break-all text-3xl font-black text-white transition hover:text-emerald-300"
+                          className="break-all text-lg font-black leading-tight text-white transition hover:text-emerald-300 sm:text-3xl"
                         >
                           {promo.code}
                         </Link>
 
-                        <p className="mt-2 truncate text-sm font-black text-emerald-300">
+                        <p className="mt-1 truncate text-xs font-black text-emerald-300 sm:mt-2 sm:text-sm">
                           {promo.store_name || "Магазин"}
                         </p>
                       </div>
                     </div>
 
-                    <p className="mt-4 text-xl font-black text-emerald-300">
+                    <p className="mt-3 text-sm font-black leading-5 text-emerald-300 sm:mt-4 sm:text-xl">
                       {promo.discount_value || "Знижка не вказана"}
                     </p>
 
                     {promo.description && (
-                      <p className="mt-3 line-clamp-3 leading-7 text-slate-400">
+                      <p className="mt-3 hidden line-clamp-3 leading-7 text-slate-400 sm:block">
                         {promo.description}
                       </p>
                     )}
 
-                    <div className="mt-5 grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                    <div className="mt-3 hidden grid-cols-2 gap-3 sm:grid sm:mt-5">
+                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
                         <p className="text-xs font-bold text-slate-500">
                           Діє до
                         </p>
 
-                        <p className="mt-1 font-black text-slate-200">
+                        <p className="mt-1 text-sm font-black text-slate-200 sm:text-base">
                           {formatDate(promo.expires_at)}
                         </p>
                       </div>
 
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
                         <p className="text-xs font-bold text-slate-500">
                           Надійність
                         </p>
 
-                        <p className="mt-1 font-black text-slate-200">
+                        <p className="mt-1 text-sm font-black text-slate-200 sm:text-base">
                           {worksPercent === null ? "Немає" : `${worksPercent}%`}
                         </p>
                       </div>
                     </div>
 
                     {promo.category_name && (
-                      <div className="mt-4">
-                        <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-black text-slate-300">
+                      <div className="mt-3 sm:mt-4">
+                        <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] font-black text-slate-300 sm:px-3 sm:py-2 sm:text-xs">
                           {promo.category_name}
                         </span>
                       </div>
                     )}
 
-                    <div className="mt-auto pt-5">
+                    <div className="mt-auto pt-3 sm:pt-5">
                       <Link
                         href={`/codes/${promo.slug || promo.id}`}
-                        className="inline-flex rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                        className="inline-flex w-full min-h-9 items-center justify-center rounded-xl bg-emerald-400 px-3 py-2 text-center text-xs font-black text-slate-950 transition hover:bg-emerald-300 sm:w-auto sm:rounded-full sm:px-5 sm:py-3 sm:text-sm"
                       >
                         Відкрити промокод
                       </Link>

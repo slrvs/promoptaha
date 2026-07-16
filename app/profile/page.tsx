@@ -820,10 +820,10 @@ export default function ProfilePage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+      <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
         <section className="mx-auto w-full max-w-7xl">
-          <div className="h-[420px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
-          <div className="mt-8 h-96 animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
+          <div className="h-[360px] animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900 sm:h-[420px] sm:rounded-[2.5rem]" />
+          <div className="mt-5 h-64 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900 sm:mt-8 sm:h-96 sm:rounded-[2.5rem]" />
         </section>
       </main>
     );
@@ -831,13 +831,13 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
-        <section className="mx-auto max-w-3xl rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-8 text-center">
+      <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
+        <section className="mx-auto max-w-3xl rounded-[2rem] border border-slate-800 bg-slate-900/80 p-5 text-center sm:rounded-[2.5rem] sm:p-8">
           <div className="text-6xl">🔐</div>
 
-          <h1 className="mt-5 text-4xl font-black">Потрібно увійти</h1>
+          <h1 className="mt-5 text-2xl font-black sm:text-4xl">Потрібно увійти</h1>
 
-          <p className="mt-4 leading-7 text-slate-400">
+          <p className="mt-4 hidden leading-7 text-slate-400 sm:block">
             Кабінет доступний тільки для авторизованих користувачів.
           </p>
 
@@ -853,9 +853,9 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
       <section className="mx-auto w-full max-w-7xl">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:mb-6 sm:gap-3 sm:text-sm">
           <Link href="/" className="hover:text-emerald-300">
             Головна
           </Link>
@@ -863,15 +863,15 @@ export default function ProfilePage() {
           <span className="text-slate-300">Мій профіль</span>
         </div>
 
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
+        <section className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20 sm:rounded-[2.5rem]">
+          <div className="grid gap-4 p-3 sm:p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
             <div>
-              <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300 sm:mb-5 sm:px-4 sm:text-sm">
                 Особистий кабінет
               </p>
 
-              <div className="flex flex-wrap items-center gap-5">
-                <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-[2rem] border border-emerald-400/30 bg-slate-950 text-5xl font-black text-emerald-300">
+              <div className="flex items-center gap-3 sm:flex-wrap sm:gap-5">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-950 text-2xl font-black text-emerald-300 sm:h-28 sm:w-28 sm:rounded-[2rem] sm:text-5xl">
                   {profile?.avatar_url ? (
                     <img
                       src={profile.avatar_url}
@@ -898,29 +898,29 @@ export default function ProfilePage() {
                     )}
                   </div>
 
-                  <h1 className="break-words text-5xl font-black tracking-tight md:text-7xl">
+                  <h1 className="break-words text-2xl font-black leading-tight tracking-tight sm:text-5xl md:text-7xl">
                     {profileName}
                   </h1>
 
-                  <p className="mt-3 text-sm font-bold text-slate-500">
+                  <p className="mt-2 break-all text-xs font-bold text-slate-500 sm:mt-3 sm:text-sm">
                     {user.email}
                   </p>
                 </div>
               </div>
 
               {profile?.bio && (
-                <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+                <p className="mt-3 max-w-3xl text-sm font-bold leading-6 text-slate-400 sm:mt-6 sm:text-lg sm:font-normal sm:leading-8">
                   {profile.bio}
                 </p>
               )}
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-8 sm:flex sm:flex-wrap sm:gap-3">
                 <button
                   type="button"
                   onClick={
                     isProfileEditorOpen ? cancelEditProfile : startEditProfile
                   }
-                  className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-emerald-400 px-3 py-2 text-center text-sm font-black text-slate-950 transition hover:bg-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                 >
                   {isProfileEditorOpen
                     ? "Закрити редагування"
@@ -930,7 +930,7 @@ export default function ProfilePage() {
                 {publicProfileUrl && (
                   <Link
                     href={publicProfileUrl}
-                    className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                   >
                     Публічний профіль
                   </Link>
@@ -938,14 +938,14 @@ export default function ProfilePage() {
 
                 <Link
                   href="/add"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                 >
                   Додати промокод
                 </Link>
 
                 <Link
                   href="/request-store"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                 >
                   Запропонувати магазин
                 </Link>
@@ -953,7 +953,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={signOut}
-                  className="rounded-full border border-red-400/40 px-6 py-4 font-black text-red-300 transition hover:bg-red-400/10"
+                  className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-2xl border border-red-400/40 px-3 py-2 text-center text-sm font-black text-red-300 transition hover:bg-red-400/10 sm:col-span-1 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                 >
                   Вийти
                 </button>
@@ -961,45 +961,45 @@ export default function ProfilePage() {
             </div>
 
             <div className="grid gap-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                  <p className="text-4xl font-black text-emerald-300">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                  <p className="text-2xl font-black text-emerald-300 sm:text-4xl">
                     {approvedPromosCount}
                   </p>
-                  <p className="mt-2 text-sm font-bold text-slate-500">
+                  <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
                     схвалених кодів
                   </p>
                 </div>
 
-                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                  <p className="text-4xl font-black text-yellow-300">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                  <p className="text-2xl font-black text-yellow-300 sm:text-4xl">
                     {pendingPromosCount}
                   </p>
-                  <p className="mt-2 text-sm font-bold text-slate-500">
+                  <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
                     на модерації
                   </p>
                 </div>
 
-                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                  <p className="text-4xl font-black text-red-300">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                  <p className="text-2xl font-black text-red-300 sm:text-4xl">
                     {rejectedPromosCount}
                   </p>
-                  <p className="mt-2 text-sm font-bold text-slate-500">
+                  <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
                     відхилено
                   </p>
                 </div>
 
-                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                  <p className="text-4xl font-black text-white">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                  <p className="text-2xl font-black text-white sm:text-4xl">
                     {favoritePromos.length}
                   </p>
-                  <p className="mt-2 text-sm font-bold text-slate-500">
+                  <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
                     збережено
                   </p>
                 </div>
               </div>
 
-              <UserLevelProgress approvedPromos={approvedPromosCount} />
+              <div className="hidden sm:block">\n                <UserLevelProgress approvedPromos={approvedPromosCount} />\n              </div>
             </div>
           </div>
         </section>
@@ -1019,10 +1019,10 @@ export default function ProfilePage() {
         )}
 
         {isProfileEditorOpen && (
-          <section className="mt-8 rounded-[2.5rem] border border-emerald-400/30 bg-slate-900/80 p-6">
+          <section className="mt-5 rounded-[2rem] border border-emerald-400/30 bg-slate-900/80 p-4 sm:mt-8 sm:rounded-[2.5rem] sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h2 className="text-3xl font-black">Редагування профілю</h2>
+                <h2 className="text-2xl font-black sm:text-3xl">Редагування профілю</h2>
 
                 <p className="mt-2 leading-7 text-slate-400">
                   Заповни публічні дані, які бачитимуть інші користувачі.
@@ -1032,7 +1032,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={cancelEditProfile}
-                className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                className="inline-flex justify-center rounded-full border border-slate-700 px-3 py-2 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 sm:px-5 sm:py-3 sm:text-sm"
               >
                 Скасувати
               </button>
@@ -1042,7 +1042,7 @@ export default function ProfilePage() {
               onSubmit={handleSaveProfile}
               className="mt-6 grid gap-6 lg:grid-cols-[0.75fr_1.25fr]"
             >
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5">
+              <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-5">
                 <h3 className="text-2xl font-black">Аватар</h3>
 
                 <div className="mt-5 flex items-center gap-4">
@@ -1186,10 +1186,10 @@ export default function ProfilePage() {
           </section>
         )}
 
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+        <section className="mt-5 rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:mt-8 sm:rounded-[2.5rem] sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-3xl font-black">Мої промокоди</h2>
+              <h2 className="text-2xl font-black sm:text-3xl">Мої промокоди</h2>
 
               <p className="mt-2 leading-7 text-slate-400">
                 Тут можна переглянути свої коди, відредагувати відхилені або ті,
@@ -1199,7 +1199,7 @@ export default function ProfilePage() {
 
             <Link
               href="/add"
-              className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+              className="inline-flex justify-center rounded-full bg-emerald-400 px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-emerald-300 sm:px-5 sm:py-3 sm:text-sm"
             >
               Додати код
             </Link>
@@ -1213,7 +1213,7 @@ export default function ProfilePage() {
               </h3>
             </div>
           ) : (
-            <div className="mt-6 grid gap-5">
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 sm:grid-cols-1 sm:gap-5">
               {myPromos.map((promo) => {
                 const isEditing = editingPromoId === promo.id;
                 const storeName = getStoreName(stores, promo.store_id);
@@ -1223,7 +1223,7 @@ export default function ProfilePage() {
                 return (
                   <article
                     key={promo.id}
-                    className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5"
+                    className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-5"
                   >
                     {isEditing ? (
                       <form onSubmit={saveEditedPromo} className="grid gap-4">
@@ -1350,7 +1350,7 @@ export default function ProfilePage() {
                           <button
                             type="button"
                             onClick={cancelEditPromo}
-                            className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                            className="inline-flex justify-center rounded-full border border-slate-700 px-3 py-2 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 sm:px-5 sm:py-3 sm:text-sm"
                           >
                             Скасувати
                           </button>
@@ -1358,8 +1358,8 @@ export default function ProfilePage() {
                       </form>
                     ) : (
                       <>
-                        <div className="flex flex-wrap items-start justify-between gap-5">
-                          <div className="flex min-w-0 items-start gap-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-5">
+                          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
                             <StoreLogo
                               name={storeName}
                               websiteUrl={storeWebsite}
@@ -1367,11 +1367,11 @@ export default function ProfilePage() {
                             />
 
                             <div className="min-w-0">
-                              <p className="break-all text-4xl font-black text-white">
+                              <p className="truncate text-lg font-black text-white sm:break-all sm:text-4xl">
                                 {promo.code}
                               </p>
 
-                              <p className="mt-2 text-xl font-black text-emerald-300">
+                              <p className="mt-1 truncate text-sm font-black text-emerald-300 sm:mt-2 sm:text-xl">
                                 {promo.discount_value || "Знижка не вказана"}
                               </p>
 
@@ -1408,7 +1408,7 @@ export default function ProfilePage() {
                             {promo.status === "approved" ? (
                               <Link
                                 href={`/codes/${promo.slug || promo.id}`}
-                                className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                                className="inline-flex justify-center rounded-full bg-emerald-400 px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-emerald-300 sm:px-5 sm:py-3 sm:text-sm"
                               >
                                 Відкрити
                               </Link>
@@ -1417,7 +1417,7 @@ export default function ProfilePage() {
                                 <button
                                   type="button"
                                   onClick={() => startEditPromo(promo)}
-                                  className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                                  className="inline-flex justify-center rounded-full bg-emerald-400 px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-emerald-300 sm:px-5 sm:py-3 sm:text-sm"
                                 >
                                   Редагувати
                                 </button>
@@ -1426,7 +1426,7 @@ export default function ProfilePage() {
                                   type="button"
                                   onClick={() => deletePromo(promo)}
                                   disabled={deletingPromoId === promo.id}
-                                  className="rounded-full border border-red-400/40 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="inline-flex justify-center rounded-full border border-red-400/40 px-3 py-2 text-xs font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60 sm:px-5 sm:py-3 sm:text-sm"
                                 >
                                   {deletingPromoId === promo.id
                                     ? "Видаляю..."
@@ -1438,7 +1438,7 @@ export default function ProfilePage() {
                         </div>
 
                         {promo.description && (
-                          <p className="mt-4 leading-7 text-slate-400">
+                          <p className="mt-4 hidden leading-7 text-slate-400 sm:block">
                             {promo.description}
                           </p>
                         )}
@@ -1469,10 +1469,10 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+        <section className="mt-5 rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:mt-8 sm:rounded-[2.5rem] sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-3xl font-black">Збережені промокоди</h2>
+              <h2 className="text-2xl font-black sm:text-3xl">Збережені промокоди</h2>
 
               <p className="mt-2 leading-7 text-slate-400">
                 Промокоди, які ти зберіг для себе.
@@ -1488,7 +1488,7 @@ export default function ProfilePage() {
               </h3>
             </div>
           ) : (
-            <div className="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 md:grid-cols-2 md:gap-5 xl:grid-cols-3">
               {favoritePromos.map((promo) => {
                 const worksPercent = getWorksPercent(promo);
                 const favorite = favoriteRecords.find(
@@ -1498,7 +1498,7 @@ export default function ProfilePage() {
                 return (
                   <article
                     key={promo.id}
-                    className="flex flex-col rounded-[2rem] border border-slate-800 bg-slate-950 p-5"
+                    className="flex min-h-[190px] flex-col rounded-[1.5rem] border border-slate-800 bg-slate-950 p-3 sm:min-h-0 sm:rounded-[2rem] sm:p-5"
                   >
                     <div className="flex items-start gap-4">
                       <StoreLogo
@@ -1510,7 +1510,7 @@ export default function ProfilePage() {
                       <div className="min-w-0">
                         <Link
                           href={`/codes/${promo.slug || promo.id}`}
-                          className="break-all text-3xl font-black text-white transition hover:text-emerald-300"
+                          className="truncate text-lg font-black text-white transition hover:text-emerald-300 sm:break-all sm:text-3xl"
                         >
                           {promo.code}
                         </Link>
@@ -1526,12 +1526,12 @@ export default function ProfilePage() {
                     </p>
 
                     {promo.description && (
-                      <p className="mt-3 line-clamp-3 leading-7 text-slate-400">
+                      <p className="mt-3 hidden line-clamp-3 leading-7 text-slate-400 sm:block">
                         {promo.description}
                       </p>
                     )}
 
-                    <div className="mt-5 grid grid-cols-2 gap-3">
+                    <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:gap-3">
                       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
                         <p className="text-xs font-bold text-slate-500">
                           Діє до
@@ -1553,11 +1553,11 @@ export default function ProfilePage() {
                       </div>
                     </div>
 
-                    <div className="mt-auto flex flex-wrap gap-3 pt-5">
+                    <div className="mt-auto grid gap-2 pt-4 sm:flex sm:flex-wrap sm:gap-3 sm:pt-5">
                       <button
                         type="button"
                         onClick={() => copyFavoriteCode(promo)}
-                        className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                        className="inline-flex justify-center rounded-full bg-emerald-400 px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-emerald-300 sm:px-5 sm:py-3 sm:text-sm"
                       >
                         {copiedFavoriteId === promo.id
                           ? "Скопійовано"
@@ -1566,7 +1566,7 @@ export default function ProfilePage() {
 
                       <Link
                         href={`/codes/${promo.slug || promo.id}`}
-                        className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300"
+                        className="inline-flex justify-center rounded-full border border-slate-700 px-3 py-2 text-xs font-black text-slate-300 transition hover:border-emerald-400 hover:text-emerald-300 sm:px-5 sm:py-3 sm:text-sm"
                       >
                         Деталі
                       </Link>
@@ -1577,7 +1577,7 @@ export default function ProfilePage() {
                         disabled={
                           favorite ? removingFavoriteId === favorite.id : false
                         }
-                        className="rounded-full border border-red-400/40 px-5 py-3 text-sm font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex justify-center rounded-full border border-red-400/40 px-3 py-2 text-xs font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60 sm:px-5 sm:py-3 sm:text-sm"
                       >
                         Прибрати
                       </button>
@@ -1589,10 +1589,10 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
+        <section className="mt-5 rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:mt-8 sm:rounded-[2.5rem] sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-3xl font-black">Мої заявки магазинів</h2>
+              <h2 className="text-2xl font-black sm:text-3xl">Мої заявки магазинів</h2>
 
               <p className="mt-2 leading-7 text-slate-400">
                 Магазини, які ти пропонував додати на сайт.
@@ -1601,7 +1601,7 @@ export default function ProfilePage() {
 
             <Link
               href="/request-store"
-              className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+              className="inline-flex justify-center rounded-full bg-emerald-400 px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-emerald-300 sm:px-5 sm:py-3 sm:text-sm"
             >
               Запропонувати магазин
             </Link>
@@ -1615,11 +1615,11 @@ export default function ProfilePage() {
               </h3>
             </div>
           ) : (
-            <div className="mt-6 grid gap-4">
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 sm:grid-cols-1 sm:gap-4">
               {storeRequests.map((request) => (
                 <article
                   key={request.id}
-                  className="rounded-[2rem] border border-slate-800 bg-slate-950 p-5"
+                  className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-5"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
@@ -1666,7 +1666,7 @@ export default function ProfilePage() {
                             (store) => store.id === request.created_store_id
                           )?.slug || ""
                         }`}
-                        className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                        className="inline-flex justify-center rounded-full bg-emerald-400 px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-emerald-300 sm:px-5 sm:py-3 sm:text-sm"
                       >
                         Відкрити магазин
                       </Link>

@@ -75,48 +75,51 @@ const sections = [
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-10 text-white">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-4 sm:py-10">
       <div className="mx-auto max-w-4xl">
-        <div className="rounded-[2rem] border border-emerald-400/20 bg-emerald-400/10 p-6 sm:p-8">
-          <p className="text-sm font-black uppercase tracking-[0.3em] text-emerald-300">
+        <section className="rounded-[2rem] border border-emerald-400/20 bg-emerald-400/10 p-4 sm:p-8">
+          <p className="text-[11px] font-black uppercase tracking-[0.22em] text-emerald-300 sm:text-sm sm:tracking-[0.3em]">
             Дані користувачів
           </p>
 
-          <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-5xl">
+          <h1 className="mt-3 text-3xl font-black leading-tight tracking-tight sm:mt-4 sm:text-5xl">
             Політика приватності
           </h1>
 
-          <p className="mt-4 max-w-2xl text-sm font-bold leading-6 text-emerald-100/80 sm:text-base">
-            Тут пояснюємо, які дані можуть оброблятися на ПромоПтасі, для чого
-            вони потрібні та як користувач може звернутися щодо своїх даних.
+          <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-emerald-100/80 sm:mt-4 sm:text-base">
+            Тут пояснюємо, які дані можуть оброблятися на сайті ПромоПтаха,
+            для чого вони потрібні та як користувач може звернутися щодо своїх
+            даних.
           </p>
 
-          <p className="mt-5 text-xs font-bold text-emerald-100/60">
+          <p className="mt-4 text-[11px] font-bold text-emerald-100/60 sm:mt-5 sm:text-xs">
             Останнє оновлення: 16 липня 2026
           </p>
-        </div>
+        </section>
 
-        <div className="mt-8 rounded-[2rem] border border-yellow-400/20 bg-yellow-400/10 p-5 text-sm font-bold leading-6 text-yellow-100/90">
+        <section className="mt-4 rounded-[1.5rem] border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm font-bold leading-6 text-yellow-100/90 sm:mt-8 sm:rounded-[2rem] sm:p-5">
           Ми не просимо зайвих персональних даних і не продаємо дані
           користувачів рекламодавцям. Email використовується для входу та
           службових потреб акаунта.
-        </div>
+        </section>
 
-        <div className="mt-8 space-y-5">
+        <div className="mt-4 grid gap-3 sm:mt-8 sm:gap-5">
           {sections.map((section) => (
             <section
               key={section.title}
-              className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6"
+              className="rounded-[1.5rem] border border-slate-800 bg-slate-900/70 p-4 sm:rounded-[2rem] sm:p-6"
             >
-              <h2 className="text-xl font-black text-white">{section.title}</h2>
+              <h2 className="text-lg font-black leading-tight text-white sm:text-xl">
+                {section.title}
+              </h2>
 
-              <ul className="mt-4 space-y-3">
+              <ul className="mt-3 space-y-2 sm:mt-4 sm:space-y-3">
                 {section.text.map((item) => (
                   <li
                     key={item}
-                    className="flex gap-3 text-sm font-bold leading-7 text-slate-300"
+                    className="flex gap-2 text-sm font-bold leading-6 text-slate-300 sm:gap-3 sm:leading-7"
                   >
-                    <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+                    <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 sm:h-2 sm:w-2" />
                     <span>{item}</span>
                   </li>
                 ))}
@@ -125,38 +128,40 @@ export default function PrivacyPage() {
           ))}
         </div>
 
-        <div className="mt-8 rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6">
-          <h2 className="text-xl font-black text-white">Контроль над даними</h2>
+        <section className="mt-4 rounded-[1.5rem] border border-slate-800 bg-slate-900/70 p-4 sm:mt-8 sm:rounded-[2rem] sm:p-6">
+          <h2 className="text-lg font-black text-white sm:text-xl">
+            Контроль над даними
+          </h2>
 
-          <p className="mt-3 text-sm font-bold leading-7 text-slate-300">
+          <p className="mt-3 text-sm font-bold leading-6 text-slate-300 sm:leading-7">
             Щоб попросити змінити або видалити дані акаунта, звернися через
             сторінку контактів. У зверненні вкажи email акаунта або username,
             щоб ми могли ідентифікувати профіль.
           </p>
 
-          <div className="mt-4 flex flex-wrap gap-3">
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3">
             <Link
               href="/contact"
-              className="rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+              className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-emerald-400 px-3 py-2 text-center text-xs font-black text-slate-950 transition hover:bg-emerald-300 sm:rounded-full sm:px-5 sm:py-3 sm:text-sm"
             >
               Зв’язатися
             </Link>
 
             <Link
               href="/terms"
-              className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-center text-xs font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:bg-transparent sm:px-5 sm:py-3 sm:text-sm"
             >
-              Умови використання
+              Умови
             </Link>
 
             <Link
               href="/rules"
-              className="rounded-full border border-slate-700 px-5 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              className="col-span-2 inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-center text-xs font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:col-span-1 sm:rounded-full sm:bg-transparent sm:px-5 sm:py-3 sm:text-sm"
             >
               Правила
             </Link>
           </div>
-        </div>
+        </section>
       </div>
     </main>
   );

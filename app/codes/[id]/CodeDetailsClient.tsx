@@ -860,9 +860,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
       <section className="mx-auto w-full max-w-7xl">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:mb-6 sm:gap-3 sm:text-sm">
           <Link href="/" className="hover:text-emerald-300">
             Головна
           </Link>
@@ -876,12 +876,12 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
           <span className="text-slate-300">{promo.code}</span>
         </div>
 
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
+        <section className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-xl shadow-emerald-950/10 sm:rounded-[2.5rem] sm:shadow-2xl sm:shadow-emerald-950/20">
+          <div className="grid gap-4 p-4 sm:p-6 lg:grid-cols-[1.15fr_0.85fr] lg:gap-8 lg:p-10">
             <div>
-              <div className="mb-5 flex flex-wrap gap-2">
+              <div className="mb-3 flex flex-wrap gap-2 sm:mb-5">
                 <span
-                  className={`rounded-full border px-4 py-2 text-sm font-black ${getExpiryClass(
+                  className={`rounded-full border px-3 py-1.5 text-xs font-black sm:px-4 sm:py-2 sm:text-sm ${getExpiryClass(
                     promo.expires_at
                   )}`}
                 >
@@ -889,32 +889,32 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                 </span>
 
                 {promo.category_name && (
-                  <span className="rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black text-slate-300">
+                  <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-black text-slate-300 sm:px-4 sm:py-2 sm:text-sm">
                     {promo.category_name}
                   </span>
                 )}
               </div>
 
-              <h1 className="break-all text-6xl font-black tracking-tight md:text-8xl">
+              <h1 className="break-all text-4xl font-black leading-tight tracking-tight sm:text-6xl md:text-8xl">
                 {promo.code}
               </h1>
 
-              <p className="mt-5 text-3xl font-black text-emerald-300">
+              <p className="mt-3 text-xl font-black text-emerald-300 sm:mt-5 sm:text-3xl">
                 {promo.discount_value || "Знижка не вказана"}
               </p>
 
               {promo.description && (
-                <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+                <p className="mt-3 max-w-3xl text-sm font-bold leading-6 text-slate-400 sm:mt-6 sm:text-lg sm:font-normal sm:leading-8">
                   {promo.description}
                 </p>
               )}
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-8 sm:flex sm:flex-wrap sm:gap-3">
                 <button
                   type="button"
                   onClick={copyCode}
                   disabled={isCopying}
-                  className="rounded-full bg-emerald-400 px-7 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-2xl bg-emerald-400 px-4 py-2.5 text-center text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-1 sm:rounded-full sm:px-7 sm:py-4 sm:text-base"
                 >
                   {isCopying ? "Скопійовано" : "Копіювати код"}
                 </button>
@@ -923,7 +923,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                   type="button"
                   onClick={toggleFavorite}
                   disabled={isTogglingFavorite}
-                  className={`rounded-full px-7 py-4 font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`inline-flex min-h-10 items-center justify-center rounded-2xl px-3 py-2 text-center text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-full sm:px-7 sm:py-4 sm:text-base ${
                     favoriteId
                       ? "bg-yellow-300 text-slate-950 hover:bg-yellow-200"
                       : "border border-slate-700 text-slate-200 hover:border-yellow-300 hover:text-yellow-300"
@@ -937,7 +937,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                     href={sourceUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-full border border-slate-700 px-7 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                    className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:bg-transparent sm:px-7 sm:py-4 sm:text-base"
                   >
                     Джерело
                   </a>
@@ -946,7 +946,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                 {promo.store_slug && (
                   <Link
                     href={`/stores/${promo.store_slug}`}
-                    className="rounded-full border border-slate-700 px-7 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                    className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:bg-transparent sm:px-7 sm:py-4 sm:text-base"
                   >
                     Магазин
                   </Link>
@@ -954,7 +954,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
               </div>
 
               {!user && (
-                <div className="mt-6">
+                <div className="mt-4 sm:mt-6">
                   <LoginRequiredBox
                     compact
                     title="Хочеш зберегти або перевірити код?"
@@ -965,9 +965,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
               )}
             </div>
 
-            <div className="grid gap-4">
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <div className="flex items-center gap-4">
+            <div className="grid gap-3 sm:gap-4">
+              <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                <div className="flex items-center gap-3 sm:gap-4">
                   <StoreLogo
                     name={promo.store_name || store?.name || "Магазин"}
                     websiteUrl={storeWebsiteUrl}
@@ -975,17 +975,17 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                   />
 
                   <div>
-                    <p className="text-sm font-bold text-slate-500">Магазин</p>
+                    <p className="text-xs font-bold text-slate-500 sm:text-sm">Магазин</p>
 
                     {promo.store_slug ? (
                       <Link
                         href={`/stores/${promo.store_slug}`}
-                        className="text-2xl font-black text-white transition hover:text-emerald-300"
+                        className="text-xl font-black text-white transition hover:text-emerald-300 sm:text-2xl"
                       >
                         {promo.store_name || store?.name || "Магазин"}
                       </Link>
                     ) : (
-                      <p className="text-2xl font-black text-white">
+                      <p className="text-xl font-black text-white sm:text-2xl">
                         {promo.store_name || store?.name || "Магазин"}
                       </p>
                     )}
@@ -993,28 +993,28 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                 </div>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                  <p className="text-4xl font-black text-emerald-300">
+              <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                  <p className="text-2xl font-black text-emerald-300 sm:text-4xl">
                     {worksCount}
                   </p>
-                  <p className="mt-2 text-sm font-bold text-slate-500">
+                  <p className="mt-1 text-[11px] font-bold leading-4 text-slate-500 sm:mt-2 sm:text-sm sm:leading-normal">
                     працює
                   </p>
                 </div>
 
-                <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                  <p className="text-4xl font-black text-red-300">
+                <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                  <p className="text-2xl font-black text-red-300 sm:text-4xl">
                     {notWorksCount}
                   </p>
-                  <p className="mt-2 text-sm font-bold text-slate-500">
+                  <p className="mt-1 text-[11px] font-bold leading-4 text-slate-500 sm:mt-2 sm:text-sm sm:leading-normal">
                     не працює
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-sm font-bold text-slate-500">Надійність</p>
+              <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-4 sm:rounded-[2rem] sm:p-6">
+                <p className="text-xs font-bold text-slate-500 sm:text-sm">Надійність</p>
                 <p className="mt-2 text-4xl font-black text-white">
                   {worksPercent === null ? "Немає" : `${worksPercent}%`}
                 </p>
@@ -1025,7 +1025,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
 
         {message && (
           <div
-            className={`mt-6 rounded-2xl border p-4 font-bold ${
+            className={`mt-4 rounded-2xl border p-3 text-sm font-bold sm:mt-6 sm:p-4 sm:text-base ${
               messageType === "success"
                 ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                 : messageType === "error"
@@ -1037,21 +1037,21 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
           </div>
         )}
 
-        <section className="mt-8 grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
-          <aside className="grid gap-8">
-            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-3xl font-black">Перевірка</h2>
+        <section className="mt-5 grid gap-5 sm:mt-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-8">
+          <aside className="grid gap-5 sm:gap-8">
+            <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6">
+              <h2 className="text-2xl font-black sm:text-3xl">Перевірка</h2>
 
-              <p className="mt-2 leading-7 text-slate-400">
+              <p className="mt-2 text-sm font-bold leading-6 text-slate-400 sm:text-base sm:font-normal sm:leading-7">
                 Проголосуй, чи працює цей промокод.
               </p>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-6 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => vote("works")}
                   disabled={isVoting}
-                  className={`rounded-2xl border px-5 py-5 font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`rounded-2xl border px-3 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 sm:px-5 sm:py-5 sm:text-base ${
                     myVote === "works"
                       ? "border-emerald-400 bg-emerald-400 text-slate-950"
                       : "border-emerald-400/40 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
@@ -1064,7 +1064,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                   type="button"
                   onClick={() => vote("not_works")}
                   disabled={isVoting}
-                  className={`rounded-2xl border px-5 py-5 font-black transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  className={`rounded-2xl border px-3 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60 sm:px-5 sm:py-5 sm:text-base ${
                     myVote === "not_works"
                       ? "border-red-400 bg-red-400 text-slate-950"
                       : "border-red-400/40 bg-red-400/10 text-red-300 hover:bg-red-400/20"
@@ -1086,11 +1086,11 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
               )}
             </section>
 
-            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-3xl font-black">Автор</h2>
+            <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6">
+              <h2 className="text-2xl font-black sm:text-3xl">Автор</h2>
 
-              <div className="mt-5 flex items-start gap-4">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-950 text-2xl font-black text-emerald-300">
+              <div className="mt-4 flex items-start gap-3 sm:mt-5 sm:gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-950 text-xl font-black text-emerald-300 sm:h-16 sm:w-16 sm:text-2xl">
                   {authorProfile?.avatar_url ? (
                     <img
                       src={authorProfile.avatar_url}
@@ -1107,12 +1107,12 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                   {authorProfile?.username ? (
                     <Link
                       href={`/u/${authorProfile.username}`}
-                      className="break-words text-2xl font-black text-white transition hover:text-emerald-300"
+                      className="break-words text-xl font-black text-white transition hover:text-emerald-300 sm:text-2xl"
                     >
                       {getProfileName(authorProfile)}
                     </Link>
                   ) : (
-                    <p className="break-words text-2xl font-black text-white">
+                    <p className="break-words text-xl font-black text-white sm:text-2xl">
                       {getProfileName(authorProfile)}
                     </p>
                   )}
@@ -1135,13 +1135,13 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
               </div>
 
               {authorProfile?.bio && (
-                <p className="mt-5 line-clamp-4 leading-7 text-slate-400">
+                <p className="mt-4 line-clamp-3 text-sm font-bold leading-6 text-slate-400 sm:mt-5 sm:line-clamp-4 sm:text-base sm:font-normal sm:leading-7">
                   {authorProfile.bio}
                 </p>
               )}
 
               {socialLinks.length > 0 && (
-                <div className="mt-5 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
                   {socialLinks.map((link) => (
                     <a
                       key={link.label}
@@ -1157,27 +1157,27 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
               )}
             </section>
 
-            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-3xl font-black">Деталі</h2>
+            <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6">
+              <h2 className="text-2xl font-black sm:text-3xl">Деталі</h2>
 
-              <div className="mt-5 grid gap-3">
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+              <div className="mt-4 grid gap-2 sm:mt-5 sm:gap-3">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:p-4">
                   <p className="text-xs font-bold text-slate-500">Діє до</p>
-                  <p className="mt-1 font-black text-slate-200">
+                  <p className="mt-1 text-sm font-black text-slate-200 sm:text-base">
                     {formatDate(promo.expires_at)}
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:p-4">
                   <p className="text-xs font-bold text-slate-500">Джерело</p>
-                  <p className="mt-1 font-black text-slate-200">
+                  <p className="mt-1 text-sm font-black text-slate-200 sm:text-base">
                     {getSourceLabel(promo.source_type)}
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:p-4">
                   <p className="text-xs font-bold text-slate-500">Додано</p>
-                  <p className="mt-1 font-black text-slate-200">
+                  <p className="mt-1 text-sm font-black text-slate-200 sm:text-base">
                     {formatDateTime(promo.created_at)}
                   </p>
                 </div>
@@ -1185,34 +1185,34 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
             </section>
           </aside>
 
-          <section className="grid gap-8">
-            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-3xl font-black">Коментарі</h2>
+          <section className="grid gap-5 sm:gap-8">
+            <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6">
+              <h2 className="text-2xl font-black sm:text-3xl">Коментарі</h2>
 
-              <p className="mt-2 leading-7 text-slate-400">
+              <p className="mt-2 text-sm font-bold leading-6 text-slate-400 sm:text-base sm:font-normal sm:leading-7">
                 Додай уточнення, умови використання або свій досвід.
               </p>
 
               {user ? (
-                <form onSubmit={addComment} className="mt-6 grid gap-4">
+                <form onSubmit={addComment} className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
                   <textarea
                     value={commentBody}
                     onChange={(event) => setCommentBody(event.target.value)}
-                    rows={4}
+                    rows={3}
                     placeholder="Напиши коментар..."
-                    className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                    className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
                   />
 
                   <button
                     type="submit"
                     disabled={isAddingComment}
-                    className="w-fit rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                   >
                     {isAddingComment ? "Додаю..." : "Додати коментар"}
                   </button>
                 </form>
               ) : (
-                <div className="mt-6">
+                <div className="mt-4 sm:mt-6">
                   <LoginRequiredBox
                     title="Хочеш написати коментар?"
                     description="Увійди, щоб додати уточнення, поділитися досвідом або написати умови використання промокоду."
@@ -1222,21 +1222,21 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
               )}
 
               {isLoadingExtra ? (
-                <div className="mt-6 h-32 animate-pulse rounded-2xl border border-slate-800 bg-slate-950" />
+                <div className="mt-4 h-24 animate-pulse rounded-2xl border border-slate-800 bg-slate-950 sm:mt-6 sm:h-32" />
               ) : comments.length === 0 ? (
-                <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
-                  <div className="text-5xl">💬</div>
+                <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950 p-5 text-center sm:mt-6 sm:p-8">
+                  <div className="text-4xl sm:text-5xl">💬</div>
 
-                  <h3 className="mt-4 text-2xl font-black">
+                  <h3 className="mt-3 text-xl font-black sm:mt-4 sm:text-2xl">
                     Коментарів поки немає
                   </h3>
 
-                  <p className="mx-auto mt-3 max-w-md leading-7 text-slate-400">
+                  <p className="mx-auto mt-2 max-w-md text-sm font-bold leading-6 text-slate-400 sm:mt-3 sm:text-base sm:font-normal sm:leading-7">
                     Будь першим, хто додасть уточнення.
                   </p>
                 </div>
               ) : (
-                <div className="mt-6 grid gap-4">
+                <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
                   {comments.map((comment) => {
                     const commentProfile = commentProfilesMap.get(
                       comment.user_id
@@ -1247,9 +1247,9 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                     return (
                       <article
                         key={comment.id}
-                        className="rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                        className="rounded-2xl border border-slate-800 bg-slate-950 p-4 sm:p-5"
                       >
-                        <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
                           <div className="flex items-center gap-3">
                             <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 text-sm font-black text-emerald-300">
                               {commentProfile?.avatar_url ? (
@@ -1320,7 +1320,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                               onChange={(event) =>
                                 setEditingCommentBody(event.target.value)
                               }
-                              rows={4}
+                              rows={3}
                               className="resize-none rounded-2xl border border-slate-800 bg-slate-900 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
                             />
 
@@ -1345,7 +1345,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
                             </div>
                           </form>
                         ) : (
-                          <p className="mt-4 whitespace-pre-wrap leading-7 text-slate-300">
+                          <p className="mt-3 whitespace-pre-wrap text-sm font-bold leading-6 text-slate-300 sm:mt-4 sm:text-base sm:font-normal sm:leading-7">
                             {comment.body}
                           </p>
                         )}
@@ -1356,36 +1356,36 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
               )}
             </section>
 
-            <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-              <h2 className="text-3xl font-black">Репорт</h2>
+            <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6">
+              <h2 className="text-2xl font-black sm:text-3xl">Репорт</h2>
 
-              <p className="mt-2 leading-7 text-slate-400">
+              <p className="mt-2 text-sm font-bold leading-6 text-slate-400 sm:text-base sm:font-normal sm:leading-7">
                 Повідом, якщо код не працює, має неправильний опис або сумнівне
                 джерело.
               </p>
 
               {user ? (
-                <form onSubmit={submitReport} className="mt-6 grid gap-4">
+                <form onSubmit={submitReport} className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
                   <textarea
                     value={reportDescription}
                     onChange={(event) =>
                       setReportDescription(event.target.value)
                     }
-                    rows={4}
+                    rows={3}
                     placeholder="Що саме не так?"
-                    className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-red-400"
+                    className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-red-400 sm:px-5 sm:py-4 sm:text-base"
                   />
 
                   <button
                     type="submit"
                     disabled={isReporting}
-                    className="w-fit rounded-full border border-red-400/40 px-6 py-4 font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="w-full rounded-2xl border border-red-400/40 px-4 py-3 text-sm font-black text-red-300 transition hover:bg-red-400/10 disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                   >
                     {isReporting ? "Надсилаю..." : "Надіслати репорт"}
                   </button>
                 </form>
               ) : (
-                <div className="mt-6">
+                <div className="mt-4 sm:mt-6">
                   <LoginRequiredBox
                     title="Хочеш надіслати репорт?"
                     description="Увійди, щоб повідомити про неправильний опис, неробочий код або сумнівне джерело."
@@ -1396,14 +1396,14 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
             </section>
 
             {categoryNames.length > 0 && (
-              <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-                <h2 className="text-3xl font-black">Категорії</h2>
+              <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6">
+                <h2 className="text-2xl font-black sm:text-3xl">Категорії</h2>
 
-                <div className="mt-5 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2 sm:mt-5">
                   {categoryNames.map((categoryName) => (
                     <span
                       key={categoryName}
-                      className="rounded-full border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-black text-slate-300"
+                      className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-black text-slate-300 sm:px-4 sm:py-2 sm:text-sm"
                     >
                       {categoryName}
                     </span>
@@ -1416,7 +1416,7 @@ export default function CodeDetailsClient({ promo }: CodeDetailsClientProps) {
       </section>
         <LegalDisclaimerBox
           variant="promo"
-          className="mx-auto mt-8 max-w-6xl"
+          className="mx-auto mt-5 max-w-6xl px-3 sm:mt-8 sm:px-0"
         />
 
     </main>

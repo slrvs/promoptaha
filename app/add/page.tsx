@@ -183,9 +183,9 @@ function makePromoAliases({
 
 function AddPageSkeleton() {
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
       <section className="mx-auto w-full max-w-7xl">
-        <div className="h-[640px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
+        <div className="h-[460px] animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900 sm:h-[640px] sm:rounded-[2.5rem]" />
       </section>
     </main>
   );
@@ -615,9 +615,9 @@ function AddPromoContent() {
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+      <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
         <section className="mx-auto w-full max-w-5xl">
-          <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:mb-6 sm:gap-3 sm:text-sm">
             <Link href="/" className="hover:text-emerald-300">
               Головна
             </Link>
@@ -625,16 +625,16 @@ function AddPromoContent() {
             <span className="text-slate-300">Додати промокод</span>
           </div>
 
-          <section className="overflow-hidden rounded-[2.5rem] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.16),_transparent_36%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(2,6,23,0.98))] p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
-            <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+          <section className="overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.16),_transparent_36%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(2,6,23,0.98))] p-4 shadow-2xl shadow-emerald-950/20 sm:rounded-[2.5rem] sm:p-6 lg:p-10">
+            <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300 sm:mb-5 sm:px-4 sm:text-sm">
               Додавання промокоду
             </p>
 
-            <h1 className="max-w-3xl text-5xl font-black tracking-tight md:text-7xl">
+            <h1 className="max-w-3xl text-3xl font-black leading-tight tracking-tight sm:text-5xl md:text-7xl">
               Додати промокод можуть авторизовані користувачі
             </h1>
 
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+            <p className="mt-4 max-w-3xl text-sm font-bold leading-7 text-slate-400 sm:mt-6 sm:text-lg sm:font-normal sm:leading-8">
               Увійди в акаунт, щоб додати промокод, прикріпити його до свого
               профілю, відправити на модерацію та прокачувати рівень автора.
             </p>
@@ -647,17 +647,17 @@ function AddPromoContent() {
               />
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:mt-6 sm:flex sm:flex-wrap sm:gap-3">
               <Link
                 href="/codes"
-                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
               >
                 Дивитись промокоди
               </Link>
 
               <Link
                 href="/guest"
-                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
               >
                 Гостьовий режим
               </Link>
@@ -669,9 +669,9 @@ function AddPromoContent() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
       <section className="mx-auto w-full max-w-7xl">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:mb-6 sm:gap-3 sm:text-sm">
           <Link href="/" className="hover:text-emerald-300">
             Головна
           </Link>
@@ -679,40 +679,40 @@ function AddPromoContent() {
           <span className="text-slate-300">Додати промокод</span>
         </div>
 
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.05fr_0.95fr] lg:p-10">
+        <section className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20 sm:rounded-[2.5rem]">
+          <div className="grid gap-4 p-4 sm:p-6 lg:grid-cols-[1.05fr_0.95fr] lg:p-10">
             <div>
-              <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300 sm:mb-5 sm:px-4 sm:text-sm">
                 Додавання
               </p>
 
-              <h1 className="text-5xl font-black tracking-tight md:text-7xl">
+              <h1 className="text-3xl font-black leading-tight tracking-tight sm:text-5xl md:text-7xl">
                 Додати промокод
               </h1>
 
-              <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-400">
+              <p className="mt-4 max-w-3xl text-sm font-bold leading-7 text-slate-400 sm:mt-5 sm:text-lg sm:font-normal sm:leading-8">
                 Додай код, джерело, термін дії та магазин. Якщо магазин має
                 кілька категорій, обери основну категорію для цього промокоду.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:mt-8 sm:flex sm:flex-wrap sm:gap-3">
                 <Link
                   href="/codes"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                 >
                   Усі промокоди
                 </Link>
 
                 <Link
                   href="/request-store"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                 >
                   Немає магазину?
                 </Link>
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
+            <div className="hidden rounded-[2rem] border border-slate-800 bg-slate-950 p-6 sm:block">
               <h2 className="text-2xl font-black">Правила</h2>
 
               <div className="mt-5 grid gap-4 text-sm leading-7 text-slate-400">
@@ -768,14 +768,14 @@ function AddPromoContent() {
 
         <form
           onSubmit={submitPromo}
-          className="mt-8 grid gap-6 lg:grid-cols-[0.95fr_1.05fr]"
+          className="mt-5 grid gap-5 lg:grid-cols-[0.95fr_1.05fr] sm:mt-8 sm:gap-6"
         >
-          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-5 lg:p-7">
+          <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-5 lg:p-7">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-3xl font-black">1. Магазин</h2>
+                <h2 className="text-2xl font-black sm:text-3xl">1. Магазин</h2>
 
-                <p className="mt-2 leading-7 text-slate-400">
+                <p className="mt-1 text-sm font-bold leading-6 text-slate-400 sm:mt-2 sm:text-base sm:font-normal sm:leading-7">
                   Обери магазин, до якого належить промокод.
                 </p>
               </div>
@@ -791,10 +791,10 @@ function AddPromoContent() {
               value={storeSearch}
               onChange={(event) => setStoreSearch(event.target.value)}
               placeholder="Пошук магазину: KRKR, кркр, Comfy..."
-              className="mt-5 w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+              className="mt-4 w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:mt-5 sm:px-5 sm:py-4 sm:text-base"
             />
 
-            <div className="mt-5 max-h-[520px] overflow-y-auto pr-1">
+            <div className="mt-4 max-h-[360px] overflow-y-auto pr-1 sm:mt-5 sm:max-h-[520px]">
               {filteredStores.length === 0 ? (
                 <div className="rounded-2xl border border-slate-800 bg-slate-950 p-5 text-center">
                   <p className="font-bold text-slate-300">
@@ -809,7 +809,7 @@ function AddPromoContent() {
                   </Link>
                 </div>
               ) : (
-                <div className="grid gap-3">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-1 sm:gap-3">
                   {filteredStores.map((store) => {
                     const isSelected = selectedStoreId === store.id;
                     const categoryNames = getStoreCategoryNames(
@@ -826,13 +826,13 @@ function AddPromoContent() {
                           setSelectedStoreId(store.id);
                           setStoreSearch(store.name);
                         }}
-                        className={`rounded-[1.5rem] border p-4 text-left transition ${
+                        className={`rounded-[1.25rem] border p-3 text-left transition sm:rounded-[1.5rem] sm:p-4 ${
                           isSelected
                             ? "border-emerald-400 bg-emerald-400/10"
                             : "border-slate-800 bg-slate-950 hover:border-emerald-400/50"
                         }`}
                       >
-                        <div className="flex items-start gap-4">
+                        <div className="flex items-start gap-3 sm:gap-4">
                           <StoreLogo
                             name={store.name}
                             websiteUrl={store.website_url}
@@ -840,15 +840,15 @@ function AddPromoContent() {
                           />
 
                           <div className="min-w-0">
-                            <p className="break-words text-lg font-black text-white">
+                            <p className="truncate text-sm font-black text-white sm:break-words sm:text-lg">
                               {store.name}
                             </p>
 
-                            <p className="mt-1 break-all text-xs font-bold text-slate-500">
+                            <p className="mt-1 hidden break-all text-xs font-bold text-slate-500 sm:block">
                               /stores/{store.slug}
                             </p>
 
-                            <div className="mt-3 flex flex-wrap gap-2">
+                            <div className="mt-2 hidden flex-wrap gap-2 sm:flex">
                               {categoryNames.length === 0 ? (
                                 <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-500">
                                   Без категорії
@@ -876,12 +876,12 @@ function AddPromoContent() {
             </div>
           </section>
 
-          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-5 lg:p-7">
-            <h2 className="text-3xl font-black">2. Дані промокоду</h2>
+          <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-5 lg:p-7">
+            <h2 className="text-2xl font-black sm:text-3xl">2. Дані промокоду</h2>
 
             {selectedStore && (
-              <div className="mt-5 rounded-[2rem] border border-emerald-400/20 bg-emerald-400/5 p-5">
-                <div className="flex items-start gap-4">
+              <div className="mt-4 rounded-[1.5rem] border border-emerald-400/20 bg-emerald-400/5 p-3 sm:mt-5 sm:rounded-[2rem] sm:p-5">
+                <div className="flex items-start gap-3 sm:gap-4">
                   <StoreLogo
                     name={selectedStore.name}
                     websiteUrl={selectedStore.website_url}
@@ -893,7 +893,7 @@ function AddPromoContent() {
                       Обраний магазин
                     </p>
 
-                    <p className="mt-1 break-words text-2xl font-black text-white">
+                    <p className="mt-1 break-words text-lg font-black text-white sm:text-2xl">
                       {selectedStore.name}
                     </p>
 
@@ -942,7 +942,7 @@ function AddPromoContent() {
               </div>
             )}
 
-            <div className="mt-6 grid gap-5 md:grid-cols-2">
+            <div className="mt-5 grid gap-3 sm:gap-5 md:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm font-bold text-slate-300">
                   Промокод
@@ -952,7 +952,7 @@ function AddPromoContent() {
                   value={code}
                   onChange={(event) => setCode(event.target.value)}
                   placeholder="SALE10"
-                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
                 />
 
                 {isCheckingDuplicates && (
@@ -971,7 +971,7 @@ function AddPromoContent() {
                   value={discountValue}
                   onChange={(event) => setDiscountValue(event.target.value)}
                   placeholder="-10%, доставка 0 грн, 200 грн бонус"
-                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
                 />
               </div>
 
@@ -984,7 +984,7 @@ function AddPromoContent() {
                   type="date"
                   value={expiresAt}
                   onChange={(event) => setExpiresAt(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
                 />
 
                 <p className="mt-2 text-xs font-bold text-slate-600">
@@ -1002,7 +1002,7 @@ function AddPromoContent() {
                   onChange={(event) =>
                     setSourceType(event.target.value as SourceType)
                   }
-                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition focus:border-emerald-400"
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
                 >
                   <option value="youtube">YouTube</option>
                   <option value="telegram">Telegram</option>
@@ -1023,7 +1023,7 @@ function AddPromoContent() {
                 value={sourceUrl}
                 onChange={(event) => setSourceUrl(event.target.value)}
                 placeholder="https://..."
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                className="w-full rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
               />
             </div>
 
@@ -1036,8 +1036,8 @@ function AddPromoContent() {
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Наприклад: діє для першого замовлення, від 500 грн, тільки в застосунку..."
-                rows={5}
-                className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                rows={4}
+                className="w-full resize-none rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
               />
             </div>
 
@@ -1066,11 +1066,11 @@ function AddPromoContent() {
               </div>
             )}
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <div className="mt-5 grid gap-2 sm:mt-6 sm:grid-cols-2 sm:gap-3">
               <button
                 type="submit"
                 disabled={!canSubmit}
-                className="rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60 sm:px-5 sm:py-4 sm:text-base"
               >
                 {isSubmitting ? "Відправляю..." : "Додати на модерацію"}
               </button>
@@ -1079,7 +1079,7 @@ function AddPromoContent() {
                 type="button"
                 onClick={resetForm}
                 disabled={isSubmitting}
-                className="rounded-2xl border border-slate-700 px-5 py-4 font-black text-slate-200 transition hover:border-red-400 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-2xl border border-slate-700 px-4 py-3 text-sm font-black text-slate-200 transition hover:border-red-400 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60 sm:px-5 sm:py-4 sm:text-base"
               >
                 Очистити
               </button>

@@ -315,9 +315,9 @@ export default function RequestStorePage() {
 
   if (isCheckingUser) {
     return (
-      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+      <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
         <section className="mx-auto w-full max-w-7xl">
-          <div className="h-[520px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
+          <div className="h-[360px] animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900 sm:h-[520px] sm:rounded-[2.5rem]" />
         </section>
       </main>
     );
@@ -325,9 +325,9 @@ export default function RequestStorePage() {
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+      <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
         <section className="mx-auto w-full max-w-5xl">
-          <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:mb-6 sm:gap-3 sm:text-sm">
             <Link href="/" className="hover:text-emerald-300">
               Головна
             </Link>
@@ -341,16 +341,16 @@ export default function RequestStorePage() {
             <span className="text-slate-300">Запропонувати магазин</span>
           </div>
 
-          <section className="overflow-hidden rounded-[2.5rem] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.16),_transparent_36%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(2,6,23,0.98))] p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
-            <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+          <section className="overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.16),_transparent_36%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(2,6,23,0.98))] p-4 shadow-2xl shadow-emerald-950/20 sm:rounded-[2.5rem] sm:p-6 lg:p-10">
+            <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300 sm:mb-5 sm:px-4 sm:text-sm">
               Заявка магазину
             </p>
 
-            <h1 className="max-w-3xl text-5xl font-black tracking-tight md:text-7xl">
+            <h1 className="max-w-3xl text-3xl font-black leading-tight tracking-tight sm:text-5xl md:text-7xl">
               Запропонувати магазин можуть авторизовані користувачі
             </h1>
 
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+            <p className="mt-4 max-w-3xl text-sm font-bold leading-7 text-slate-400 sm:mt-6 sm:text-lg sm:font-normal sm:leading-8">
               Увійди в акаунт, щоб запропонувати новий магазин, бачити статус
               заявки у профілі та після схвалення додавати до нього промокоди.
             </p>
@@ -363,17 +363,17 @@ export default function RequestStorePage() {
               />
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:mt-6 sm:flex sm:flex-wrap sm:gap-3">
               <Link
                 href="/stores"
-                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
               >
                 Переглянути магазини
               </Link>
 
               <Link
                 href="/guest"
-                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
               >
                 Гостьовий режим
               </Link>
@@ -385,9 +385,9 @@ export default function RequestStorePage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
       <section className="mx-auto w-full max-w-7xl">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:mb-6 sm:gap-3 sm:text-sm">
           <Link href="/" className="hover:text-emerald-300">
             Головна
           </Link>
@@ -399,42 +399,42 @@ export default function RequestStorePage() {
           <span className="text-slate-300">Запропонувати магазин</span>
         </div>
 
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
+        <section className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20 sm:rounded-[2.5rem]">
+          <div className="grid gap-4 p-4 sm:p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-10">
             <div>
-              <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+              <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300 sm:mb-5 sm:px-4 sm:text-sm">
                 Запропонувати магазин
               </p>
 
-              <h1 className="text-5xl font-black tracking-tight md:text-7xl">
+              <h1 className="text-3xl font-black leading-tight tracking-tight sm:text-5xl md:text-7xl">
                 Немає магазину?
               </h1>
 
-              <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+              <p className="mt-4 max-w-3xl text-sm font-bold leading-7 text-slate-400 sm:mt-6 sm:text-lg sm:font-normal sm:leading-8">
                 Відправ заявку, якщо потрібного магазину ще немає в базі.
                 Після перевірки адмін додасть його, і до нього можна буде
                 привʼязувати промокоди.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-5 grid grid-cols-2 gap-2 sm:mt-8 sm:flex sm:flex-wrap sm:gap-3">
                 <Link
                   href="/stores"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                 >
                   Перевірити магазини
                 </Link>
 
                 <Link
                   href="/profile"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                 >
                   Мій профіль
                 </Link>
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-              <h2 className="text-3xl font-black">Як це працює</h2>
+            <div className="hidden rounded-[2rem] border border-slate-800 bg-slate-950 p-6 sm:block">
+              <h2 className="text-2xl font-black sm:text-3xl">Як це працює</h2>
 
               <div className="mt-5 grid gap-3 text-sm leading-6 text-slate-400">
                 <p>1. Ти вказуєш назву магазину та сайт.</p>
@@ -462,14 +462,14 @@ export default function RequestStorePage() {
           </div>
         )}
 
-        <section className="mt-8 grid gap-8 xl:grid-cols-[1fr_0.9fr]">
+        <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_0.9fr] sm:mt-8 sm:gap-8">
           <form
             onSubmit={submitRequest}
-            className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6"
+            className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6"
           >
-            <h2 className="text-3xl font-black">Дані магазину</h2>
+            <h2 className="text-2xl font-black sm:text-3xl">Дані магазину</h2>
 
-            <div className="mt-6 grid gap-5">
+            <div className="mt-5 grid gap-3 sm:mt-6 sm:gap-5">
               <label className="grid gap-2">
                 <span className="text-sm font-black text-slate-300">
                   Назва магазину *
@@ -479,7 +479,7 @@ export default function RequestStorePage() {
                   value={storeName}
                   onChange={(event) => setStoreName(event.target.value)}
                   placeholder="Наприклад: Rozetka, Comfy, KRKR..."
-                  className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
                 />
               </label>
 
@@ -492,7 +492,7 @@ export default function RequestStorePage() {
                   value={websiteUrl}
                   onChange={(event) => setWebsiteUrl(event.target.value)}
                   placeholder="https://example.com"
-                  className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
                 />
               </label>
 
@@ -504,9 +504,9 @@ export default function RequestStorePage() {
                 <textarea
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  rows={6}
+                  rows={4}
                   placeholder="Напиши, чому варто додати цей магазин, або де ти бачив промокод."
-                  className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  className="resize-none rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
                 />
               </label>
 
@@ -549,46 +549,46 @@ export default function RequestStorePage() {
               <button
                 type="submit"
                 disabled={!canSubmit}
-                className="rounded-2xl bg-emerald-400 px-6 py-5 text-lg font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6 sm:py-5 sm:text-lg"
               >
                 {isSubmitting ? "Відправляю..." : "Відправити заявку"}
               </button>
             </div>
           </form>
 
-          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6">
-            <h2 className="text-3xl font-black">Мої заявки</h2>
+          <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6">
+            <h2 className="text-2xl font-black sm:text-3xl">Мої заявки</h2>
 
-            <p className="mt-3 leading-7 text-slate-400">
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-400 sm:mt-3 sm:text-base sm:font-normal sm:leading-7">
               Тут видно останні заявки, які ти відправив з цього акаунта.
             </p>
 
             {isLoading ? (
-              <div className="mt-6 grid gap-3">
+              <div className="mt-5 grid gap-2 sm:mt-6 sm:gap-3">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div
                     key={index}
-                    className="h-28 animate-pulse rounded-2xl border border-slate-800 bg-slate-950"
+                    className="h-24 animate-pulse rounded-2xl border border-slate-800 bg-slate-950 sm:h-28"
                   />
                 ))}
               </div>
             ) : myRequests.length === 0 ? (
-              <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-6 text-center">
-                <div className="text-5xl">🏪</div>
+              <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-5 text-center sm:mt-6 sm:p-6">
+                <div className="text-4xl sm:text-5xl">🏪</div>
 
                 <p className="mt-4 font-black text-slate-300">
                   Ти ще не відправляв заявки
                 </p>
               </div>
             ) : (
-              <div className="mt-6 grid gap-3">
+              <div className="mt-5 grid gap-2 sm:mt-6 sm:gap-3">
                 {myRequests.map((request) => {
                   const linkedStore = getLinkedStore(request, stores);
 
                   return (
                     <article
                       key={request.id}
-                      className="rounded-2xl border border-slate-800 bg-slate-950 p-4"
+                      className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:p-4"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
@@ -608,11 +608,11 @@ export default function RequestStorePage() {
                             )}
                           </div>
 
-                          <h3 className="mt-3 break-words text-xl font-black text-white">
+                          <h3 className="mt-3 break-words text-lg font-black text-white sm:text-xl">
                             {getRequestName(request)}
                           </h3>
 
-                          <p className="mt-1 break-all text-sm font-bold text-slate-500">
+                          <p className="mt-1 break-all text-xs font-bold text-slate-500 sm:text-sm">
                             {getRequestUrl(request) || "URL не вказано"}
                           </p>
                         </div>
@@ -631,7 +631,7 @@ export default function RequestStorePage() {
                       {linkedStore && (
                         <Link
                           href={`/stores/${linkedStore.slug}`}
-                          className="mt-4 inline-flex rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+                          className="mt-4 inline-flex justify-center rounded-full bg-emerald-400 px-4 py-2 text-xs font-black text-slate-950 transition hover:bg-emerald-300 sm:px-5 sm:py-3 sm:text-sm"
                         >
                           Відкрити магазин
                         </Link>

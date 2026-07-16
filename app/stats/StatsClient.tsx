@@ -416,9 +416,9 @@ export default function StatsClient() {
   }, [promos]);
 
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
       <section className="mx-auto w-full max-w-7xl">
-        <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-slate-500 sm:mb-6 sm:gap-3 sm:text-sm">
           <Link href="/" className="hover:text-emerald-300">
             Головна
           </Link>
@@ -426,73 +426,73 @@ export default function StatsClient() {
           <span className="text-slate-300">Статистика</span>
         </div>
 
-        <section className="overflow-hidden rounded-[2.5rem] border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-950/20">
-          <div className="grid gap-8 p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
+        <section className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900/80 shadow-xl shadow-emerald-950/10 sm:rounded-[2.5rem] sm:shadow-2xl sm:shadow-emerald-950/20">
+          <div className="grid gap-4 p-4 sm:p-6 lg:grid-cols-[1.1fr_0.9fr] lg:p-10">
             <div>
-              <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+              <p className="mb-3 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-[11px] font-bold text-emerald-300 sm:mb-5 sm:px-4 sm:py-2 sm:text-sm">
                 Статистика
               </p>
 
-              <h1 className="text-5xl font-black tracking-tight md:text-7xl">
+              <h1 className="text-2xl font-black leading-tight tracking-tight sm:text-5xl md:text-7xl">
                 Пульс ПромоПтахи
               </h1>
 
-              <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+              <p className="mt-3 max-w-3xl text-[13px] font-bold leading-6 text-slate-400 sm:mt-6 sm:text-lg sm:font-normal sm:leading-8">
                 Загальна статистика промокодів, магазинів, категорій і голосів
                 спільноти. Дані беруться з оптимізованих SQL view, тому
                 категорії магазинів і промокодів уже підготовлені в базі.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:mt-8 sm:flex sm:flex-wrap sm:gap-3">
                 <Link
                   href="/codes"
-                  className="rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
+                  className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-emerald-400 px-3 py-2 text-center text-sm font-black text-slate-950 transition hover:bg-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                 >
                   Перейти до промокодів
                 </Link>
 
                 <Link
                   href="/stores"
-                  className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                  className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:bg-transparent sm:px-6 sm:py-4 sm:text-base"
                 >
                   Магазини
                 </Link>
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-white">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                <p className="text-2xl font-black text-white sm:text-4xl">
                   {formatNumber(totals.promos)}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
+                <p className="mt-1 text-[11px] font-bold leading-4 text-slate-500 sm:mt-2 sm:text-sm sm:leading-normal">
                   промокодів
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-emerald-300">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                <p className="text-2xl font-black text-emerald-300 sm:text-4xl">
                   {formatNumber(totals.activePromos)}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
+                <p className="mt-1 text-[11px] font-bold leading-4 text-slate-500 sm:mt-2 sm:text-sm sm:leading-normal">
                   активні / без терміну
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-yellow-300">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                <p className="text-2xl font-black text-yellow-300 sm:text-4xl">
                   {formatNumber(totals.stores)}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
+                <p className="mt-1 text-[11px] font-bold leading-4 text-slate-500 sm:mt-2 sm:text-sm sm:leading-normal">
                   магазинів
                 </p>
               </div>
 
-              <div className="rounded-[2rem] border border-slate-800 bg-slate-950 p-6">
-                <p className="text-4xl font-black text-orange-300">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3 sm:rounded-[2rem] sm:p-6">
+                <p className="text-2xl font-black text-orange-300 sm:text-4xl">
                   {formatNumber(totals.totalVotes)}
                 </p>
-                <p className="mt-2 text-sm font-bold text-slate-500">
+                <p className="mt-1 text-[11px] font-bold leading-4 text-slate-500 sm:mt-2 sm:text-sm sm:leading-normal">
                   голосів
                 </p>
               </div>
@@ -502,7 +502,7 @@ export default function StatsClient() {
 
         {message && (
           <div
-            className={`mt-6 rounded-2xl border p-4 ${
+            className={`mt-4 rounded-2xl border p-3 text-sm font-bold sm:mt-6 sm:p-4 sm:text-base ${
               messageType === "success"
                 ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                 : messageType === "error"
@@ -514,118 +514,118 @@ export default function StatsClient() {
           </div>
         )}
 
-        <section className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6">
-            <p className="text-sm font-bold text-slate-500">Перевірені</p>
+        <section className="mt-5 grid grid-cols-2 gap-3 sm:mt-8 md:grid-cols-2 md:gap-5 xl:grid-cols-4">
+          <div className="rounded-[1.5rem] border border-slate-800 bg-slate-900/80 p-3 sm:rounded-[2rem] sm:p-6">
+            <p className="text-xs font-bold text-slate-500 sm:text-sm">Перевірені</p>
             <p className="mt-3 text-4xl font-black text-emerald-300">
               {formatNumber(totals.verifiedPromos)}
             </p>
-            <p className="mt-3 leading-7 text-slate-400">
+            <p className="mt-2 hidden leading-7 text-slate-400 sm:mt-3 sm:block">
               Коди, де “працює” переважає “не працює”.
             </p>
           </div>
 
-          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6">
-            <p className="text-sm font-bold text-slate-500">Довіра</p>
+          <div className="rounded-[1.5rem] border border-slate-800 bg-slate-900/80 p-3 sm:rounded-[2rem] sm:p-6">
+            <p className="text-xs font-bold text-slate-500 sm:text-sm">Довіра</p>
             <p className="mt-3 text-4xl font-black text-yellow-300">
               {totals.totalVotes === 0 ? "—" : `${totals.trustPercent}%`}
             </p>
-            <p className="mt-3 leading-7 text-slate-400">
+            <p className="mt-2 hidden leading-7 text-slate-400 sm:mt-3 sm:block">
               Частка голосів “працює” серед усіх голосів.
             </p>
           </div>
 
-          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6">
-            <p className="text-sm font-bold text-slate-500">З терміном</p>
+          <div className="rounded-[1.5rem] border border-slate-800 bg-slate-900/80 p-3 sm:rounded-[2rem] sm:p-6">
+            <p className="text-xs font-bold text-slate-500 sm:text-sm">З терміном</p>
             <p className="mt-3 text-4xl font-black text-red-300">
               {formatNumber(totals.expiredPromos)}
             </p>
-            <p className="mt-3 leading-7 text-slate-400">
+            <p className="mt-2 hidden leading-7 text-slate-400 sm:mt-3 sm:block">
               Прострочені промокоди, які варто перевірити.
             </p>
           </div>
 
-          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-6">
-            <p className="text-sm font-bold text-slate-500">Категорії</p>
+          <div className="rounded-[1.5rem] border border-slate-800 bg-slate-900/80 p-3 sm:rounded-[2rem] sm:p-6">
+            <p className="text-xs font-bold text-slate-500 sm:text-sm">Категорії</p>
             <p className="mt-3 text-4xl font-black text-orange-300">
               {formatNumber(totals.categories)}
             </p>
-            <p className="mt-3 leading-7 text-slate-400">
+            <p className="mt-2 hidden leading-7 text-slate-400 sm:mt-3 sm:block">
               Активні категорії магазинів і промокодів.
             </p>
           </div>
         </section>
 
-        <section className="mt-8 grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
-            <div className="flex flex-wrap items-end justify-between gap-4">
+        <section className="mt-5 grid gap-5 sm:mt-8 xl:grid-cols-[1.1fr_0.9fr] xl:gap-8">
+          <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6 lg:p-8">
+            <div className="flex flex-wrap items-end justify-between gap-3 sm:gap-4">
               <div>
                 <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                   Категорії
                 </p>
 
-                <h2 className="text-4xl font-black tracking-tight">
+                <h2 className="text-2xl font-black leading-tight tracking-tight sm:text-4xl">
                   Категорії за активністю
                 </h2>
               </div>
 
               <Link
                 href="/stores"
-                className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+                className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:bg-transparent sm:px-5 sm:py-3 sm:text-base"
               >
                 Дивитися магазини
               </Link>
             </div>
 
             {isLoading ? (
-              <div className="mt-6 grid gap-4">
+              <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
                 {Array.from({ length: 7 }).map((_, index) => (
                   <div
                     key={index}
-                    className="h-24 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950"
+                    className="h-16 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950 sm:h-24"
                   />
                 ))}
               </div>
             ) : categoryStats.length === 0 ? (
-              <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
+              <div className="mt-4 rounded-[2rem] border border-slate-800 bg-slate-950 p-5 text-center text-sm font-bold text-slate-400 sm:mt-6 sm:p-8 sm:text-base sm:font-normal">
                 Статистики категорій поки немає.
               </div>
             ) : (
-              <div className="mt-6 grid gap-4">
+              <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
                 {categoryStats.slice(0, 10).map((stats, index) => (
                   <div
                     key={stats.category.id}
-                    className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-5"
+                    className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-3 sm:p-5"
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
                       <div>
                         <p className="text-sm font-black text-emerald-300">
                           #{index + 1}
                         </p>
 
-                        <h3 className="mt-1 text-2xl font-black text-white">
+                        <h3 className="mt-1 text-lg font-black leading-tight text-white sm:text-2xl">
                           {stats.category.name}
                         </h3>
 
-                        <p className="mt-1 text-sm font-bold text-slate-500">
+                        <p className="mt-1 text-[11px] font-bold text-slate-500 sm:text-sm">
                           {stats.category.slug}
                         </p>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
+                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-black text-emerald-300 sm:px-3 sm:text-xs">
                           {formatNumber(stats.promos)} кодів
                         </span>
 
-                        <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                        <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] font-black text-slate-300 sm:px-3 sm:text-xs">
                           {formatNumber(stats.stores)} магазинів
                         </span>
                       </div>
                     </div>
 
-                    <div className="mt-4 grid gap-3 sm:grid-cols-4">
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
-                        <p className="text-xl font-black text-emerald-300">
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:grid-cols-4 sm:gap-3">
+                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-2 sm:p-3">
+                        <p className="text-lg font-black text-emerald-300 sm:text-xl">
                           {formatNumber(stats.activePromos)}
                         </p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
@@ -633,8 +633,8 @@ export default function StatsClient() {
                         </p>
                       </div>
 
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
-                        <p className="text-xl font-black text-yellow-300">
+                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-2 sm:p-3">
+                        <p className="text-lg font-black text-yellow-300 sm:text-xl">
                           {formatNumber(stats.verifiedPromos)}
                         </p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
@@ -642,8 +642,8 @@ export default function StatsClient() {
                         </p>
                       </div>
 
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
-                        <p className="text-xl font-black text-emerald-300">
+                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-2 sm:p-3">
+                        <p className="text-lg font-black text-emerald-300 sm:text-xl">
                           {formatNumber(stats.works)}
                         </p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
@@ -651,8 +651,8 @@ export default function StatsClient() {
                         </p>
                       </div>
 
-                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
-                        <p className="text-xl font-black text-red-300">
+                      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-2 sm:p-3">
+                        <p className="text-lg font-black text-red-300 sm:text-xl">
                           {formatNumber(stats.notWorks)}
                         </p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
@@ -666,32 +666,32 @@ export default function StatsClient() {
             )}
           </section>
 
-          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
+          <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6 lg:p-8">
             <div>
               <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Джерела
               </p>
 
-              <h2 className="text-4xl font-black tracking-tight">
+              <h2 className="text-2xl font-black leading-tight tracking-tight sm:text-4xl">
                 Звідки додають коди
               </h2>
             </div>
 
             {isLoading ? (
-              <div className="mt-6 grid gap-4">
+              <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
                 {Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={index}
-                    className="h-20 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950"
+                    className="h-14 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950 sm:h-20"
                   />
                 ))}
               </div>
             ) : sourceStats.length === 0 ? (
-              <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
+              <div className="mt-4 rounded-[2rem] border border-slate-800 bg-slate-950 p-5 text-center text-sm font-bold text-slate-400 sm:mt-6 sm:p-8 sm:text-base sm:font-normal">
                 Джерел поки немає.
               </div>
             ) : (
-              <div className="mt-6 grid gap-4">
+              <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
                 {sourceStats.map((stats) => {
                   const percent =
                     totals.promos === 0
@@ -701,7 +701,7 @@ export default function StatsClient() {
                   return (
                     <div
                       key={stats.source}
-                      className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-5"
+                      className="rounded-[1.5rem] border border-slate-800 bg-slate-950 p-3 sm:p-5"
                     >
                       <div className="flex items-center justify-between gap-4">
                         <div>
@@ -709,12 +709,12 @@ export default function StatsClient() {
                             {stats.label}
                           </h3>
 
-                          <p className="mt-1 text-sm font-bold text-slate-500">
+                          <p className="mt-1 text-[11px] font-bold text-slate-500 sm:text-sm">
                             {formatNumber(stats.promos)} промокодів
                           </p>
                         </div>
 
-                        <p className="text-2xl font-black text-emerald-300">
+                        <p className="text-xl font-black text-emerald-300 sm:text-2xl">
                           {percent}%
                         </p>
                       </div>
@@ -734,66 +734,66 @@ export default function StatsClient() {
         </section>
 
         <section className="mt-8 rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
-          <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-wrap items-end justify-between gap-3 sm:gap-4">
             <div>
               <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Магазини
               </p>
 
-              <h2 className="text-4xl font-black tracking-tight">
+              <h2 className="text-2xl font-black leading-tight tracking-tight sm:text-4xl">
                 Топ магазинів
               </h2>
             </div>
 
             <Link
               href="/stores"
-              className="rounded-full border border-slate-700 px-5 py-3 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:bg-transparent sm:px-5 sm:py-3 sm:text-base"
             >
               Всі магазини
             </Link>
           </div>
 
           {isLoading ? (
-            <div className="mt-6 grid gap-4">
+            <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
               {Array.from({ length: 8 }).map((_, index) => (
                 <div
                   key={index}
-                  className="h-24 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950"
+                  className="h-16 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950 sm:h-24"
                 />
               ))}
             </div>
           ) : topStores.length === 0 ? (
-            <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
+            <div className="mt-4 rounded-[2rem] border border-slate-800 bg-slate-950 p-5 text-center text-sm font-bold text-slate-400 sm:mt-6 sm:p-8 sm:text-base sm:font-normal">
               Магазинів поки немає.
             </div>
           ) : (
-            <div className="mt-6 grid gap-4">
+            <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
               {topStores.map((store, index) => (
                 <Link
                   key={store.id}
                   href={`/stores/${store.slug}`}
-                  className="grid gap-4 rounded-[1.5rem] border border-slate-800 bg-slate-950 p-5 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:bg-slate-900 md:grid-cols-[auto_1fr_auto]"
+                  className="grid gap-3 rounded-[1.5rem] border border-slate-800 bg-slate-950 p-3 transition hover:-translate-y-1 hover:border-emerald-400/40 hover:bg-slate-900 sm:p-5 md:grid-cols-[auto_1fr_auto] md:gap-4"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-400/10 text-lg font-black text-emerald-300">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-400/10 text-sm font-black text-emerald-300 sm:h-12 sm:w-12 sm:text-lg">
                     #{index + 1}
                   </div>
 
                   <div>
-                    <h3 className="text-2xl font-black text-white">
+                    <h3 className="text-lg font-black leading-tight text-white sm:text-2xl">
                       {store.name}
                     </h3>
 
-                    <p className="mt-1 text-sm font-bold text-slate-500">
+                    <p className="mt-1 text-[11px] font-bold text-slate-500 sm:text-sm">
                       /stores/{store.slug}
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-black text-emerald-300 sm:px-3 sm:text-xs">
                       {formatNumber(toNumber(store.promo_count))} кодів
                     </span>
 
-                    <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-300">
+                    <span className="rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-1 text-[11px] font-black text-yellow-300 sm:px-3 sm:text-xs">
                       {formatNumber(toNumber(store.verified_promo_count))}{" "}
                       робочих
                     </span>
@@ -804,33 +804,33 @@ export default function StatsClient() {
           )}
         </section>
 
-        <section className="mt-8 grid gap-8 xl:grid-cols-2">
-          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
+        <section className="mt-5 grid gap-5 sm:mt-8 xl:grid-cols-2 xl:gap-8">
+          <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6 lg:p-8">
             <div>
               <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Популярне
               </p>
 
-              <h2 className="text-4xl font-black tracking-tight">
+              <h2 className="text-2xl font-black leading-tight tracking-tight sm:text-4xl">
                 Промокоди з голосами
               </h2>
             </div>
 
             {isLoading ? (
-              <div className="mt-6 grid gap-4">
+              <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
                 {Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={index}
-                    className="h-24 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950"
+                    className="h-16 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950 sm:h-24"
                   />
                 ))}
               </div>
             ) : topPromos.length === 0 ? (
-              <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
+              <div className="mt-4 rounded-[2rem] border border-slate-800 bg-slate-950 p-5 text-center text-sm font-bold text-slate-400 sm:mt-6 sm:p-8 sm:text-base sm:font-normal">
                 Голосів поки немає.
               </div>
             ) : (
-              <div className="mt-6 grid gap-4">
+              <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
                 {topPromos.map((promo) => {
                   const votes =
                     toNumber(promo.works_count) + toNumber(promo.not_works_count);
@@ -843,26 +843,26 @@ export default function StatsClient() {
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="text-sm font-bold text-slate-500">
+                          <p className="text-xs font-bold text-slate-500 sm:text-sm">
                             {promo.store_name || "Магазин"}
                           </p>
 
-                          <h3 className="mt-1 break-all text-2xl font-black text-white">
+                          <h3 className="mt-1 break-all text-lg font-black leading-tight text-white sm:text-2xl">
                             {promo.code}
                           </h3>
                         </div>
 
-                        <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                        <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] font-black text-slate-300 sm:px-3 sm:text-xs">
                           {formatNumber(votes)} голосів
                         </span>
                       </div>
 
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300">
+                      <div className="mt-3 flex flex-wrap gap-1.5 sm:mt-4 sm:gap-2">
+                        <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-black text-emerald-300 sm:px-3 sm:text-xs">
                           {formatNumber(toNumber(promo.works_count))} працює
                         </span>
 
-                        <span className="rounded-full border border-red-400/30 bg-red-400/10 px-3 py-1 text-xs font-black text-red-300">
+                        <span className="rounded-full border border-red-400/30 bg-red-400/10 px-2.5 py-1 text-[11px] font-black text-red-300 sm:px-3 sm:text-xs">
                           {formatNumber(toNumber(promo.not_works_count))} ні
                         </span>
                       </div>
@@ -873,32 +873,32 @@ export default function StatsClient() {
             )}
           </section>
 
-          <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 lg:p-8">
+          <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 sm:rounded-[2.5rem] sm:p-6 lg:p-8">
             <div>
               <p className="mb-4 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
                 Нове
               </p>
 
-              <h2 className="text-4xl font-black tracking-tight">
+              <h2 className="text-2xl font-black leading-tight tracking-tight sm:text-4xl">
                 Останні додані
               </h2>
             </div>
 
             {isLoading ? (
-              <div className="mt-6 grid gap-4">
+              <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
                 {Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={index}
-                    className="h-24 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950"
+                    className="h-16 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-950 sm:h-24"
                   />
                 ))}
               </div>
             ) : latestPromos.length === 0 ? (
-              <div className="mt-6 rounded-[2rem] border border-slate-800 bg-slate-950 p-8 text-center text-slate-400">
+              <div className="mt-4 rounded-[2rem] border border-slate-800 bg-slate-950 p-5 text-center text-sm font-bold text-slate-400 sm:mt-6 sm:p-8 sm:text-base sm:font-normal">
                 Промокодів поки немає.
               </div>
             ) : (
-              <div className="mt-6 grid gap-4">
+              <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4">
                 {latestPromos.map((promo) => (
                   <Link
                     key={promo.id}
@@ -907,21 +907,21 @@ export default function StatsClient() {
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-bold text-slate-500">
+                        <p className="text-xs font-bold text-slate-500 sm:text-sm">
                           {promo.store_name || "Магазин"}
                         </p>
 
-                        <h3 className="mt-1 break-all text-2xl font-black text-white">
+                        <h3 className="mt-1 break-all text-lg font-black leading-tight text-white sm:text-2xl">
                           {promo.code}
                         </h3>
                       </div>
 
-                      <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-black text-slate-300">
+                      <span className="rounded-full border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] font-black text-slate-300 sm:px-3 sm:text-xs">
                         {formatDate(promo.created_at)}
                       </span>
                     </div>
 
-                    <p className="mt-4 text-lg font-black text-emerald-300">
+                    <p className="mt-3 text-base font-black text-emerald-300 sm:mt-4 sm:text-lg">
                       {promo.discount_value || "Знижка"}
                     </p>
                   </Link>

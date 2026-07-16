@@ -737,7 +737,7 @@ export default function HomePage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
+      <main className="min-h-screen bg-slate-950 px-3 py-3 text-white sm:px-5 sm:py-8">
         <section className="mx-auto w-full max-w-7xl">
           <div className="h-[360px] animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900 sm:h-[520px] sm:rounded-[3rem]" />
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-6">
@@ -752,7 +752,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
+    <main className="min-h-screen bg-slate-950 px-3 py-3 text-white sm:px-5 sm:py-8">
       <section className="mx-auto w-full max-w-7xl">
         <section className="overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.18),_transparent_38%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(2,6,23,0.98))] shadow-2xl shadow-emerald-950/30 sm:rounded-[3rem]">
           <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[1.15fr_0.85fr] lg:p-12">
@@ -761,7 +761,7 @@ export default function HomePage() {
                 🐦 На крилах знижок
               </p>
 
-              <h1 className="max-w-4xl text-3xl font-black leading-tight tracking-tight sm:text-5xl md:text-7xl">
+              <h1 className="max-w-4xl text-2xl font-black leading-tight tracking-tight sm:text-5xl md:text-7xl">
                 Промокоди, які перевіряє спільнота
               </h1>
 
@@ -771,63 +771,65 @@ export default function HomePage() {
                 допомагають іншим економити.
               </p>
 
-              <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:flex sm:flex-wrap">
+              <div className="mt-4 grid gap-2 sm:mt-8 sm:flex sm:flex-wrap sm:gap-3">
                 <Link
                   href="/codes"
-                  className="inline-flex justify-center rounded-full bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 sm:px-7 sm:py-4 sm:text-base"
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl bg-emerald-400 px-4 py-2.5 text-center text-sm font-black text-slate-950 transition hover:bg-emerald-300 sm:rounded-full sm:px-6 sm:py-4 sm:text-base"
                 >
                   Знайти промокод
                 </Link>
 
-                <Link
-                  href="/add"
-                  className="inline-flex justify-center rounded-full border border-slate-600 px-4 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:px-7 sm:py-4 sm:text-base"
-                >
-                  Додати код
-                </Link>
+                <div className="grid grid-cols-2 gap-2 sm:contents">
+                  <Link
+                    href="/add"
+                    className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:bg-transparent sm:px-6 sm:py-4 sm:text-base"
+                  >
+                    Додати код
+                  </Link>
 
-                <Link
-                  href="/deals"
-                  className="col-span-2 inline-flex justify-center rounded-full border border-slate-600 px-4 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:col-span-1 sm:px-7 sm:py-4 sm:text-base"
-                >
-                  Акції
-                </Link>
+                  <Link
+                    href="/deals"
+                    className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-center text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:rounded-full sm:bg-transparent sm:px-6 sm:py-4 sm:text-base"
+                  >
+                    Акції
+                  </Link>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950/80 p-4 sm:rounded-[2rem] sm:p-6">
-                <p className="text-3xl font-black text-emerald-300 sm:text-4xl">
+                <p className="text-2xl font-black text-emerald-300 sm:text-4xl">
                   {heroStats.activePromos}
                 </p>
-                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
+                <p className="mt-1 text-[11px] font-bold text-slate-500 sm:mt-2 sm:text-sm">
                   промокодів
                 </p>
               </div>
 
               <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950/80 p-4 sm:rounded-[2rem] sm:p-6">
-                <p className="text-3xl font-black text-white sm:text-4xl">
+                <p className="text-2xl font-black text-white sm:text-4xl">
                   {heroStats.activeStores}
                 </p>
-                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
+                <p className="mt-1 text-[11px] font-bold text-slate-500 sm:mt-2 sm:text-sm">
                   магазинів
                 </p>
               </div>
 
               <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950/80 p-4 sm:rounded-[2rem] sm:p-6">
-                <p className="text-3xl font-black text-yellow-300 sm:text-4xl">
+                <p className="text-2xl font-black text-yellow-300 sm:text-4xl">
                   {heroStats.activeDeals}
                 </p>
-                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
+                <p className="mt-1 text-[11px] font-bold text-slate-500 sm:mt-2 sm:text-sm">
                   акцій
                 </p>
               </div>
 
               <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950/80 p-4 sm:rounded-[2rem] sm:p-6">
-                <p className="text-3xl font-black text-white sm:text-4xl">
+                <p className="text-2xl font-black text-white sm:text-4xl">
                   {heroStats.communityMembers}
                 </p>
-                <p className="mt-1 text-xs font-bold text-slate-500 sm:mt-2 sm:text-sm">
+                <p className="mt-1 text-[11px] font-bold text-slate-500 sm:mt-2 sm:text-sm">
                   авторів
                 </p>
               </div>

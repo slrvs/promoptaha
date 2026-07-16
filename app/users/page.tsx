@@ -154,13 +154,15 @@ export default function UsersPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
+        <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
           <section className="mx-auto w-full max-w-7xl">
-            <div className="h-[420px] animate-pulse rounded-[2.5rem] border border-slate-800 bg-slate-900" />
-            <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              <div className="h-80 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900" />
-              <div className="h-80 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900" />
-              <div className="h-80 animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900" />
+            <div className="h-[360px] animate-pulse rounded-[2rem] border border-slate-800 bg-slate-900 sm:h-[420px] sm:rounded-[2.5rem]" />
+
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-8 md:grid-cols-2 md:gap-5 xl:grid-cols-3">
+              <div className="h-48 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-900 sm:h-80 sm:rounded-[2rem]" />
+              <div className="h-48 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-900 sm:h-80 sm:rounded-[2rem]" />
+              <div className="h-48 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-900 sm:h-80 sm:rounded-[2rem]" />
+              <div className="h-48 animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-900 sm:h-80 sm:rounded-[2rem]" />
             </div>
           </section>
         </main>

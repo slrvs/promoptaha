@@ -220,11 +220,11 @@ export default function SiteNav() {
   return (
     <header
       ref={navRef}
-      className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 px-5 py-4 text-white backdrop-blur"
+      className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 px-3 py-3 text-white backdrop-blur sm:px-5 sm:py-4"
     >
-      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4">
-        <Link href="/" className="flex min-w-0 items-center gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900">
+      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between gap-2 sm:gap-4">
+        <Link href="/" className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 sm:h-12 sm:w-12">
             <img
               src="/icons/promoptaha-bird.png"
               alt="ПромоПтаха"
@@ -233,10 +233,10 @@ export default function SiteNav() {
           </div>
 
           <div className="min-w-0">
-            <p className="truncate text-xl font-black tracking-tight">
+            <p className="truncate text-lg font-black tracking-tight sm:text-xl">
               ПромоПтаха
             </p>
-            <p className="truncate text-xs font-bold text-emerald-300">
+            <p className="truncate text-[11px] font-bold text-emerald-300 sm:text-xs">
               На крилах знижок
             </p>
           </div>
@@ -366,17 +366,35 @@ export default function SiteNav() {
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsMobileOpen((current) => !current)}
-          className="rounded-2xl border border-slate-700 px-4 py-3 text-sm font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 xl:hidden"
-        >
-          {isMobileOpen ? "Закрити" : "Меню"}
-        </button>
+        <div className="flex shrink-0 items-center gap-2 xl:hidden">
+          {user ? (
+            <Link
+              href="/profile"
+              className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-emerald-400/40 px-3 py-2 text-xs font-black text-emerald-300 transition hover:bg-emerald-400/10 sm:px-4 sm:py-3 sm:text-sm"
+            >
+              Профіль
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-emerald-400 px-3 py-2 text-xs font-black text-slate-950 transition hover:bg-emerald-300 sm:px-4 sm:py-3 sm:text-sm"
+            >
+              Увійти
+            </Link>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsMobileOpen((current) => !current)}
+            className="inline-flex min-h-10 items-center justify-center rounded-2xl border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300 sm:px-4 sm:py-3 sm:text-sm"
+          >
+            {isMobileOpen ? "Закрити" : "Меню"}
+          </button>
+        </div>
       </nav>
 
       {isMobileOpen && (
-        <div className="mx-auto mt-4 grid w-full max-w-7xl gap-4 rounded-[2rem] border border-slate-800 bg-slate-950 p-4 xl:hidden">
+        <div className="mx-auto mt-3 grid w-full max-w-7xl gap-3 rounded-[1.5rem] border border-slate-800 bg-slate-950 p-3 sm:mt-4 sm:gap-4 sm:rounded-[2rem] sm:p-4 xl:hidden">
           <div className="grid gap-2">
             {mainLinks.map((link) => {
               const active = isLinkActive(pathname, link.href);

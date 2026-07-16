@@ -246,11 +246,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
-      <section className="mx-auto grid w-full max-w-7xl gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-        <section className="overflow-hidden rounded-[2.5rem] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.18),_transparent_38%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(2,6,23,0.98))] p-6 shadow-2xl shadow-emerald-950/30 lg:p-10">
+    <main className="min-h-screen bg-slate-950 px-3 py-4 text-white sm:px-5 sm:py-8">
+      <section className="mx-auto grid w-full max-w-6xl gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-8">
+        <section className="overflow-hidden rounded-[2rem] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.18),_transparent_38%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(2,6,23,0.98))] p-4 shadow-2xl shadow-emerald-950/30 sm:rounded-[2.5rem] sm:p-6 lg:p-10">
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900">
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border border-emerald-400/30 bg-slate-900 sm:h-14 sm:w-14">
               <img
                 src="/icons/promoptaha-bird.png"
                 alt="ПромоПтаха"
@@ -259,28 +259,28 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <p className="text-2xl font-black">ПромоПтаха</p>
-              <p className="text-sm font-bold text-emerald-300">
+              <p className="text-xl font-black sm:text-2xl">ПромоПтаха</p>
+              <p className="text-xs font-bold text-emerald-300 sm:text-sm">
                 На крилах знижок
               </p>
             </div>
           </Link>
 
-          <p className="mt-8 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+          <p className="mt-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300 sm:mt-8 sm:px-4 sm:text-sm">
             Кабінет автора
           </p>
 
-          <h1 className="mt-5 max-w-3xl text-5xl font-black tracking-tight md:text-7xl">
+          <h1 className="mt-4 max-w-3xl text-3xl font-black leading-tight tracking-tight sm:mt-5 sm:text-5xl md:text-7xl">
             Твій кабінет знижок
           </h1>
 
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-400">
+          <p className="mt-4 max-w-2xl text-sm font-bold leading-7 text-slate-400 sm:mt-6 sm:text-lg sm:font-normal sm:leading-8">
             Увійди або створи акаунт, щоб додавати промокоди, отримувати рівні
             автора, зберігати корисні коди та допомагати спільноті.
           </p>
 
-          <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-5">
+          <div className="mt-6 hidden gap-4 sm:grid sm:grid-cols-3 lg:mt-8">
+            <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950/80 p-4 lg:rounded-[2rem] lg:p-5">
               <p className="text-3xl">🎟️</p>
               <p className="mt-3 font-black">Додавай коди</p>
               <p className="mt-2 text-sm leading-6 text-slate-500">
@@ -288,7 +288,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <div className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-5">
+            <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950/80 p-4 lg:rounded-[2rem] lg:p-5">
               <p className="text-3xl">⭐</p>
               <p className="mt-3 font-black">Зберігай</p>
               <p className="mt-2 text-sm leading-6 text-slate-500">
@@ -296,7 +296,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <div className="rounded-[2rem] border border-slate-800 bg-slate-950/80 p-5">
+            <div className="rounded-[1.5rem] border border-slate-800 bg-slate-950/80 p-4 lg:rounded-[2rem] lg:p-5">
               <p className="text-3xl">🏆</p>
               <p className="mt-3 font-black">Прокачуй рівень</p>
               <p className="mt-2 text-sm leading-6 text-slate-500">
@@ -306,12 +306,12 @@ export default function LoginPage() {
           </div>
         </section>
 
-        <section className="rounded-[2.5rem] border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/50 lg:p-8">
+        <section className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-4 shadow-2xl shadow-slate-950/50 sm:rounded-[2.5rem] sm:p-6 lg:p-8">
           <div className="flex rounded-2xl border border-slate-800 bg-slate-950 p-1">
             <button
               type="button"
               onClick={() => switchMode("login")}
-              className={`flex-1 rounded-xl px-4 py-3 text-sm font-black transition ${
+              className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-black transition sm:px-4 sm:py-3 ${
                 mode === "login"
                   ? "bg-emerald-400 text-slate-950"
                   : "text-slate-400 hover:text-emerald-300"
@@ -323,7 +323,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => switchMode("signup")}
-              className={`flex-1 rounded-xl px-4 py-3 text-sm font-black transition ${
+              className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-black transition sm:px-4 sm:py-3 ${
                 mode === "signup"
                   ? "bg-emerald-400 text-slate-950"
                   : "text-slate-400 hover:text-emerald-300"
@@ -333,12 +333,12 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="mt-7">
-            <h2 className="text-4xl font-black">{title}</h2>
-            <p className="mt-3 leading-7 text-slate-400">{subtitle}</p>
+          <div className="mt-5 sm:mt-7">
+            <h2 className="text-2xl font-black sm:text-4xl">{title}</h2>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-400 sm:mt-3 sm:text-base sm:font-normal sm:leading-7">{subtitle}</p>
 
             {redirectPath !== "/profile" && (
-              <div className="mt-5 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4">
+              <div className="mt-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-3 sm:mt-5 sm:p-4">
                 <p className="font-black text-emerald-300">
                   Після входу повернемо тебе на {redirectLabel}.
                 </p>
@@ -352,7 +352,7 @@ export default function LoginPage() {
 
           {message && (
             <div
-              className={`mt-6 rounded-2xl border p-4 font-bold ${
+              className={`mt-5 rounded-2xl border p-3 text-sm font-bold sm:mt-6 sm:p-4 sm:text-base ${
                 messageType === "success"
                   ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                   : messageType === "error"
@@ -364,7 +364,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-6 grid gap-4">
+          <form onSubmit={handleSubmit} className="mt-5 grid gap-3 sm:mt-6 sm:gap-4">
             <label className="grid gap-2">
               <span className="text-sm font-black text-slate-300">Email</span>
 
@@ -374,7 +374,7 @@ export default function LoginPage() {
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
-                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
               />
             </label>
 
@@ -389,7 +389,7 @@ export default function LoginPage() {
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Мінімум 6 символів"
                 autoComplete={isSignup ? "new-password" : "current-password"}
-                className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
               />
             </label>
 
@@ -405,7 +405,7 @@ export default function LoginPage() {
                   onChange={(event) => setPasswordRepeat(event.target.value)}
                   placeholder="Ще раз пароль"
                   autoComplete="new-password"
-                  className="rounded-2xl border border-slate-800 bg-slate-950 px-5 py-4 text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400"
+                  className="rounded-2xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-emerald-400 sm:px-5 sm:py-4 sm:text-base"
                 />
               </label>
             )}
@@ -413,15 +413,15 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-full bg-emerald-400 px-7 py-4 font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-2xl bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-full sm:px-7 sm:py-4 sm:text-base"
             >
               {submitLabel}
             </button>
           </form>
 
-          <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
+          <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950 p-4 sm:mt-6 sm:p-5">
             {isSignup ? (
-              <p className="text-sm leading-6 text-slate-400">
+              <p className="text-sm font-bold leading-6 text-slate-400 sm:font-normal">
                 Вже маєш акаунт?{" "}
                 <button
                   type="button"
@@ -432,7 +432,7 @@ export default function LoginPage() {
                 </button>
               </p>
             ) : (
-              <p className="text-sm leading-6 text-slate-400">
+              <p className="text-sm font-bold leading-6 text-slate-400 sm:font-normal">
                 Ще немає акаунта?{" "}
                 <button
                   type="button"
@@ -444,7 +444,7 @@ export default function LoginPage() {
               </p>
             )}
 
-            <p className="mt-3 text-sm leading-6 text-slate-500">
+            <p className="mt-3 text-xs font-bold leading-5 text-slate-500 sm:text-sm sm:font-normal sm:leading-6">
               Можеш користуватись сайтом і без акаунта: переглядати промокоди,
               магазини, акції та спільноту.
             </p>

@@ -3,7 +3,9 @@ import StatsClient from "./StatsClient";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-const title = "Статистика ПромоПтахи — магазини, промокоди та перевірки";
+const title =
+  "Статистика ПромоПтахи — магазини, промокоди та перевірки";
+
 const description =
   "Відкрита статистика ПромоПтахи: кількість магазинів, активних промокодів, перевірок користувачів і найактивніші магазини.";
 
