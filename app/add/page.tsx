@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient, type User } from "@supabase/supabase-js";
 import StoreLogo from "@/components/StoreLogo";
+import LoginRequiredBox from "@/components/LoginRequiredBox";
 import {
   generateSearchAliases,
   getHostName,
@@ -305,7 +306,9 @@ function AddPromoContent() {
 
     if (error) {
       setCategories([]);
-      setMessage(`Не вдалося завантажити категорії: ${getFriendlyErrorMessage(error)}`);
+      setMessage(
+        `Не вдалося завантажити категорії: ${getFriendlyErrorMessage(error)}`
+      );
       setMessageType("error");
       setIsLoadingCategories(false);
       return;
@@ -329,7 +332,11 @@ function AddPromoContent() {
     if (storeError) {
       setStores([]);
       setStoreCategoryLinks([]);
-      setMessage(`Не вдалося завантажити магазини: ${getFriendlyErrorMessage(storeError)}`);
+      setMessage(
+        `Не вдалося завантажити магазини: ${getFriendlyErrorMessage(
+          storeError
+        )}`
+      );
       setMessageType("error");
       setIsLoadingStores(false);
       return;
@@ -354,7 +361,9 @@ function AddPromoContent() {
     if (linkError) {
       setStoreCategoryLinks([]);
       setMessage(
-        `Магазини завантажено, але категорії магазинів не підтягнулись: ${getFriendlyErrorMessage(linkError)}`
+        `Магазини завантажено, але категорії магазинів не підтягнулись: ${getFriendlyErrorMessage(
+          linkError
+        )}`
       );
       setMessageType("error");
       setIsLoadingStores(false);
@@ -398,7 +407,10 @@ function AddPromoContent() {
       return;
     }
 
-    if (!selectedCategoryId || !selectedStoreCategoryIds.includes(selectedCategoryId)) {
+    if (
+      !selectedCategoryId ||
+      !selectedStoreCategoryIds.includes(selectedCategoryId)
+    ) {
       setSelectedCategoryId(selectedStoreCategoryIds[0]);
     }
   }, [selectedStore, selectedStoreCategoryIds, selectedCategoryId]);
@@ -513,8 +525,8 @@ function AddPromoContent() {
     event.preventDefault();
 
     if (!user) {
-      setMessage("Щоб додати промокод, потрібно увійти.");
-      setMessageType("error");
+      setMessage("Щоб додати промокод, увійди в акаунт.");
+      setMessageType("info");
       return;
     }
 
@@ -540,7 +552,10 @@ function AddPromoContent() {
     setMessage("");
 
     const finalCategoryId =
-      selectedCategoryId || selectedStoreCategoryIds[0] || selectedStore.category_id || null;
+      selectedCategoryId ||
+      selectedStoreCategoryIds[0] ||
+      selectedStore.category_id ||
+      null;
 
     const finalCategory = finalCategoryId
       ? categoryById.get(finalCategoryId) || null
@@ -578,7 +593,9 @@ function AddPromoContent() {
     setIsSubmitting(false);
 
     if (error) {
-      setMessage(`Не вдалося додати промокод: ${getFriendlyErrorMessage(error)}`);
+      setMessage(
+        `Не вдалося додати промокод: ${getFriendlyErrorMessage(error)}`
+      );
       setMessageType("error");
       return;
     }
@@ -600,25 +617,52 @@ function AddPromoContent() {
     return (
       <main className="min-h-screen bg-slate-950 px-5 py-8 text-white">
         <section className="mx-auto w-full max-w-5xl">
-          <div className="rounded-[2.5rem] border border-yellow-400/30 bg-yellow-400/10 p-8 text-center">
-            <div className="text-6xl">🔐</div>
+          <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+            <Link href="/" className="hover:text-emerald-300">
+              Головна
+            </Link>
+            <span>/</span>
+            <span className="text-slate-300">Додати промокод</span>
+          </div>
 
-            <h1 className="mt-5 text-4xl font-black text-yellow-300">
-              Потрібен вхід
-            </h1>
-
-            <p className="mx-auto mt-4 max-w-xl leading-7 text-yellow-100">
-              Щоб додати промокод, увійди в акаунт. Так ми зможемо показати
-              його в твоєму профілі й відправити на модерацію.
+          <section className="overflow-hidden rounded-[2.5rem] border border-emerald-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(52,211,153,0.16),_transparent_36%),linear-gradient(135deg,_rgba(15,23,42,0.98),_rgba(2,6,23,0.98))] p-6 shadow-2xl shadow-emerald-950/20 lg:p-10">
+            <p className="mb-5 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+              Додавання промокоду
             </p>
 
-            <Link
-              href="/login"
-              className="mt-8 inline-flex rounded-full bg-emerald-400 px-6 py-4 font-black text-slate-950 transition hover:bg-emerald-300"
-            >
-              Увійти
-            </Link>
-          </div>
+            <h1 className="max-w-3xl text-5xl font-black tracking-tight md:text-7xl">
+              Додати промокод можуть авторизовані користувачі
+            </h1>
+
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-400">
+              Увійди в акаунт, щоб додати промокод, прикріпити його до свого
+              профілю, відправити на модерацію та прокачувати рівень автора.
+            </p>
+
+            <div className="mt-8">
+              <LoginRequiredBox
+                title="Щоб додати промокод, увійди в акаунт"
+                description="Після входу ми повернемо тебе на цю сторінку, і ти зможеш одразу заповнити форму додавання промокоду."
+                nextPath="/add"
+              />
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/codes"
+                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              >
+                Дивитись промокоди
+              </Link>
+
+              <Link
+                href="/guest"
+                className="rounded-full border border-slate-700 px-6 py-4 font-black text-slate-200 transition hover:border-emerald-400 hover:text-emerald-300"
+              >
+                Гостьовий режим
+              </Link>
+            </div>
+          </section>
         </section>
       </main>
     );
@@ -696,8 +740,8 @@ function AddPromoContent() {
               messageType === "success"
                 ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
                 : messageType === "error"
-                ? "border-red-400/30 bg-red-400/10 text-red-300"
-                : "border-slate-700 bg-slate-900 text-slate-300"
+                  ? "border-red-400/30 bg-red-400/10 text-red-300"
+                  : "border-slate-700 bg-slate-900 text-slate-300"
             }`}
           >
             <div>{message}</div>
@@ -810,14 +854,16 @@ function AddPromoContent() {
                                   Без категорії
                                 </span>
                               ) : (
-                                categoryNames.slice(0, 4).map((categoryName) => (
-                                  <span
-                                    key={categoryName}
-                                    className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300"
-                                  >
-                                    {categoryName}
-                                  </span>
-                                ))
+                                categoryNames
+                                  .slice(0, 4)
+                                  .map((categoryName) => (
+                                    <span
+                                      key={categoryName}
+                                      className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-300"
+                                    >
+                                      {categoryName}
+                                    </span>
+                                  ))
                               )}
                             </div>
                           </div>
